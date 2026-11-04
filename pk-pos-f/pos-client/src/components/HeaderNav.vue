@@ -15,6 +15,26 @@ const isSyncing = ref<boolean>(false);
 const isOnline = ref<boolean>(navigator.onLine);
 const syncFeedback = ref<string | null>(null);
 
+// Theme management
+const currentTheme = ref<'dark' | 'light'>('dark');
+
+function initTheme() {
+  if (typeof window !== 'undefined') {
+    const saved = (localStorage.getItem('pk_pos_theme') as 'dark' | 'light') || 'dark';
+    currentTheme.value = saved;
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+}
+
+function toggleTheme() {
+  const next = currentTheme.value === 'dark' ? 'light' : 'dark';
+  currentTheme.value = next;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('pk_pos_theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  }
+}
+
 let pollTimer: number | null = null;
 
 async function refreshPendingCount() {
@@ -65,6 +85,7 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  initTheme();
   refreshPendingCount();
   pollTimer = window.setInterval(refreshPendingCount, 5000);
   window.addEventListener('online', handleOnline);
@@ -130,6 +151,16 @@ onUnmounted(() => {
     </nav>
 
     <div class="actions-section">
+      <!-- Theme Toggle Button -->
+      <button
+        class="theme-toggle-btn"
+        :title="currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        @click="toggleTheme"
+      >
+        <span v-if="currentTheme === 'dark'">☀️</span>
+        <span v-else>🌙</span>
+      </button>
+
       <div v-if="syncFeedback" class="sync-toast">
         {{ syncFeedback }}
       </div>
@@ -284,6 +315,26 @@ onUnmounted(() => {
   border: 1px solid rgba(16, 185, 129, 0.2);
   padding: 0.25rem 0.6rem;
   border-radius: 0.375rem;
+}
+
+.theme-toggle-btn {
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #e5e7eb;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: #374151;
+  border-color: #60a5fa;
+  transform: translateY(-1px);
 }
 
 .outbox-indicator {

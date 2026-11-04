@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { CachedProduct, CartItem, PaymentMethod, ProcessResult } from '../types/pos';
+import type { CachedProduct, CartItem, PaymentMethod, ProcessResult, ProductVariantItem } from '../types/pos';
 import { formatPKR } from '../types/pos';
 import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer } from '../services/posService';
 
@@ -18,6 +18,10 @@ const products = ref<CachedProduct[]>([]);
 const isSearching = ref(false);
 const cart = ref<CartItem[]>([]);
 const searchInputRef = ref<HTMLInputElement | null>(null);
+
+// Product Variant Selection State
+const showVariantModal = ref(false);
+const selectedProductForVariants = ref<CachedProduct | null>(null);
 
 // Customer Identification State (FBR B2B / High-Value Rs 100k+ Compliance)
 const customerDetails = ref<{ name: string; ntn: string; cnic: string }>({
@@ -163,21 +167,46 @@ function handleSearchInput() {
   loadProducts(q);
 }
 
-// Add to cart with quantity support
-function addToCart(product: CachedProduct, quantity: number = 1) {
-  const existing = cart.value.find((item) => item.product.id === product.id);
+// Product selection dispatcher: checks for variants first
+function onProductClick(product: CachedProduct) {
+  if (product.variants && product.variants.length > 0) {
+    selectedProductForVariants.value = product;
+    showVariantModal.value = true;
+  } else {
+    addToCart(product, 1);
+  }
+}
+
+function addVariantAndClose(product: CachedProduct, variant: ProductVariantItem) {
+  addToCart(product, 1, variant);
+  showVariantModal.value = false;
+  selectedProductForVariants.value = null;
+}
+
+// Add to cart with variant and quantity support
+function addToCart(product: CachedProduct, quantity: number = 1, variant?: ProductVariantItem) {
+  const existing = cart.value.find((item) => {
+    if (variant) {
+      return item.product.id === product.id && item.variant?.id === variant.id;
+    }
+    return item.product.id === product.id && !item.variant;
+  });
+
   const rate = product.tax_rate_basis_points || 1800;
+  const unitPrice = variant?.price_override_minor ?? product.price_minor;
+
   if (existing) {
     existing.quantity += quantity;
     updateItemTotals(existing);
   } else {
     const newItem: CartItem = {
       product,
+      variant,
       quantity,
-      unit_price_minor: product.price_minor,
+      unit_price_minor: unitPrice,
       tax_rate_basis_points: rate,
-      tax_minor: Math.round((product.price_minor * rate * quantity) / 10000),
-      total_minor: product.price_minor * quantity + Math.round((product.price_minor * rate * quantity) / 10000),
+      tax_minor: Math.round((unitPrice * rate * quantity) / 10000),
+      total_minor: unitPrice * quantity + Math.round((unitPrice * rate * quantity) / 10000),
     };
     cart.value.push(newItem);
   }
@@ -215,7 +244,12 @@ function handleQtyChange(item: CartItem, val: string) {
 }
 
 function removeFromCart(item: CartItem) {
-  cart.value = cart.value.filter((i) => i.product.id !== item.product.id);
+  cart.value = cart.value.filter((i) => {
+    if (item.variant) {
+      return !(i.product.id === item.product.id && i.variant?.id === item.variant.id);
+    }
+    return !(i.product.id === item.product.id && !i.variant);
+  });
 }
 
 function clearCart() {
@@ -330,6 +364,7 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
 
   // Escape key dismisses open dialogs
   if (e.key === 'Escape') {
+    if (showVariantModal.value) { showVariantModal.value = false; selectedProductForVariants.value = null; focusSearch(); return; }
     if (showHelpModal.value) { showHelpModal.value = false; focusSearch(); return; }
     if (showCustomerModal.value) { showCustomerModal.value = false; focusSearch(); return; }
     if (showDiscountModal.value) { showDiscountModal.value = false; focusSearch(); return; }
@@ -445,7 +480,7 @@ async function handleCompleteSale() {
     const itemsPayload = cart.value.map((item) => ({
       id: crypto.randomUUID(),
       product_id: item.product.id,
-      product_name: item.product.name,
+      product_name: item.variant ? `${item.product.name} (${item.variant.name})` : item.product.name,
       hs_code: item.product.hs_code,
       quantity: item.quantity,
       unit_price_minor: item.unit_price_minor,
@@ -583,11 +618,15 @@ onUnmounted(() => {
             v-for="product in products"
             :key="product.id"
             class="product-card"
-            @click="addToCart(product)"
+            :class="{ 'has-variants': product.variants && product.variants.length > 0 }"
+            @click="onProductClick(product)"
           >
             <div class="product-top">
               <span class="product-name">{{ product.name }}</span>
-              <span class="tax-badge">{{ (product.tax_rate_basis_points / 100).toFixed(0) }}% Tax</span>
+              <span v-if="product.variants && product.variants.length > 0" class="variants-badge">
+                {{ product.variants.length }} Variants
+              </span>
+              <span v-else class="tax-badge">{{ (product.tax_rate_basis_points / 100).toFixed(0) }}% Tax</span>
             </div>
             <div class="product-meta">
               <span class="pct-code">PCT: {{ product.hs_code }}</span>
@@ -641,9 +680,12 @@ onUnmounted(() => {
             <span class="empty-sub">Scan barcode or enter 5*barcode to ring items.</span>
           </div>
 
-          <div v-for="item in cart" :key="item.product.id" class="cart-item-row">
+          <div v-for="item in cart" :key="item.variant ? item.product.id + '_' + item.variant.id : item.product.id" class="cart-item-row">
             <div class="item-info">
-              <div class="item-name">{{ item.product.name }}</div>
+              <div class="item-name">
+                {{ item.product.name }}
+                <span v-if="item.variant" class="variant-tag">({{ item.variant.name }})</span>
+              </div>
               <div class="item-sub">
                 <span class="item-unit-price">{{ formatPKR(item.unit_price_minor) }} / {{ item.product.unit }}</span>
                 <span class="pct-code-small">PCT: {{ item.product.hs_code }}</span>
@@ -801,6 +843,47 @@ onUnmounted(() => {
           >
             Exact Cash & Print (F10)
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Variant Selection Modal -->
+    <div v-if="showVariantModal && selectedProductForVariants" class="modal-overlay" @click.self="showVariantModal = false">
+      <div class="modal-card variant-selector-modal" style="max-width: 540px; width: 92%;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <div>
+            <h3 class="modal-title" style="margin-bottom: 0.25rem;">Select Product Variant</h3>
+            <p class="modal-sub" style="margin-bottom: 0; color: #60a5fa; font-weight: 600;">{{ selectedProductForVariants.name }}</p>
+          </div>
+          <button class="clear-btn" @click="showVariantModal = false" style="font-size: 1.4rem; line-height: 1; padding: 0.2rem 0.5rem; background: none; border: none; color: #94a3b8; cursor: pointer;">&times;</button>
+        </div>
+
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          Choose size, color, or option to add to basket. Multiple variants of the same product can be purchased simultaneously:
+        </p>
+
+        <div class="variants-selection-grid">
+          <div
+            v-for="v in selectedProductForVariants.variants"
+            :key="v.id"
+            class="variant-option-card"
+            @click="addVariantAndClose(selectedProductForVariants, v)"
+          >
+            <div class="variant-opt-left">
+              <span class="variant-opt-name">{{ v.name }}</span>
+              <span v-if="v.sku" class="variant-opt-sku">SKU: {{ v.sku }}</span>
+            </div>
+            <div class="variant-opt-right">
+              <span class="variant-opt-price">
+                {{ formatPKR(v.price_override_minor ?? selectedProductForVariants.price_minor) }}
+              </span>
+              <span class="variant-opt-add">+ Add to Basket</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+          <button class="secondary-btn" @click="showVariantModal = false" style="padding: 0.45rem 1.2rem; font-size: 0.85rem;">Cancel (Esc)</button>
         </div>
       </div>
     </div>
@@ -2041,5 +2124,102 @@ kbd {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Variant Badges & Selectors */
+.variants-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  font-weight: 600;
+}
+
+.product-card.has-variants {
+  border-left: 3px solid #8b5cf6;
+}
+
+.variant-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.variants-selection-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.variant-option-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.85rem 1.1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.variant-option-card:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: #8b5cf6;
+  transform: translateX(3px);
+}
+
+.variant-opt-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.variant-opt-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.variant-opt-sku {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.variant-opt-right {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.variant-opt-price {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #34d399;
+}
+
+.variant-opt-add {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.variant-option-card:hover .variant-opt-add {
+  background: #1d4ed8;
 }
 </style>

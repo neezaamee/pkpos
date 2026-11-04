@@ -214,7 +214,7 @@ class ProductController extends Controller
         }
         $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
 
-        $query = $tenant ? $tenant->products()->where('is_active', true) : Product::where('is_active', true);
+        $query = $tenant ? $tenant->products()->with('variants')->where('is_active', true) : Product::with('variants')->where('is_active', true);
 
         if ($cursor) {
             $query->where('updated_at', '>', Carbon::parse($cursor));
@@ -251,6 +251,12 @@ class ProductController extends Controller
                 'tax_category' => $product->tax_category,
                 'unit' => $product->unit,
                 'tax_rate_basis_points' => $rate,
+                'variants' => $product->variants->map(fn ($v) => [
+                    'id' => $v->id,
+                    'name' => $v->name,
+                    'sku' => $v->sku,
+                    'price_override_minor' => $v->price_override_minor,
+                ])->values(),
                 'updated_at' => $product->updated_at->toIso8601String(),
             ];
         });

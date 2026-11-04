@@ -135,29 +135,50 @@ class SuperAdminMasterDataController extends Controller
         $header = str_getcsv(array_shift($lines));
         $header = array_map(fn ($h) => strtolower(trim(str_replace(['"', "'"], '', $h))), $header);
 
+        $now = now();
+        $chunk = [];
         $count = 0;
+
         foreach ($lines as $line) {
             if (empty(trim($line))) continue;
             $row = str_getcsv($line);
             if (count($row) < count($header)) continue;
 
             $data = array_combine($header, array_slice($row, 0, count($header)));
-            $hsCode = trim($data['hs_code'] ?? '');
+            $hsCode = trim($data['hs_code'] ?? $data['pct_code'] ?? '');
             $desc = trim($data['description'] ?? '');
 
             if (empty($hsCode) || empty($desc)) continue;
 
-            MasterHsCode::updateOrCreate(
-                ['hs_code' => $hsCode],
-                [
-                    'description' => $desc,
-                    'tax_category' => $data['tax_category'] ?? 'general_goods',
-                    'default_rate_basis_points' => (int) ($data['default_rate_basis_points'] ?? 1800),
-                    'authority' => $data['authority'] ?? 'fbr',
-                    'is_active' => true,
-                ]
-            );
+            $chunk[] = [
+                'id' => (string) Str::uuid(),
+                'hs_code' => $hsCode,
+                'description' => $desc,
+                'tax_category' => $data['tax_category'] ?? 'general_goods',
+                'default_rate_basis_points' => (int) ($data['default_rate_basis_points'] ?? 1800),
+                'authority' => $data['authority'] ?? 'fbr',
+                'is_active' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
             $count++;
+
+            if (count($chunk) >= 500) {
+                MasterHsCode::upsert(
+                    $chunk,
+                    ['hs_code'],
+                    ['description', 'tax_category', 'default_rate_basis_points', 'authority', 'is_active', 'updated_at']
+                );
+                $chunk = [];
+            }
+        }
+
+        if (! empty($chunk)) {
+            MasterHsCode::upsert(
+                $chunk,
+                ['hs_code'],
+                ['description', 'tax_category', 'default_rate_basis_points', 'authority', 'is_active', 'updated_at']
+            );
         }
 
         AuditLog::create([

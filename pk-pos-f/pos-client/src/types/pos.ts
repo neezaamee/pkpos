@@ -1,5 +1,13 @@
 export type PaymentMethod = 'cash' | 'card' | 'raast' | 'wallet';
 
+export interface ProductVariantItem {
+  id: string;
+  name: string;
+  sku?: string;
+  barcode?: string;
+  price_override_minor?: number;
+}
+
 export interface CachedProduct {
   id: string;
   name: string;
@@ -10,10 +18,12 @@ export interface CachedProduct {
   barcode?: string;
   tax_rate_basis_points: number;
   last_synced_at?: string;
+  variants?: ProductVariantItem[];
 }
 
 export interface CartItem {
   product: CachedProduct;
+  variant?: ProductVariantItem;
   quantity: number;
   unit_price_minor: number;
   tax_rate_basis_points: number;

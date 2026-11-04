@@ -171,6 +171,16 @@
       <header class="topbar">
         <h2 class="page-title">{{ title }}</h2>
         <div class="topbar-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+          <!-- Theme Toggle Button -->
+          <button
+            class="theme-toggle-btn"
+            :title="currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+            @click="toggleTheme"
+          >
+            <span v-if="currentTheme === 'dark'">☀️</span>
+            <span v-else>🌙</span>
+          </button>
+
           <!-- FBR Status Pill -->
           <div class="fbr-gateway-pill" :class="isFbrSandbox ? 'sandbox' : 'live'">
             <span class="pulse-dot"></span>
@@ -253,6 +263,26 @@ const isFbrSandbox = computed(() => telemetry.value?.fbr_sandbox_mode ?? true);
 const livePktClock = ref('');
 let clockTimer = null;
 
+// Theme management
+const currentTheme = ref('dark');
+
+function initTheme() {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('pk_pos_theme') || 'dark';
+    currentTheme.value = saved;
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+}
+
+function toggleTheme() {
+  const next = currentTheme.value === 'dark' ? 'light' : 'dark';
+  currentTheme.value = next;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('pk_pos_theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  }
+}
+
 function updateClock() {
   const d = new Date();
   livePktClock.value = d.toLocaleTimeString('en-US', {
@@ -272,6 +302,7 @@ function handleKeyDown(e) {
 }
 
 onMounted(() => {
+  initTheme();
   updateClock();
   clockTimer = setInterval(updateClock, 1000);
   window.addEventListener('keydown', handleKeyDown);
@@ -284,6 +315,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.theme-toggle-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 0.3rem 0.6rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
 .fbr-gateway-pill {
   display: flex;
   align-items: center;

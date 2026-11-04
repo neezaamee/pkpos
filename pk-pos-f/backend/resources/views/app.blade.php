@@ -12,11 +12,19 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+        <!-- Theme Initializer (Prevents FOUC) -->
+        <script>
+            (function() {
+                var savedTheme = localStorage.getItem('pk_pos_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            })();
+        </script>
+
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @inertiaHead
     </head>
-    <body class="font-sans antialiased bg-slate-900 text-slate-100 min-h-screen">
+    <body class="font-sans antialiased min-h-screen">
         @inertia
     </body>
 </html>

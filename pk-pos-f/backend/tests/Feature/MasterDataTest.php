@@ -131,6 +131,34 @@ test('super admin can bulk import hs codes via csv data', function () {
     ]);
 });
 
+test('cli command master-hs-codes:bulk-import streams and upserts tariff codes with audit log', function () {
+    $tempCsv = tempnam(sys_get_temp_dir(), 'hs_test_') . '.csv';
+    $content = "pct_code,item_description,tax_category,rate_bps,authority\n" .
+        "1006.3010,Basmati Rice Parboiled or Polished,general_goods,1800,fbr\n" .
+        "8517.1300,Smartphones 5G Cellular,tier_1_retail,1800,fbr\n";
+    file_put_contents($tempCsv, $content);
+
+    $this->artisan('master-hs-codes:bulk-import', [
+        'file' => $tempCsv,
+        '--chunk' => 10,
+    ])
+        ->assertSuccessful();
+
+    $this->assertDatabaseHas('master_hs_codes', [
+        'hs_code' => '1006.3010',
+        'description' => 'Basmati Rice Parboiled or Polished',
+    ]);
+    $this->assertDatabaseHas('master_hs_codes', [
+        'hs_code' => '8517.1300',
+    ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'hs_codes_cli_bulk_imported',
+    ]);
+
+    @unlink($tempCsv);
+});
+
 test('super admin can view provincial tax templates', function () {
     ProvincialTaxTemplate::create([
         'province' => 'punjab',

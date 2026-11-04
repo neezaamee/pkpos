@@ -674,6 +674,16 @@
         </div>
 
         <div class="topbar-actions">
+          <!-- Theme Toggle Button -->
+          <button
+            class="theme-toggle-btn"
+            :title="currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+            @click="toggleTheme"
+          >
+            <span v-if="currentTheme === 'dark'">☀️</span>
+            <span v-else>🌙</span>
+          </button>
+
           <!-- FBR Live Gateway Status Pill -->
           <div class="fbr-gateway-pill" :class="isFbrSandbox ? 'sandbox' : 'live'">
             <span class="pulse-dot"></span>
@@ -895,7 +905,28 @@ function handleGlobalKey(e) {
   }
 }
 
+// Theme management
+const currentTheme = ref('dark');
+
+function initTheme() {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('pk_pos_theme') || 'dark';
+    currentTheme.value = saved;
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+}
+
+function toggleTheme() {
+  const next = currentTheme.value === 'dark' ? 'light' : 'dark';
+  currentTheme.value = next;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('pk_pos_theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  }
+}
+
 onMounted(() => {
+  initTheme();
   updateClock();
   clockTimer = setInterval(updateClock, 1000);
   window.addEventListener('keydown', handleGlobalKey);
@@ -908,6 +939,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.theme-toggle-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
 /* Sidebar Modifications */
 .sidebar {
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
