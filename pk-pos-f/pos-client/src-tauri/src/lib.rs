@@ -157,6 +157,13 @@ fn clear_cached_products(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn clear_local_sales(state: State<'_, AppState>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    db::clear_local_sales(&conn).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn get_settings(state: State<'_, AppState>) -> Result<db::PosSettings, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     db::get_all_settings(&conn).map_err(|e| e.to_string())
@@ -240,7 +247,8 @@ pub fn run() {
             get_settings,
             save_settings,
             test_printer,
-            clear_cached_products
+            clear_cached_products,
+            clear_local_sales
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

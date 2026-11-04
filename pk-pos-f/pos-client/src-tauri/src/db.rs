@@ -636,6 +636,14 @@ pub fn clear_product_cache(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+/// Clears all local sales and outbox records (e.g. when pairing with a different tenant).
+pub fn clear_local_sales(conn: &Connection) -> Result<(), DbError> {
+    conn.execute("DELETE FROM local_sale_items", [])?;
+    conn.execute("DELETE FROM local_sales", [])?;
+    conn.execute("DELETE FROM outbox", [])?;
+    Ok(())
+}
+
 /// Upserts products into `product_cache`.
 pub fn upsert_product_cache(
     conn: &Connection,

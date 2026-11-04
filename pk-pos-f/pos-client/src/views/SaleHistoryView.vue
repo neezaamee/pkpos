@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import type { LocalSaleSummary, LocalSaleWithItems } from '../types/pos';
 import { formatPKR } from '../types/pos';
-import { getLocalSales, getLocalSaleDetails, reprintReceipt, getPendingOutboxCount } from '../services/posService';
+import { getLocalSales, getLocalSaleDetails, reprintReceipt, getPendingOutboxCount, clearLocalSales } from '../services/posService';
 
 const sales = ref<LocalSaleSummary[]>([]);
 const pendingCount = ref<number>(0);
@@ -10,6 +10,13 @@ const isLoading = ref<boolean>(true);
 const selectedSale = ref<LocalSaleWithItems | null>(null);
 const isReprinting = ref<boolean>(false);
 const reprintSuccess = ref<string | null>(null);
+
+async function handleClearHistory() {
+  if (confirm('Clear local transaction history for this terminal? This will wipe cached orders from local storage.')) {
+    await clearLocalSales();
+    await loadHistory();
+  }
+}
 
 async function loadHistory() {
   isLoading.value = true;
@@ -94,6 +101,13 @@ onMounted(() => {
         </div>
         <button class="refresh-btn" @click="loadHistory" :disabled="isLoading">
           {{ isLoading ? 'Refreshing...' : 'Refresh' }}
+        </button>
+        <button
+          v-if="sales.length > 0"
+          @click="handleClearHistory"
+          style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.8rem; cursor: pointer; font-weight: 600;"
+        >
+          🗑️ Clear Local History
         </button>
       </div>
     </div>

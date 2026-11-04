@@ -303,6 +303,21 @@ export async function reprintReceipt(saleId: string): Promise<void> {
   }
 }
 
+export async function clearLocalSales(): Promise<void> {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('clear_local_sales');
+    } catch (e) {
+      console.error('Failed to clear SQLite sales', e);
+    }
+  }
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.removeItem('pk_pos_local_sales');
+    localStorage.removeItem('pk_pos_held_sales');
+  }
+}
+
 export async function getSettings(): Promise<PosSettings> {
   if (isTauri()) {
     const { invoke } = await import('@tauri-apps/api/core');
@@ -466,11 +481,12 @@ export async function pairTerminal(pairingCode: string, customBaseUrl?: string):
 
     await saveSettings(settings);
 
-    // Wipe previous tenant's cached products so they do not leak into the new store
+    // Wipe previous tenant's cached products and previous local sales history so they do not leak into the new store
     mockProducts.length = 0;
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.setItem('pk_pos_cached_products', JSON.stringify([]));
     }
+    await clearLocalSales();
     if (isTauri()) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');

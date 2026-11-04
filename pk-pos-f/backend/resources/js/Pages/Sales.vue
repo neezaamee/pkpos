@@ -12,6 +12,7 @@
         <table class="data-table">
           <thead>
             <tr>
+              <th v-if="isSuperAdmin">Tenant Organization</th>
               <th>Sale Number</th>
               <th>Date</th>
               <th>Total Amount</th>
@@ -27,6 +28,11 @@
               class="clickable"
               @click="openDetail(sale)"
             >
+              <td v-if="isSuperAdmin">
+                <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">
+                  {{ sale.tenant?.name || 'N/A' }}
+                </span>
+              </td>
               <td style="font-weight: 600; font-family: var(--font-mono); color: var(--text-primary);">
                 {{ sale.sale_number }}
               </td>
@@ -55,7 +61,7 @@
               </td>
             </tr>
             <tr v-if="sales.data.length === 0">
-              <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+              <td :colspan="isSuperAdmin ? 7 : 6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                 No sales records found for this tenant.
               </td>
             </tr>
@@ -177,6 +183,10 @@ defineProps({
   sales: {
     type: Object,
     required: true,
+  },
+  isSuperAdmin: {
+    type: Boolean,
+    default: false,
   },
 });
 

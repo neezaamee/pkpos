@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import type { PosSettings } from '../types/pos';
-import { getSettings, saveSettings, testPrinter, openCashDrawer, syncCatalog, pairTerminal } from '../services/posService';
+import { getSettings, saveSettings, testPrinter, openCashDrawer, syncCatalog, pairTerminal, clearLocalSales } from '../services/posService';
 
 const settings = ref<PosSettings>({
   api_base_url: 'http://127.0.0.1:8000/api/v1',
@@ -126,6 +126,19 @@ async function handleForceFullSync() {
   }
 }
 
+async function handleResetTerminalData() {
+  if (confirm('Clear all local terminal data (cached products and local orders history) for this register?')) {
+    await clearLocalSales();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('pk_pos_cached_products', JSON.stringify([]));
+    }
+    await syncCatalog();
+    await loadSettingsData();
+    saveFeedback.value = 'Local terminal cache & sales history wiped clean.';
+    setTimeout(() => { saveFeedback.value = null; }, 4000);
+  }
+}
+
 onMounted(() => {
   loadSettingsData();
 });
@@ -229,6 +242,9 @@ onMounted(() => {
           </button>
           <button class="secondary-btn" :disabled="isSyncing" @click="handleForceFullSync" title="Wipes local product cache and downloads complete tenant catalog from server" style="color: #cbd5e1;">
             Clear Cache &amp; Re-Sync
+          </button>
+          <button class="secondary-btn" :disabled="isSyncing" @click="handleResetTerminalData" title="Wipes local sales and products for testing a fresh tenant" style="color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
+            Reset Local Orders &amp; Cache
           </button>
         </div>
 

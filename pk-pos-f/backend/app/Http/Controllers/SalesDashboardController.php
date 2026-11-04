@@ -14,13 +14,23 @@ class SalesDashboardController extends Controller
      */
     public function __invoke(Request $request): Response
     {
-        $sales = Sale::with('items')
+        $user = $request->user();
+        $isSuperAdmin = (bool) $user->super_admin && ! $user->tenant_id;
+
+        $query = Sale::with(['items', 'tenant:id,name']);
+
+        if ($isSuperAdmin && $request->filled('tenant_id')) {
+            $query->where('tenant_id', $request->input('tenant_id'));
+        }
+
+        $sales = $query
             ->latest('created_at')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('Sales', [
             'sales' => $sales,
+            'isSuperAdmin' => $isSuperAdmin,
         ]);
     }
 }
