@@ -205,7 +205,16 @@ class ProductController extends Controller
     public function sync(Request $request): JsonResponse
     {
         $cursor = $request->query('updated_after', $request->query('server_updated_at'));
-        $query = Product::where('is_active', true);
+
+        $tenant = null;
+        if ($bearer = $request->bearerToken()) {
+            $token = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
+            $tokenable = $token?->tokenable;
+            $tenant = $tokenable instanceof \App\Models\Tenant ? $tokenable : $tokenable?->tenant;
+        }
+        $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
+
+        $query = $tenant ? $tenant->products()->where('is_active', true) : Product::where('is_active', true);
 
         if ($cursor) {
             $query->where('updated_at', '>', Carbon::parse($cursor));
@@ -214,8 +223,7 @@ class ProductController extends Controller
         $products = $query->orderBy('updated_at', 'asc')->get();
         $latestUpdated = $products->max('updated_at')?->toIso8601String() ?? $cursor ?? now()->toIso8601String();
 
-        $tenant = $request->user()?->tenant ?? \App\Models\Tenant::first();
-        $location = Location::first();
+        $location = $tenant ? $tenant->locations()->first() : Location::first();
         $province = $tenant?->province ?? 'Punjab';
 
         $items = $products->map(function ($product) use ($tenant, $province) {

@@ -51,13 +51,14 @@ pub async fn sync_catalog_from_api(
     configured_base_url: Option<String>,
 ) -> Result<CatalogSyncSummary, String> {
     // 1. Read settings
-    let (base_url, cursor, bearer_token) = {
+    let (base_url, cursor, api_token) = {
         let conn = db.lock().map_err(|e| e.to_string())?;
         let settings = db::get_all_settings(&conn).map_err(|e| e.to_string())?;
         let url = configured_base_url
             .filter(|u| !u.trim().is_empty())
             .unwrap_or(settings.api_base_url);
-        (url, settings.server_updated_at, settings.fbr_bearer_token)
+        let token = settings.api_token.unwrap_or_default();
+        (url, settings.server_updated_at, token)
     };
 
     let client = match reqwest::Client::builder()
@@ -76,8 +77,8 @@ pub async fn sync_catalog_from_api(
     }
 
     let mut req = client.get(&url);
-    if !bearer_token.is_empty() {
-        req = req.header("Authorization", format!("Bearer {}", bearer_token));
+    if !api_token.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", api_token));
     }
 
     match req.send().await {

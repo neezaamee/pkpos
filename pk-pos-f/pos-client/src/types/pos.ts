@@ -80,6 +80,7 @@ export interface PosSettings {
   printer_type: string;
   printer_ip: string;
   printer_port: number;
+  terminal_code?: string;
   server_updated_at?: string;
 }
 

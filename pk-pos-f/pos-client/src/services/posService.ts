@@ -135,7 +135,13 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
   const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
 
   try {
-    const response = await fetch(`${baseUrl}/catalog/sync`);
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    if (settings.api_token) {
+      headers['Authorization'] = `Bearer ${settings.api_token}`;
+    }
+    const response = await fetch(`${baseUrl}/catalog/sync`, { headers });
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data.products) && data.products.length > 0) {
@@ -347,6 +353,7 @@ export async function getSettings(): Promise<PosSettings> {
   const result: PosSettings = {
     api_base_url: local.api_base_url || 'http://127.0.0.1:8000/api/v1',
     api_token: local.api_token || '',
+    terminal_code: local.terminal_code || '',
     fbr_pos_id: local.fbr_pos_id || 'POS-001',
     fbr_bearer_token: local.fbr_bearer_token || '',
     fbr_ntn: local.fbr_ntn || '1234567-8',
@@ -424,4 +431,83 @@ export async function getPendingOutboxCount(): Promise<number> {
     return await invoke<number>('get_pending_outbox_count');
   }
   return 0;
+}
+
+export interface PairTerminalResult {
+  success: boolean;
+  message: string;
+  terminal_code?: string;
+  tenant_name?: string;
+  location_name?: string;
+}
+
+export async function pairTerminal(pairingCode: string, customBaseUrl?: string): Promise<PairTerminalResult> {
+  const settings = await getSettings();
+  const baseUrl = (customBaseUrl || settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  let hwUuid = 'hw-pos-default';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    hwUuid = localStorage.getItem('pk_pos_hardware_uuid') || '';
+    if (!hwUuid) {
+      hwUuid = 'hw-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
+      localStorage.setItem('pk_pos_hardware_uuid', hwUuid);
+    }
+  }
+
+  const payload = {
+    pairing_token: pairingCode.trim().toUpperCase(),
+    hardware_uuid: hwUuid,
+    hostname: 'TERMINAL-' + hwUuid.substring(0, 8).toUpperCase(),
+    platform_os: isTauri() ? 'windows-tauri' : 'browser-client',
+    app_version: '0.1.0',
+  };
+
+  try {
+    const res = await fetch(`${baseUrl}/terminals/pair`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: data.message || 'Pairing failed. Please verify the 8-character pairing code.',
+      };
+    }
+
+    settings.api_token = data.token;
+    settings.terminal_code = data.terminal_code;
+    settings.seller_name = data.tenant_name || settings.seller_name;
+    settings.seller_address = data.location_name || settings.seller_address;
+    settings.fbr_pos_id = data.fbr_pos_id || settings.fbr_pos_id;
+    settings.fbr_ntn = data.ntn || settings.fbr_ntn;
+    settings.fbr_strn = data.strn || settings.fbr_strn;
+    if (customBaseUrl) {
+      settings.api_base_url = customBaseUrl;
+    }
+
+    await saveSettings(settings);
+
+    // Pull products and tax rules for the new tenant immediately
+    await syncCatalog();
+
+    return {
+      success: true,
+      message: `Successfully paired with ${data.tenant_name} (${data.terminal_code})!`,
+      terminal_code: data.terminal_code,
+      tenant_name: data.tenant_name,
+      location_name: data.location_name,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: 'Network error connecting to API: ' + (err?.message || String(err)),
+    };
+  }
 }

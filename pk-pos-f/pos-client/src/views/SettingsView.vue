@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import type { PosSettings } from '../types/pos';
-import { getSettings, saveSettings, testPrinter, openCashDrawer, syncCatalog } from '../services/posService';
+import { getSettings, saveSettings, testPrinter, openCashDrawer, syncCatalog, pairTerminal } from '../services/posService';
 
 const settings = ref<PosSettings>({
   api_base_url: 'http://127.0.0.1:8000/api/v1',
@@ -22,6 +22,33 @@ const saveFeedback = ref<string | null>(null);
 const testPrintFeedback = ref<string | null>(null);
 const isSyncing = ref(false);
 const syncFeedback = ref<string | null>(null);
+
+const pairingCode = ref('');
+const isPairing = ref(false);
+const pairingFeedback = ref<{ type: 'success' | 'error'; message: string } | null>(null);
+
+async function handlePair() {
+  if (!pairingCode.value.trim()) {
+    pairingFeedback.value = { type: 'error', message: 'Please enter the 8-character pairing code.' };
+    return;
+  }
+  isPairing.value = true;
+  pairingFeedback.value = null;
+  try {
+    const res = await pairTerminal(pairingCode.value, settings.value.api_base_url);
+    if (res.success) {
+      pairingFeedback.value = { type: 'success', message: res.message };
+      pairingCode.value = '';
+      await loadSettingsData();
+    } else {
+      pairingFeedback.value = { type: 'error', message: res.message };
+    }
+  } catch (err: any) {
+    pairingFeedback.value = { type: 'error', message: 'Pairing error: ' + (err?.message || String(err)) };
+  } finally {
+    isPairing.value = false;
+  }
+}
 
 async function loadSettingsData() {
   try {
@@ -95,6 +122,54 @@ onMounted(() => {
     </div>
 
     <div class="settings-grid">
+      <!-- Section 0: Hardware Terminal Fleet Pairing -->
+      <div class="settings-card" style="grid-column: 1 / -1; border: 1px solid #6366f1; background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h3 class="card-title" style="color: #a5b4fc; display: flex; align-items: center; gap: 0.5rem;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+              Pair with Tenant / Store Organization
+            </h3>
+            <p class="card-desc">
+              Connect this physical cash register to any merchant tenant using the 8-character code generated from <strong>Super Admin &gt; POS Terminals</strong>.
+            </p>
+          </div>
+          <div style="text-align: right;">
+            <span v-if="settings.api_token" class="status-pill paired" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.35rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+              Paired: {{ settings.seller_name }} ({{ settings.terminal_code || 'POS-001' }})
+            </span>
+            <span v-else class="status-pill unpaired" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.35rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span>
+              Unpaired Register
+            </span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; align-items: center; flex-wrap: wrap;">
+          <input
+            type="text"
+            v-model="pairingCode"
+            maxlength="12"
+            placeholder="Enter 8-char Code (e.g. 7X9B2K4A)"
+            style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.1rem; max-width: 340px; font-weight: 700;"
+            class="form-input"
+            @keyup.enter="handlePair"
+          />
+          <button class="primary-btn" :disabled="isPairing || !pairingCode.trim()" @click="handlePair" style="background: #6366f1;">
+            {{ isPairing ? 'Pairing Hardware...' : 'Pair Terminal Now' }}
+          </button>
+        </div>
+
+        <div v-if="pairingFeedback" style="margin-top: 1rem;">
+          <p :class="['feedback-toast', pairingFeedback.type]" style="margin-top: 0;">{{ pairingFeedback.message }}</p>
+        </div>
+      </div>
+
       <!-- Section 1: Laravel Backend Connection -->
       <div class="settings-card">
         <h3 class="card-title">Backend API Configuration</h3>
