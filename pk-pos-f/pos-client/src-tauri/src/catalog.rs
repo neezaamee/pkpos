@@ -114,6 +114,9 @@ pub async fn sync_catalog_from_api(
 
             let count = {
                 let conn = db.lock().map_err(|e| e.to_string())?;
+                if cursor.as_deref().unwrap_or("").is_empty() {
+                    let _ = db::clear_product_cache(&conn);
+                }
                 db::upsert_product_cache(&conn, &cached_products).map_err(|e| e.to_string())?;
                 db::set_setting(&conn, "server_updated_at", &new_cursor)
                     .map_err(|e| e.to_string())?;

@@ -630,6 +630,12 @@ pub fn mark_outbox_retry(
     Ok(())
 }
 
+/// Clears all products from `product_cache` (e.g. when pairing with a different tenant).
+pub fn clear_product_cache(conn: &Connection) -> Result<(), DbError> {
+    conn.execute("DELETE FROM product_cache", [])?;
+    Ok(())
+}
+
 /// Upserts products into `product_cache`.
 pub fn upsert_product_cache(
     conn: &Connection,

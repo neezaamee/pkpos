@@ -14,42 +14,8 @@ function isTauri(): boolean {
   );
 }
 
-// Seeded database products for browser development mode
-const mockProducts: CachedProduct[] = [
-  {
-    id: 'a30efeaa-af50-45a0-95e3-850d8befd3fb',
-    name: 'Basmati Rice 5kg',
-    hs_code: '10063010',
-    price_minor: 185000,
-    tax_category: 'general_goods',
-    unit: 'kg',
-    barcode: '8964000100011',
-    tax_rate_basis_points: 1800,
-    last_synced_at: new Date().toISOString(),
-  },
-  {
-    id: 'a30efeaa-b059-4d5b-96e5-62f3f9e66b04',
-    name: 'Sunflower Oil 1L',
-    hs_code: '15121100',
-    price_minor: 55000,
-    tax_category: 'general_goods',
-    unit: 'litre',
-    barcode: '8964000100022',
-    tax_rate_basis_points: 1800,
-    last_synced_at: new Date().toISOString(),
-  },
-  {
-    id: 'a30efeaa-b0d6-44b3-a714-85727672075f',
-    name: 'Tea Pack 250g',
-    hs_code: '09023000',
-    price_minor: 42000,
-    tax_category: 'general_goods',
-    unit: 'piece',
-    barcode: '8964000100033',
-    tax_rate_basis_points: 1800,
-    last_synced_at: new Date().toISOString(),
-  },
-];
+// In-memory catalog products cache
+const mockProducts: CachedProduct[] = [];
 
 function getStoredSales(): LocalSaleWithItems[] {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -88,19 +54,24 @@ export async function getCachedProducts(query?: string): Promise<CachedProduct[]
   }
 
   // Browser fallback with localStorage cache
-  let list = [...mockProducts];
+  let list: CachedProduct[] = [];
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       const cached = localStorage.getItem('pk_pos_cached_products');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           list = parsed;
         }
       }
     } catch (e) {
       console.error('Failed to parse cached products', e);
     }
+  }
+
+  // Fallback to in-memory mock products only if localStorage was never set
+  if (list.length === 0 && mockProducts.length > 0) {
+    list = [...mockProducts];
   }
 
   if (!query || query.trim() === '') {
@@ -121,7 +92,8 @@ export async function getProductByBarcode(barcode: string): Promise<CachedProduc
     return await invoke<CachedProduct | null>('get_product_by_barcode', { barcode });
   }
 
-  return mockProducts.find((p) => p.barcode === barcode) || null;
+  const all = await getCachedProducts();
+  return all.find((p) => p.barcode === barcode) || null;
 }
 
 export async function syncCatalog(): Promise<CatalogSyncSummary> {
@@ -144,7 +116,7 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
     const response = await fetch(`${baseUrl}/catalog/sync`, { headers });
     if (response.ok) {
       const data = await response.json();
-      if (Array.isArray(data.products) && data.products.length > 0) {
+      if (Array.isArray(data.products)) {
         mockProducts.length = 0;
         for (const item of data.products) {
           mockProducts.push({
@@ -493,6 +465,20 @@ export async function pairTerminal(pairingCode: string, customBaseUrl?: string):
     }
 
     await saveSettings(settings);
+
+    // Wipe previous tenant's cached products so they do not leak into the new store
+    mockProducts.length = 0;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('pk_pos_cached_products', JSON.stringify([]));
+    }
+    if (isTauri()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('clear_cached_products');
+      } catch (e) {
+        // non-blocking
+      }
+    }
 
     // Pull products and tax rules for the new tenant immediately
     await syncCatalog();

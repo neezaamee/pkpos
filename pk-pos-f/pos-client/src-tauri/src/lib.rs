@@ -149,6 +149,14 @@ fn reprint_receipt(state: State<'_, AppState>, sale_id: String) -> Result<(), St
 }
 
 #[tauri::command]
+fn clear_cached_products(state: State<'_, AppState>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    db::clear_product_cache(&conn).map_err(|e| e.to_string())?;
+    let _ = db::set_setting(&conn, "server_updated_at", "");
+    Ok(())
+}
+
+#[tauri::command]
 fn get_settings(state: State<'_, AppState>) -> Result<db::PosSettings, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     db::get_all_settings(&conn).map_err(|e| e.to_string())
@@ -231,7 +239,8 @@ pub fn run() {
             reprint_receipt,
             get_settings,
             save_settings,
-            test_printer
+            test_printer,
+            clear_cached_products
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

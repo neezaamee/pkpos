@@ -599,8 +599,21 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div v-if="products.length === 0 && !isSearching" class="empty-products">
-            <p>No products found matching "{{ searchQuery }}"</p>
+          <div v-if="products.length === 0 && !isSearching" class="empty-products" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+            <div v-if="searchQuery">
+              <p style="font-size: 1rem; font-weight: 600; color: var(--text-main);">No matching products</p>
+              <p style="font-size: 0.85rem; margin-top: 0.25rem;">No products found matching "{{ searchQuery }}"</p>
+            </div>
+            <div v-else>
+              <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📦</div>
+              <p style="font-size: 1.05rem; font-weight: 700; color: var(--text-main);">Catalog is Empty</p>
+              <p style="font-size: 0.85rem; max-width: 340px; margin: 0.35rem auto 1.25rem; line-height: 1.4;">
+                This store has no active products in the Admin Panel yet. Add products via your Merchant Admin panel, then click Sync.
+              </p>
+              <button class="secondary-btn" @click="loadProducts()" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                🔄 Refresh Catalog
+              </button>
+            </div>
           </div>
         </div>
       </div>
