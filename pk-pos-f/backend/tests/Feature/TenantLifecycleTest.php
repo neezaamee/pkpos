@@ -158,6 +158,54 @@ test('super admin cannot remove the only owner of a tenant', function () {
     expect(User::find($this->owner->id))->not->toBeNull();
 });
 
+test('super admin can view tenant creation page', function () {
+    $response = $this->actingAs($this->superAdmin)
+        ->get('/superadmin/tenants/create');
+
+    $response->assertStatus(200)
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Tenants/Create')
+        );
+});
+
+test('super admin can register and provision a new tenant organization', function () {
+    $response = $this->actingAs($this->superAdmin)
+        ->post('/superadmin/tenants', [
+            'tenant_name' => 'Grand Hypermarket',
+            'ntn' => '9876543-2',
+            'strn' => '12-34-5678-001-99',
+            'province' => 'punjab',
+            'fbr_pos_id' => 'POS-9988',
+            'notes' => 'Flagship store in Lahore',
+            'owner_name' => 'Tariq Mehmood',
+            'owner_email' => 'tariq@hypermarket.test',
+            'owner_password' => 'SecurePass123!',
+        ]);
+
+    $newTenant = Tenant::where('ntn', '9876543-2')->first();
+    expect($newTenant)->not->toBeNull();
+    expect($newTenant->name)->toBe('Grand Hypermarket');
+
+    $response->assertRedirect("/superadmin/tenants/{$newTenant->id}");
+    $response->assertSessionHas('success');
+
+    $owner = User::withoutGlobalScopes()->where('email', 'tariq@hypermarket.test')->first();
+    expect($owner)->not->toBeNull();
+    expect($owner->tenant_id)->toBe($newTenant->id);
+    expect($owner->role)->toBe('owner');
+
+    $location = Location::where('tenant_id', $newTenant->id)->first();
+    expect($location)->not->toBeNull();
+    expect($location->name)->toBe('Grand Hypermarket Main Branch');
+});
+
+test('accessing invalid non-uuid tenant path returns 404 without database query exception', function () {
+    $response = $this->actingAs($this->superAdmin)
+        ->get('/superadmin/tenants/invalid-non-uuid-string');
+
+    $response->assertStatus(404);
+});
+
 test('super admin can add an additional branch location', function () {
     $response = $this->actingAs($this->superAdmin)
         ->post("/superadmin/tenants/{$this->tenant->id}/locations", [

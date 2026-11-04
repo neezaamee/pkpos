@@ -51,25 +51,25 @@ Route::post('/apply', [PublicOnboardingController::class, 'store'])->name('apply
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/dashboard', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
 
-    // Tenant Directory (Accessible to all internal staff)
-    Route::get('/tenants', [SuperAdminTenantController::class, 'index'])->name('tenants.index');
-    Route::get('/tenants/{id}', [SuperAdminTenantController::class, 'show'])->name('tenants.show');
-
     // Tenant Mutations & Locations (Super Admin Only)
     Route::middleware('staff_role:super_admin')->group(function () {
         Route::get('/tenants/create', [SuperAdminTenantController::class, 'create'])->name('tenants.create');
         Route::post('/tenants', [SuperAdminTenantController::class, 'store'])->name('tenants.store');
-        Route::post('/tenants/{id}/suspend', [SuperAdminTenantController::class, 'toggleSuspend'])->name('tenants.suspend');
-        Route::post('/tenants/{id}/locations', [SuperAdminTenantController::class, 'storeLocation'])->name('tenants.locations.store');
+        Route::post('/tenants/{id}/suspend', [SuperAdminTenantController::class, 'toggleSuspend'])->name('tenants.suspend')->whereUuid('id');
+        Route::post('/tenants/{id}/locations', [SuperAdminTenantController::class, 'storeLocation'])->name('tenants.locations.store')->whereUuid('id');
     });
+
+    // Tenant Directory & Details (Accessible to all internal staff)
+    Route::get('/tenants', [SuperAdminTenantController::class, 'index'])->name('tenants.index');
+    Route::get('/tenants/{id}', [SuperAdminTenantController::class, 'show'])->name('tenants.show')->whereUuid('id');
 
     // Tenant Profile & Staff Reset (Super Admin & Support Agent)
     Route::middleware('staff_role:super_admin,support_agent')->group(function () {
-        Route::get('/tenants/{id}/edit', [SuperAdminTenantController::class, 'edit'])->name('tenants.edit');
-        Route::put('/tenants/{id}', [SuperAdminTenantController::class, 'update'])->name('tenants.update');
-        Route::post('/tenants/{id}/users', [SuperAdminTenantController::class, 'storeUser'])->name('tenants.users.store');
-        Route::delete('/tenants/{id}/users/{userId}', [SuperAdminTenantController::class, 'destroyUser'])->name('tenants.users.destroy');
-        Route::post('/tenants/{id}/users/{userId}/reset-password', [SuperAdminTenantController::class, 'resetUserPassword'])->name('tenants.users.reset-password');
+        Route::get('/tenants/{id}/edit', [SuperAdminTenantController::class, 'edit'])->name('tenants.edit')->whereUuid('id');
+        Route::put('/tenants/{id}', [SuperAdminTenantController::class, 'update'])->name('tenants.update')->whereUuid('id');
+        Route::post('/tenants/{id}/users', [SuperAdminTenantController::class, 'storeUser'])->name('tenants.users.store')->whereUuid('id');
+        Route::delete('/tenants/{id}/users/{userId}', [SuperAdminTenantController::class, 'destroyUser'])->name('tenants.users.destroy')->whereUuid(['id', 'userId']);
+        Route::post('/tenants/{id}/users/{userId}/reset-password', [SuperAdminTenantController::class, 'resetUserPassword'])->name('tenants.users.reset-password')->whereUuid(['id', 'userId']);
     });
 
     // Platform Audit Logging (Super Admin & Compliance Auditor)
