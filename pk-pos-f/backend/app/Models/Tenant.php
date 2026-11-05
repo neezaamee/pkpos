@@ -73,6 +73,14 @@ class Tenant extends Model
     }
 
     /**
+     * Get the products for the tenant.
+     */
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class, 'tenant_id');
+    }
+
+    /**
      * Get all subscriptions for the tenant.
      */
     public function subscriptions(): HasMany

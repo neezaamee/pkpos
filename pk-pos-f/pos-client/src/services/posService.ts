@@ -131,6 +131,7 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
             unit: item.unit || 'piece',
             barcode: item.barcode || '',
             tax_rate_basis_points: item.tax_rate_basis_points || 1800,
+            variants: item.variants || [],
             last_synced_at: item.updated_at || new Date().toISOString(),
           });
         }
@@ -156,17 +157,30 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
         offline: false,
         message: `Successfully synced ${data.products?.length || 0} products & FBR credentials from Laravel backend.`,
       };
-    }
-  } catch (err) {
-    console.warn('Backend sync failed, using fallback:', err);
-  }
+    } else {
+      const errText = await response.text();
+      let errorMsg = `Server returned HTTP ${response.status}`;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.message) errorMsg = parsed.message;
+      } catch (e) {}
 
-  return {
-    synced_count: mockProducts.length,
-    server_updated_at: new Date().toISOString(),
-    offline: true,
-    message: 'Backend server unreachable. Using local cache.',
-  };
+      return {
+        synced_count: mockProducts.length,
+        server_updated_at: new Date().toISOString(),
+        offline: true,
+        message: `Sync failed: ${errorMsg}`,
+      };
+    }
+  } catch (err: any) {
+    console.warn('Backend sync failed, using fallback:', err);
+    return {
+      synced_count: mockProducts.length,
+      server_updated_at: new Date().toISOString(),
+      offline: true,
+      message: `Backend connection error: ${err?.message || 'Server unreachable'}. Using local cache.`,
+    };
+  }
 }
 
 export async function processSale(saleJson: string): Promise<ProcessResult> {

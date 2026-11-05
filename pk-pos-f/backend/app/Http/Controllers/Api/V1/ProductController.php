@@ -237,7 +237,13 @@ class ProductController extends Controller
                 ]);
         }
 
-        $query = $tenant ? $tenant->products()->with('variants')->where('is_active', true) : Product::with('variants')->where('is_active', true);
+        $query = Product::withoutGlobalScopes()
+            ->with('variants')
+            ->where('is_active', true);
+
+        if ($tenant) {
+            $query->where('tenant_id', $tenant->id);
+        }
 
         if ($cursor) {
             $query->where('updated_at', '>', Carbon::parse($cursor));
