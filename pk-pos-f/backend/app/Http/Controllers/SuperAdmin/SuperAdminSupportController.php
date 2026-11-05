@@ -50,11 +50,11 @@ class SuperAdminSupportController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('ticket_number', 'ILIKE', "%{$search}%")
-                    ->orWhere('subject', 'ILIKE', "%{$search}%")
+                $q->whereLike('ticket_number', "%{$search}%")
+                    ->orWhereLike('subject', "%{$search}%")
                     ->orWhereHas('user', function ($sub) use ($search) {
-                        $sub->where('name', 'ILIKE', "%{$search}%")
-                            ->orWhere('email', 'ILIKE', "%{$search}%");
+                        $sub->whereLike('name', "%{$search}%")
+                            ->orWhereLike('email', "%{$search}%");
                     });
             });
         }
@@ -261,8 +261,8 @@ class SuperAdminSupportController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('title', 'ILIKE', "%{$search}%")
-                    ->orWhere('content_markdown', 'ILIKE', "%{$search}%");
+                $q->whereLike('title', "%{$search}%")
+                    ->orWhereLike('content_markdown', "%{$search}%");
             });
         }
 

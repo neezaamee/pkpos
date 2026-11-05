@@ -29,8 +29,8 @@ class SuperAdminBroadcastController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('title', 'ilike', "%{$search}%")
-                    ->orWhere('message', 'ilike', "%{$search}%");
+                $q->whereLike('title', "%{$search}%")
+                    ->orWhereLike('message', "%{$search}%");
             });
         }
 

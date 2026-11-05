@@ -36,7 +36,9 @@ return new class extends Migration
         });
 
         // Partial unique index for active tax rules
-        DB::statement('CREATE UNIQUE INDEX tax_rules_active_unique ON tax_rules (tenant_id, tax_category, province, payment_method, effective_from) WHERE is_active = true');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('CREATE UNIQUE INDEX tax_rules_active_unique ON tax_rules (tenant_id, tax_category, province, payment_method, effective_from) WHERE is_active = true');
+        }
     }
 
     /**

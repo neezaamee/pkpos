@@ -35,9 +35,9 @@ class SuperAdminReleaseController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('version', 'ILIKE', "%{$search}%")
-                    ->orWhere('title', 'ILIKE', "%{$search}%")
-                    ->orWhere('summary', 'ILIKE', "%{$search}%");
+                $q->whereLike('version', "%{$search}%")
+                    ->orWhereLike('title', "%{$search}%")
+                    ->orWhereLike('summary', "%{$search}%");
             });
         }
 

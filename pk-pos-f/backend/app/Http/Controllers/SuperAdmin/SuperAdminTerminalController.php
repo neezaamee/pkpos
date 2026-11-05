@@ -36,10 +36,10 @@ class SuperAdminTerminalController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('terminal_code', 'ILIKE', "%{$search}%")
-                    ->orWhere('name', 'ILIKE', "%{$search}%")
-                    ->orWhere('hardware_uuid', 'ILIKE', "%{$search}%")
-                    ->orWhere('hostname', 'ILIKE', "%{$search}%");
+                $q->whereLike('terminal_code', "%{$search}%")
+                    ->orWhereLike('name', "%{$search}%")
+                    ->orWhereLike('hardware_uuid', "%{$search}%")
+                    ->orWhereLike('hostname', "%{$search}%");
             });
         }
 

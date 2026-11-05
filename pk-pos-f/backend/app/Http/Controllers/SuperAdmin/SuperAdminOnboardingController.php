@@ -40,11 +40,11 @@ class SuperAdminOnboardingController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('business_name', 'ilike', "%{$search}%")
-                    ->orWhere('application_number', 'ilike', "%{$search}%")
-                    ->orWhere('contact_name', 'ilike', "%{$search}%")
-                    ->orWhere('contact_email', 'ilike', "%{$search}%")
-                    ->orWhere('ntn', 'ilike', "%{$search}%");
+                $q->whereLike('business_name', "%{$search}%")
+                    ->orWhereLike('application_number', "%{$search}%")
+                    ->orWhereLike('contact_name', "%{$search}%")
+                    ->orWhereLike('contact_email', "%{$search}%")
+                    ->orWhereLike('ntn', "%{$search}%");
             });
         }
 

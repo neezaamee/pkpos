@@ -74,3 +74,11 @@ Thumbs.db
 pk-pos-d/
 pk-pos-f/admin/
 
+# Temporary deployment staging & archives
+deploy_hostinger/
+deploy_hostinger.zip
+scratch_deploy/
+scratch_deploy.zip
+staging_vendor/
+*.zip
+

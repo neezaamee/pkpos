@@ -138,8 +138,8 @@ class SuperAdminComplianceController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('sale_number', 'ILIKE', "%{$search}%")
-                    ->orWhere('fbr_error', 'ILIKE', "%{$search}%");
+                $q->whereLike('sale_number', "%{$search}%")
+                    ->orWhereLike('fbr_error', "%{$search}%");
             });
         }
 
@@ -200,7 +200,7 @@ class SuperAdminComplianceController extends Controller
         }
 
         if ($search) {
-            $query->where('sale_number', 'ILIKE', "%{$search}%");
+            $query->whereLike('sale_number', "%{$search}%");
         }
 
         $now = now();

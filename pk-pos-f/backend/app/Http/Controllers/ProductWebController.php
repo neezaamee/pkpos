@@ -25,9 +25,9 @@ class ProductWebController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->input('search');
                 $q->where(function ($sq) use ($search) {
-                    $sq->where('name', 'ilike', "%{$search}%")
-                        ->orWhere('sku', 'ilike', "%{$search}%")
-                        ->orWhere('barcode', 'ilike', "%{$search}%");
+                    $sq->whereLike('name', "%{$search}%")
+                        ->orWhereLike('sku', "%{$search}%")
+                        ->orWhereLike('barcode', "%{$search}%");
                 });
             })
             ->latest('created_at')

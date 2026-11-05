@@ -37,7 +37,13 @@ return new class extends Migration
         });
 
         // Partial unique index: barcode unique per tenant when not null
-        DB::statement('CREATE UNIQUE INDEX products_tenant_barcode_unique ON products (tenant_id, barcode) WHERE barcode IS NOT NULL');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('CREATE UNIQUE INDEX products_tenant_barcode_unique ON products (tenant_id, barcode) WHERE barcode IS NOT NULL');
+        } else {
+            Schema::table('products', function (Blueprint $table) {
+                $table->unique(['tenant_id', 'barcode'], 'products_tenant_barcode_unique');
+            });
+        }
     }
 
     /**

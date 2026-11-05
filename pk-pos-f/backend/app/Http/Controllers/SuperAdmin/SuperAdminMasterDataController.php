@@ -31,8 +31,8 @@ class SuperAdminMasterDataController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('hs_code', 'ILIKE', "%{$search}%")
-                    ->orWhere('description', 'ILIKE', "%{$search}%");
+                $q->whereLike('hs_code', "%{$search}%")
+                    ->orWhereLike('description', "%{$search}%");
             });
         }
 
@@ -337,8 +337,8 @@ class SuperAdminMasterDataController extends Controller
         $results = MasterHsCode::where('is_active', true)
             ->when($query, function ($q, $query) {
                 $q->where(function ($sub) use ($query) {
-                    $sub->where('hs_code', 'ILIKE', "%{$query}%")
-                        ->orWhere('description', 'ILIKE', "%{$query}%");
+                    $sub->whereLike('hs_code', "%{$query}%")
+                        ->orWhereLike('description', "%{$query}%");
                 });
             })
             ->take(15)

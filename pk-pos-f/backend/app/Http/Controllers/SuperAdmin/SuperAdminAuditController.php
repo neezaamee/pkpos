@@ -52,14 +52,14 @@ class SuperAdminAuditController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('auditable_id', 'ILIKE', "%{$search}%")
-                    ->orWhere('ip_address', 'ILIKE', "%{$search}%")
+                $q->whereLike('auditable_id', "%{$search}%")
+                    ->orWhereLike('ip_address', "%{$search}%")
                     ->orWhereHas('user', function ($uq) use ($search) {
-                        $uq->where('name', 'ILIKE', "%{$search}%")
-                            ->orWhere('email', 'ILIKE', "%{$search}%");
+                        $uq->whereLike('name', "%{$search}%")
+                            ->orWhereLike('email', "%{$search}%");
                     })
                     ->orWhereHas('tenant', function ($tq) use ($search) {
-                        $tq->where('name', 'ILIKE', "%{$search}%");
+                        $tq->whereLike('name', "%{$search}%");
                     });
             });
         }

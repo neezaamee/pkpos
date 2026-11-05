@@ -34,9 +34,9 @@ class SuperAdminBillingController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'ilike', "%{$search}%")
-                    ->orWhere('onebill_consumer_number', 'ilike', "%{$search}%")
-                    ->orWhereHas('tenant', fn ($t) => $t->where('name', 'ilike', "%{$search}%"));
+                $q->whereLike('invoice_number', "%{$search}%")
+                    ->orWhereLike('onebill_consumer_number', "%{$search}%")
+                    ->orWhereHas('tenant', fn ($t) => $t->whereLike('name', "%{$search}%"));
             });
         }
 

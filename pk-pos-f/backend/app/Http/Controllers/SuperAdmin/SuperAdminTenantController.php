@@ -29,8 +29,8 @@ class SuperAdminTenantController extends Controller
         $tenants = Tenant::query()
             ->when($search, function ($query, $search) {
                 $query->where(function ($sub) use ($search) {
-                    $sub->where('name', 'ILIKE', "%{$search}%")
-                        ->orWhere('ntn', 'ILIKE', "%{$search}%");
+                    $sub->whereLike('name', "%{$search}%")
+                        ->orWhereLike('ntn', "%{$search}%");
                 });
             })
             ->with(['users' => function ($q) {

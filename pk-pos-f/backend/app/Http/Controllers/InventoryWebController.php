@@ -34,10 +34,10 @@ class InventoryWebController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->input('search');
                 $q->whereHas('product', function ($pq) use ($search) {
-                    $pq->where('name', 'ilike', "%{$search}%")
-                        ->orWhere('sku', 'ilike', "%{$search}%")
-                        ->orWhere('barcode', 'ilike', "%{$search}%")
-                        ->orWhere('hs_code', 'ilike', "%{$search}%");
+                    $pq->whereLike('name', "%{$search}%")
+                        ->orWhereLike('sku', "%{$search}%")
+                        ->orWhereLike('barcode', "%{$search}%")
+                        ->orWhereLike('hs_code', "%{$search}%");
                 });
             })
             ->orderBy('quantity_on_hand', 'asc')
