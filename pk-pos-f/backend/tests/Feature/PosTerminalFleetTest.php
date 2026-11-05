@@ -280,6 +280,35 @@ test('client API: heartbeat updates last_heartbeat_at and app_version', function
         ->and($fresh->isOnline())->toBeTrue();
 });
 
+test('client API: heartbeat by terminal_code updates last_heartbeat_at', function () {
+    $terminal = PosTerminal::withoutGlobalScopes()->create([
+        'tenant_id' => $this->tenant->id,
+        'location_id' => $this->location->id,
+        'terminal_code' => 'POS-CODE-99',
+        'name' => 'Code Register',
+        'hardware_uuid' => 'HW-CODE-99',
+        'pairing_status' => 'paired',
+        'is_active' => true,
+        'app_version' => '0.1.0',
+        'last_heartbeat_at' => now()->subHours(5),
+    ]);
+
+    $response = $this->postJson('/api/v1/terminals/heartbeat', [
+        'terminal_code' => 'POS-CODE-99',
+        'app_version' => '0.1.5',
+    ]);
+
+    $response->assertOk()
+        ->assertJson([
+            'status' => 'healthy',
+            'terminal_code' => 'POS-CODE-99',
+            'is_active' => true,
+        ]);
+
+    $fresh = $terminal->fresh();
+    expect($fresh->isOnline())->toBeTrue();
+});
+
 test('client API: heartbeat on revoked terminal returns 403 with revocation reason', function () {
     $terminal = PosTerminal::withoutGlobalScopes()->create([
         'tenant_id' => $this->tenant->id,

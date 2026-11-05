@@ -211,8 +211,31 @@ class ProductController extends Controller
             $token = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
             $tokenable = $token?->tokenable;
             $tenant = $tokenable instanceof \App\Models\Tenant ? $tokenable : $tokenable?->tenant;
+
+            // Automatically refresh POS terminal heartbeat on sync
+            if ($token && str_starts_with($token->name, 'pos-terminal:')) {
+                $code = substr($token->name, strlen('pos-terminal:'));
+                \App\Models\PosTerminal::withoutGlobalScopes()
+                    ->where('terminal_code', $code)
+                    ->update([
+                        'last_heartbeat_at' => now(),
+                        'last_sync_at' => now(),
+                        'ip_address' => $request->ip(),
+                    ]);
+            }
         }
         $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
+
+        // Also refresh heartbeat if X-Terminal-Code header is present
+        if ($termCode = $request->header('X-Terminal-Code')) {
+            \App\Models\PosTerminal::withoutGlobalScopes()
+                ->where('terminal_code', $termCode)
+                ->update([
+                    'last_heartbeat_at' => now(),
+                    'last_sync_at' => now(),
+                    'ip_address' => $request->ip(),
+                ]);
+        }
 
         $query = $tenant ? $tenant->products()->with('variants')->where('is_active', true) : Product::with('variants')->where('is_active', true);
 

@@ -113,6 +113,9 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
     if (settings.api_token) {
       headers['Authorization'] = `Bearer ${settings.api_token}`;
     }
+    if (settings.terminal_code) {
+      headers['X-Terminal-Code'] = settings.terminal_code;
+    }
     const response = await fetch(`${baseUrl}/catalog/sync`, { headers });
     if (response.ok) {
       const data = await response.json();
@@ -214,6 +217,7 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
           'Accept': 'application/json',
           'Authorization': `Bearer ${token}`,
           'Idempotency-Key': salePayload.id,
+          ...(settings.terminal_code ? { 'X-Terminal-Code': settings.terminal_code } : {}),
         },
         body: JSON.stringify({ sales: [salePayload] }),
       });
@@ -341,6 +345,7 @@ export async function getSettings(): Promise<PosSettings> {
     api_base_url: local.api_base_url || 'http://127.0.0.1:8000/api/v1',
     api_token: local.api_token || '',
     terminal_code: local.terminal_code || '',
+    terminal_id: local.terminal_id || '',
     fbr_pos_id: local.fbr_pos_id || 'POS-001',
     fbr_bearer_token: local.fbr_bearer_token || '',
     fbr_ntn: local.fbr_ntn || '1234567-8',
@@ -470,6 +475,7 @@ export async function pairTerminal(pairingCode: string, customBaseUrl?: string):
 
     settings.api_token = data.token;
     settings.terminal_code = data.terminal_code;
+    settings.terminal_id = data.terminal_id;
     settings.seller_name = data.tenant_name || settings.seller_name;
     settings.seller_address = data.location_name || settings.seller_address;
     settings.fbr_pos_id = data.fbr_pos_id || settings.fbr_pos_id;
@@ -512,4 +518,51 @@ export async function pairTerminal(pairingCode: string, customBaseUrl?: string):
       message: 'Network error connecting to API: ' + (err?.message || String(err)),
     };
   }
+}
+
+export async function sendHeartbeat(): Promise<{ status: string; is_active: boolean; terminal_code?: string } | null> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  let hwUuid = '';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    hwUuid = localStorage.getItem('pk_pos_hw_uuid') || '';
+    if (!hwUuid) {
+      hwUuid = crypto.randomUUID();
+      localStorage.setItem('pk_pos_hw_uuid', hwUuid);
+    }
+  }
+
+  const payload: Record<string, any> = {
+    terminal_code: settings.terminal_code || undefined,
+    terminal_id: settings.terminal_id || undefined,
+    hardware_uuid: hwUuid || undefined,
+    app_version: '0.1.0',
+  };
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (settings.api_token) {
+      headers['Authorization'] = `Bearer ${settings.api_token}`;
+    }
+    if (settings.terminal_code) {
+      headers['X-Terminal-Code'] = settings.terminal_code;
+    }
+
+    const res = await fetch(`${baseUrl}/terminals/heartbeat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    // silently catch offline/unreachable
+  }
+  return null;
 }

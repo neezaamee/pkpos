@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { getPendingOutboxCount, syncCatalog } from '../services/posService';
+import { getPendingOutboxCount, syncCatalog, getSettings, sendHeartbeat } from '../services/posService';
 
 defineProps<{
   activeTab: 'checkout' | 'history' | 'settings';
@@ -14,6 +14,7 @@ const pendingOutbox = ref<number>(0);
 const isSyncing = ref<boolean>(false);
 const isOnline = ref<boolean>(navigator.onLine);
 const syncFeedback = ref<string | null>(null);
+const terminalCode = ref<string>('POS-001');
 
 // Theme management
 const currentTheme = ref<'dark' | 'light'>('dark');
@@ -36,6 +37,36 @@ function toggleTheme() {
 }
 
 let pollTimer: number | null = null;
+let heartbeatTimer: number | null = null;
+
+async function loadTerminalInfo() {
+  try {
+    const s = await getSettings();
+    if (s.terminal_code) {
+      terminalCode.value = s.terminal_code;
+    }
+  } catch (e) {
+    // fallback
+  }
+}
+
+async function triggerHeartbeat() {
+  if (!navigator.onLine) {
+    isOnline.value = false;
+    return;
+  }
+  try {
+    const res = await sendHeartbeat();
+    if (res && res.status === 'healthy') {
+      isOnline.value = true;
+      if (res.terminal_code) {
+        terminalCode.value = res.terminal_code;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+}
 
 async function refreshPendingCount() {
   try {
@@ -52,6 +83,7 @@ async function triggerCatalogSync() {
   try {
     const res = await syncCatalog();
     syncFeedback.value = res.message;
+    await triggerHeartbeat();
     setTimeout(() => {
       syncFeedback.value = null;
     }, 4000);
@@ -65,6 +97,7 @@ async function triggerCatalogSync() {
 
 function handleOnline() {
   isOnline.value = true;
+  triggerHeartbeat();
 }
 
 function handleOffline() {
@@ -86,6 +119,9 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   initTheme();
+  loadTerminalInfo();
+  triggerHeartbeat();
+  heartbeatTimer = window.setInterval(triggerHeartbeat, 25000);
   refreshPendingCount();
   pollTimer = window.setInterval(refreshPendingCount, 5000);
   window.addEventListener('online', handleOnline);
@@ -95,6 +131,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   window.removeEventListener('online', handleOnline);
   window.removeEventListener('offline', handleOffline);
   window.removeEventListener('keydown', handleKeydown);
@@ -107,7 +144,7 @@ onUnmounted(() => {
       <div class="brand-logo">
         <span class="brand-accent">PK</span>POS
       </div>
-      <span class="station-badge">POS-001</span>
+      <span class="station-badge">{{ terminalCode }}</span>
       <div class="network-badge" :class="isOnline ? 'online' : 'offline'">
         <span class="dot"></span>
         {{ isOnline ? 'Online' : 'Offline Mode' }}

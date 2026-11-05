@@ -39,6 +39,30 @@ class SyncController extends Controller
         $user = $request->user();
         $tenantId = $user->tenant_id;
 
+        // Automatically refresh POS terminal heartbeat on sales sync
+        if ($bearer = $request->bearerToken()) {
+            $token = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
+            if ($token && str_starts_with($token->name, 'pos-terminal:')) {
+                $code = substr($token->name, strlen('pos-terminal:'));
+                \App\Models\PosTerminal::withoutGlobalScopes()
+                    ->where('terminal_code', $code)
+                    ->update([
+                        'last_heartbeat_at' => now(),
+                        'last_sync_at' => now(),
+                        'ip_address' => $request->ip(),
+                    ]);
+            }
+        }
+        if ($termCode = $request->header('X-Terminal-Code')) {
+            \App\Models\PosTerminal::withoutGlobalScopes()
+                ->where('terminal_code', $termCode)
+                ->update([
+                    'last_heartbeat_at' => now(),
+                    'last_sync_at' => now(),
+                    'ip_address' => $request->ip(),
+                ]);
+        }
+
         // Normalize sales array from root array or keyed object
         $sales = $this->extractArrayPayload($request, 'sales');
 
@@ -203,6 +227,30 @@ class SyncController extends Controller
         $user = $request->user();
         $tenantId = $user->tenant_id;
 
+        // Automatically refresh POS terminal heartbeat on sales sync
+        if ($bearer = $request->bearerToken()) {
+            $token = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
+            if ($token && str_starts_with($token->name, 'pos-terminal:')) {
+                $code = substr($token->name, strlen('pos-terminal:'));
+                \App\Models\PosTerminal::withoutGlobalScopes()
+                    ->where('terminal_code', $code)
+                    ->update([
+                        'last_heartbeat_at' => now(),
+                        'last_sync_at' => now(),
+                        'ip_address' => $request->ip(),
+                    ]);
+            }
+        }
+        if ($termCode = $request->header('X-Terminal-Code')) {
+            \App\Models\PosTerminal::withoutGlobalScopes()
+                ->where('terminal_code', $termCode)
+                ->update([
+                    'last_heartbeat_at' => now(),
+                    'last_sync_at' => now(),
+                    'ip_address' => $request->ip(),
+                ]);
+        }
+
         $items = $this->extractArrayPayload($request, 'sales');
 
         // If a single object was passed without array wrapper
@@ -247,6 +295,30 @@ class SyncController extends Controller
     {
         $user = $request->user();
         $tenantId = $user->tenant_id;
+
+        // Automatically refresh POS terminal heartbeat on sales sync
+        if ($bearer = $request->bearerToken()) {
+            $token = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
+            if ($token && str_starts_with($token->name, 'pos-terminal:')) {
+                $code = substr($token->name, strlen('pos-terminal:'));
+                \App\Models\PosTerminal::withoutGlobalScopes()
+                    ->where('terminal_code', $code)
+                    ->update([
+                        'last_heartbeat_at' => now(),
+                        'last_sync_at' => now(),
+                        'ip_address' => $request->ip(),
+                    ]);
+            }
+        }
+        if ($termCode = $request->header('X-Terminal-Code')) {
+            \App\Models\PosTerminal::withoutGlobalScopes()
+                ->where('terminal_code', $termCode)
+                ->update([
+                    'last_heartbeat_at' => now(),
+                    'last_sync_at' => now(),
+                    'ip_address' => $request->ip(),
+                ]);
+        }
 
         $movements = $this->extractArrayPayload($request, 'movements');
         if (empty($movements)) {

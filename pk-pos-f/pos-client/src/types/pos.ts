@@ -91,6 +91,7 @@ export interface PosSettings {
   printer_ip: string;
   printer_port: number;
   terminal_code?: string;
+  terminal_id?: string;
   server_updated_at?: string;
 }
 

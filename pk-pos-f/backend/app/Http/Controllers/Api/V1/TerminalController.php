@@ -127,6 +127,7 @@ class TerminalController extends Controller
     {
         $validated = $request->validate([
             'terminal_id' => ['nullable', 'uuid'],
+            'terminal_code' => ['nullable', 'string', 'max:50'],
             'hardware_uuid' => ['nullable', 'string', 'max:100'],
             'app_version' => ['nullable', 'string', 'max:30'],
         ]);
@@ -135,10 +136,20 @@ class TerminalController extends Controller
 
         if (! empty($validated['terminal_id'])) {
             $query->where('id', $validated['terminal_id']);
+        } elseif (! empty($validated['terminal_code'])) {
+            $query->where('terminal_code', $validated['terminal_code']);
         } elseif (! empty($validated['hardware_uuid'])) {
             $query->where('hardware_uuid', $validated['hardware_uuid']);
+        } elseif ($bearer = $request->bearerToken()) {
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
+            if ($pat && str_starts_with($pat->name, 'pos-terminal:')) {
+                $code = substr($pat->name, strlen('pos-terminal:'));
+                $query->where('terminal_code', $code);
+            } else {
+                return response()->json(['message' => 'Either terminal_id, terminal_code, or hardware_uuid must be provided.'], 422);
+            }
         } else {
-            return response()->json(['message' => 'Either terminal_id or hardware_uuid must be provided.'], 422);
+            return response()->json(['message' => 'Either terminal_id, terminal_code, or hardware_uuid must be provided.'], 422);
         }
 
         $terminal = $query->first();
@@ -164,6 +175,7 @@ class TerminalController extends Controller
 
         return response()->json([
             'status' => 'healthy',
+            'terminal_id' => $terminal->id,
             'terminal_code' => $terminal->terminal_code,
             'is_active' => true,
             'server_time' => now()->toIso8601String(),
