@@ -11,6 +11,20 @@
       </div>
 
       <nav class="sidebar-nav">
+        <!-- Platform Super Admin Switcher -->
+        <div v-if="user?.is_super_admin" style="margin-bottom: 0.85rem; padding: 0.75rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2)); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 8px;">
+          <div style="font-size: 0.68rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;">
+            Platform Control
+          </div>
+          <Link
+            href="/superadmin/dashboard"
+            style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0.65rem; background: #6366f1; color: #fff; border-radius: 6px; font-size: 0.8rem; font-weight: 600; text-decoration: none;"
+          >
+            <span>Super Admin Console</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </Link>
+        </div>
+
         <Link
           href="/dashboard"
           class="nav-link"
@@ -180,6 +194,16 @@
             <span v-if="currentTheme === 'dark'">☀️</span>
             <span v-else>🌙</span>
           </button>
+
+          <!-- Platform Super Admin Console Button -->
+          <Link
+            v-if="user?.is_super_admin"
+            href="/superadmin/dashboard"
+            style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-size: 0.78rem; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+            Super Admin Console
+          </Link>
 
           <!-- FBR Status Pill -->
           <div class="fbr-gateway-pill" :class="isFbrSandbox ? 'sandbox' : 'live'">

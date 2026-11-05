@@ -61,7 +61,7 @@ class SuperAdminSupportController extends Controller
 
         $tickets = $query->paginate(20)
             ->withQueryString()
-            ->through(fn ($t) => [
+            ->through(fn($t) => [
                 'id' => $t->id,
                 'ticket_number' => $t->ticket_number,
                 'subject' => $t->subject,
@@ -74,7 +74,7 @@ class SuperAdminSupportController extends Controller
                 'user_name' => $t->user?->name ?? 'Merchant User',
                 'user_email' => $t->user?->email,
                 'assigned_to_name' => $t->assignedTo?->name ?? 'Unassigned',
-                'has_snapshot' => ! empty($t->diagnostic_snapshot),
+                'has_snapshot' => !empty($t->diagnostic_snapshot),
                 'created_at' => $t->created_at->diffForHumans(),
                 'updated_at' => $t->updated_at->diffForHumans(),
             ]);
@@ -114,7 +114,7 @@ class SuperAdminSupportController extends Controller
             ->with(['tenant.fbrCredential', 'user', 'assignedTo', 'messages.user'])
             ->findOrFail($id);
 
-        $messages = $ticket->messages->map(fn ($m) => [
+        $messages = $ticket->messages->map(fn($m) => [
             'id' => $m->id,
             'user_id' => $m->user_id,
             'user_name' => $m->user?->name ?? 'Unknown',
@@ -168,7 +168,7 @@ class SuperAdminSupportController extends Controller
             'ticket_id' => $ticket->id,
             'user_id' => Auth::id(),
             'message' => $validated['message'],
-            'is_internal_note' => ! empty($validated['is_internal_note']),
+            'is_internal_note' => !empty($validated['is_internal_note']),
         ]);
 
         // If public reply and ticket was open, mark as in_progress
@@ -179,18 +179,18 @@ class SuperAdminSupportController extends Controller
         AuditLog::create([
             'tenant_id' => $ticket->tenant_id,
             'user_id' => Auth::id(),
-            'event' => ! empty($validated['is_internal_note']) ? 'support_internal_note_added' : 'support_reply_sent',
+            'event' => !empty($validated['is_internal_note']) ? 'support_internal_note_added' : 'support_reply_sent',
             'auditable_type' => SupportTicket::class,
             'auditable_id' => $ticket->id,
             'new_values' => [
                 'ticket_number' => $ticket->ticket_number,
-                'is_internal' => ! empty($validated['is_internal_note']),
+                'is_internal' => !empty($validated['is_internal_note']),
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return back()->with('success', ! empty($validated['is_internal_note']) ? 'Internal note added.' : 'Reply sent to merchant.');
+        return back()->with('success', !empty($validated['is_internal_note']) ? 'Internal note added.' : 'Reply sent to merchant.');
     }
 
     /**
@@ -266,7 +266,7 @@ class SuperAdminSupportController extends Controller
             });
         }
 
-        $articles = $query->get()->map(fn ($a) => [
+        $articles = $query->get()->map(fn($a) => [
             'id' => $a->id,
             'category' => $a->category,
             'title' => $a->title,

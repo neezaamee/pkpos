@@ -25,8 +25,8 @@ class SuperAdminAuditController extends Controller
 
         $query = AuditLog::withoutGlobalScopes()
             ->with([
-                'user' => fn ($q) => $q->withoutGlobalScopes(),
-                'tenant' => fn ($q) => $q->withoutGlobalScopes(),
+                'user' => fn($q) => $q->withoutGlobalScopes(),
+                'tenant' => fn($q) => $q->withoutGlobalScopes(),
             ])
             ->latest('created_at');
 

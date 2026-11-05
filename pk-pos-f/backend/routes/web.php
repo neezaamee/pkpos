@@ -30,11 +30,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    if (Auth::check() && Auth::user()->super_admin) {
-        return redirect()->route('superadmin.dashboard');
+    if (Auth::check()) {
+        return Auth::user()->super_admin
+            ? redirect()->route('superadmin.dashboard')
+            : redirect()->route('dashboard');
     }
 
-    return redirect()->route('dashboard');
+    return redirect()->route('login');
 });
 
 // Authentication routes

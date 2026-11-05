@@ -71,7 +71,8 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         if ($user->super_admin) {
-            return redirect()->intended(route('superadmin.dashboard'));
+            $request->session()->forget('url.intended');
+            return redirect()->route('superadmin.dashboard');
         }
 
         return redirect()->intended(route('dashboard'));

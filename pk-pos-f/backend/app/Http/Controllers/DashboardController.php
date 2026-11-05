@@ -12,8 +12,12 @@ class DashboardController extends Controller
     /**
      * Display the admin summary dashboard.
      */
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): Response|\Illuminate\Http\RedirectResponse
     {
+        if ($request->user()?->super_admin && ! session()->has('impersonated_by')) {
+            return redirect()->route('superadmin.dashboard');
+        }
+
         $todaySalesCount = Sale::whereDate('created_at', today())->count();
         $totalRevenueMinor = (int) Sale::sum('total_minor');
 
