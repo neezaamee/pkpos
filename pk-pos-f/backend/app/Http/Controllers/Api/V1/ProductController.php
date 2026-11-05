@@ -224,18 +224,26 @@ class ProductController extends Controller
                     ]);
             }
         }
-        $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
-
-        // Also refresh heartbeat if X-Terminal-Code header is present
+        // If X-Terminal-Code header is present, resolve tenant and refresh heartbeat
         if ($termCode = $request->header('X-Terminal-Code')) {
-            \App\Models\PosTerminal::withoutGlobalScopes()
+            $terminal = \App\Models\PosTerminal::withoutGlobalScopes()
                 ->where('terminal_code', $termCode)
-                ->update([
+                ->first();
+
+            if ($terminal) {
+                $terminal->update([
                     'last_heartbeat_at' => now(),
                     'last_sync_at' => now(),
                     'ip_address' => $request->ip(),
                 ]);
+
+                if ($terminal->tenant) {
+                    $tenant = $terminal->tenant;
+                }
+            }
         }
+
+        $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
 
         $query = Product::withoutGlobalScopes()
             ->with('variants')
