@@ -127,5 +127,28 @@ class ReleaseApiController extends Controller
             'release_title' => $latest->title,
         ]);
     }
+
+    /**
+     * Redirect to the latest published Windows desktop client installer.
+     */
+    public function downloadLatestDesktop(Request $request)
+    {
+        $latest = Release::where('target_platform', 'desktop_windows')
+            ->where('is_published', true)
+            ->latest('published_at')
+            ->first();
+
+        if (! $latest || ! $latest->download_url) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'No published desktop release is currently available.',
+                ], 404);
+            }
+
+            return redirect()->route('dashboard')->with('error', 'No desktop POS client installer is currently published. Contact your administrator.');
+        }
+
+        return redirect()->away($latest->download_url);
+    }
 }
 

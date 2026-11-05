@@ -125,6 +125,24 @@
             <span>Movements Log</span>
           </Link>
         </template>
+
+        <div style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
+          POS Terminal
+        </div>
+
+        <a
+          href="/downloads/desktop"
+          class="nav-link"
+          style="color: #38bdf8; font-weight: 600;"
+          title="Download the latest desktop POS application installer"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download POS (.exe)</span>
+        </a>
       </nav>
 
       <div class="sidebar-footer">

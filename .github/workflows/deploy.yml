@@ -1,0 +1,167 @@
+name: Deploy PK-POS to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy to Hostinger
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, bcmath, intl, zip
+          coverage: none
+
+      - name: Install Production Composer Dependencies
+        run: |
+          cd pk-pos-f/backend
+          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: pk-pos-f/backend/package-lock.json
+
+      - name: Build Frontend Vite Assets
+        run: |
+          cd pk-pos-f/backend
+          npm ci
+          npm run build
+
+      - name: Prepare Clean Production Package
+        run: |
+          mkdir deploy_package
+          cp -r pk-pos-f/backend/app deploy_package/
+          cp -r pk-pos-f/backend/bootstrap deploy_package/
+          cp -r pk-pos-f/backend/config deploy_package/
+          cp -r pk-pos-f/backend/database deploy_package/
+          cp -r pk-pos-f/backend/resources deploy_package/
+          cp -r pk-pos-f/backend/routes deploy_package/
+          cp -r pk-pos-f/backend/vendor deploy_package/
+          cp -r pk-pos-f/backend/public deploy_package/
+          cp pk-pos-f/backend/artisan deploy_package/
+          cp pk-pos-f/backend/composer.json deploy_package/
+
+          # Mirror public assets directly to root for LiteSpeed web server
+          cp -r pk-pos-f/backend/public/build deploy_package/build
+          [ -f pk-pos-f/backend/public/favicon.ico ] && cp pk-pos-f/backend/public/favicon.ico deploy_package/
+          [ -f pk-pos-f/backend/public/robots.txt ] && cp pk-pos-f/backend/public/robots.txt deploy_package/
+
+          # Mirror downloads directory if present
+          if [ -d pk-pos-f/backend/public/downloads ]; then
+            cp -r pk-pos-f/backend/public/downloads deploy_package/downloads
+          fi
+
+          # Ensure storage framework directories exist
+          mkdir -p deploy_package/storage/app/public
+          mkdir -p deploy_package/storage/framework/cache/data
+          mkdir -p deploy_package/storage/framework/sessions
+          mkdir -p deploy_package/storage/framework/views
+          mkdir -p deploy_package/storage/logs
+
+          # Clear bootstrap cache files
+          rm -f deploy_package/bootstrap/cache/*.php
+
+          # Create production .htaccess for Hostinger LiteSpeed
+          cat << 'EOF' > deploy_package/.htaccess
+          <IfModule mod_rewrite.c>
+              <IfModule mod_negotiation.c>
+                  Options -MultiViews -Indexes
+              </IfModule>
+
+              RewriteEngine On
+
+              # Block access to hidden files and sensitive directories
+              RewriteRule ^(\.env|\.git|composer\.(json|lock)|package\.(json|lock)|artisan|phpunit\.xml) - [F,L]
+              RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests)/ - [F,L]
+              RewriteRule ^vendor/ - [F,L]
+
+              # Handle Authorization Header
+              RewriteCond %{HTTP:Authorization} .
+              RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+              # Redirect Trailing Slashes If Not A Folder...
+              RewriteCond %{REQUEST_FILENAME} !-d
+              RewriteCond %{REQUEST_URI} (.+)/$
+              RewriteRule ^ %1 [L,R=301]
+
+              # Send Requests To Front Controller...
+              RewriteCond %{REQUEST_FILENAME} !-d
+              RewriteCond %{REQUEST_FILENAME} !-f
+              RewriteRule ^ index.php [L]
+          </IfModule>
+          EOF
+
+          # Create production index.php with LiteSpeed environment loader
+          cat << 'EOF' > deploy_package/index.php
+          <?php
+
+          use Dotenv\Dotenv;
+          use Illuminate\Http\Request;
+
+          define('LARAVEL_START', microtime(true));
+
+          // Register the Composer autoloader...
+          require __DIR__.'/vendor/autoload.php';
+
+          // Load .env and force putenv to override server env
+          if (file_exists(__DIR__.'/.env')) {
+              $lines = file(__DIR__.'/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+              foreach ($lines as $line) {
+                  $line = trim($line);
+                  if ($line && !str_starts_with($line, '#') && str_contains($line, '=')) {
+                      putenv($line);
+                      [$k, $v] = explode('=', $line, 2);
+                      $v = trim($v, "\"'");
+                      $_ENV[trim($k)] = $v;
+                      $_SERVER[trim($k)] = $v;
+                  }
+              }
+          }
+
+          // Determine if the application is in maintenance mode...
+          if (file_exists($maintenance = __DIR__.'/storage/framework/maintenance.php')) {
+              require $maintenance;
+          }
+
+          // Bootstrap Laravel and handle the request...
+          (require_once __DIR__.'/bootstrap/app.php')
+              ->handleRequest(Request::capture());
+          EOF
+
+      - name: Determine Target Remote Directory
+        run: |
+          REMOTE_DIR="${{ secrets.FTP_REMOTE_DIR }}"
+          if [ -z "$REMOTE_DIR" ]; then
+            REMOTE_DIR="domains/01pos.01output.com/public_html/"
+          fi
+          echo "FTP_TARGET_DIR=$REMOTE_DIR" >> $GITHUB_ENV
+
+      - name: Deploy to Hostinger via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./deploy_package/
+          server-dir: ${{ env.FTP_TARGET_DIR }}
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .env
+            .env.*
+            storage/logs/*.log
+            storage/framework/sessions/*
+

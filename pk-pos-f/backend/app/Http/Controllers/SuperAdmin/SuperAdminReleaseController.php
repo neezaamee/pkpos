@@ -115,12 +115,29 @@ class SuperAdminReleaseController extends Controller
             'summary' => ['nullable', 'string', 'max:1000'],
             'changelog_markdown' => ['nullable', 'string'],
             'download_url' => ['nullable', 'url', 'max:1000'],
+            'binary_file' => ['nullable', 'file', 'max:204800'], // max 200MB
             'signature' => ['nullable', 'string'],
             'sha256_checksum' => ['nullable', 'string', 'max:64'],
             'min_supported_version' => ['nullable', 'string', 'max:30'],
             'is_critical' => ['boolean'],
             'is_published' => ['boolean'],
         ]);
+
+        if ($request->hasFile('binary_file')) {
+            $file = $request->file('binary_file');
+            $extension = $file->getClientOriginalExtension() ?: 'exe';
+            $safeVersion = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $validated['version']);
+            $fileName = "PK-POS-v{$safeVersion}.{$extension}";
+            $targetDir = public_path('downloads');
+            if (! file_exists($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+            $file->move($targetDir, $fileName);
+            $validated['download_url'] = url("downloads/{$fileName}");
+            $validated['sha256_checksum'] = hash_file('sha256', "{$targetDir}/{$fileName}");
+        }
+
+        unset($validated['binary_file']);
 
         if (! empty($validated['is_published'])) {
             $validated['published_at'] = now();
@@ -163,12 +180,29 @@ class SuperAdminReleaseController extends Controller
             'summary' => ['nullable', 'string', 'max:1000'],
             'changelog_markdown' => ['nullable', 'string'],
             'download_url' => ['nullable', 'url', 'max:1000'],
+            'binary_file' => ['nullable', 'file', 'max:204800'],
             'signature' => ['nullable', 'string'],
             'sha256_checksum' => ['nullable', 'string', 'max:64'],
             'min_supported_version' => ['nullable', 'string', 'max:30'],
             'is_critical' => ['boolean'],
             'is_published' => ['boolean'],
         ]);
+
+        if ($request->hasFile('binary_file')) {
+            $file = $request->file('binary_file');
+            $extension = $file->getClientOriginalExtension() ?: 'exe';
+            $safeVersion = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $validated['version']);
+            $fileName = "PK-POS-v{$safeVersion}.{$extension}";
+            $targetDir = public_path('downloads');
+            if (! file_exists($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+            $file->move($targetDir, $fileName);
+            $validated['download_url'] = url("downloads/{$fileName}");
+            $validated['sha256_checksum'] = hash_file('sha256', "{$targetDir}/{$fileName}");
+        }
+
+        unset($validated['binary_file']);
 
         if (! empty($validated['is_published']) && ! $release->is_published) {
             $validated['published_at'] = now();

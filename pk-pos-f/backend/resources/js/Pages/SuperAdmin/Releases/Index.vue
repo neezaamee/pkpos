@@ -337,12 +337,25 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Download Installer URL</label>
+              <label class="form-label">Upload Binary Installer (.exe / .msi)</label>
+              <input
+                type="file"
+                class="form-input"
+                accept=".exe,.msi,.zip,.tar.gz"
+                @change="handleFileUpload"
+              />
+              <span class="form-hint" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">
+                Optional: Upload directly from your computer. The server will store it in /downloads and compute the SHA256 checksum automatically.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Download Installer URL (or use upload above)</label>
               <input
                 v-model="form.download_url"
                 type="url"
                 class="form-input"
-                placeholder="https://releases.pkpos.pk/downloads/pk-pos-setup-0.2.1.msi"
+                placeholder="https://01pos.01output.com/downloads/pk-pos-setup-0.1.0.exe"
               />
             </div>
 
@@ -454,12 +467,17 @@ const form = useForm({
   summary: '',
   changelog_markdown: '',
   download_url: '',
+  binary_file: null,
   signature: '',
   sha256_checksum: '',
   min_supported_version: '0.1.0',
   is_critical: false,
   is_published: true,
 });
+
+function handleFileUpload(e) {
+  form.binary_file = e.target.files?.[0] || null;
+}
 
 function openCreateModal() {
   editingItem.value = null;

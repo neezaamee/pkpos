@@ -1,0 +1,6 @@
+PK-POS Desktop Client v0.1.0 (Windows x86_64 installer package)
+To launch or build the latest release from source:
+cd pk-pos-f/pos-client
+npm install
+npm run tauri build
+

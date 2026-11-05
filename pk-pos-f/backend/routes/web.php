@@ -49,6 +49,9 @@ Route::middleware('guest')->group(function () {
 Route::get('/apply', [PublicOnboardingController::class, 'create'])->name('apply');
 Route::post('/apply', [PublicOnboardingController::class, 'store'])->name('apply.store');
 
+// Desktop POS Client Installer Download
+Route::get('/downloads/desktop', [\App\Http\Controllers\Api\V1\ReleaseApiController::class, 'downloadLatestDesktop'])->name('downloads.desktop');
+
 // Super Admin platform routes
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/dashboard', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
