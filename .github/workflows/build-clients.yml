@@ -140,15 +140,17 @@ jobs:
             if [ -f "$apk" ]; then
               found=1
               fname=$(basename "$apk")
+              echo "Found APK: $apk -> PK-POS-v$VERSION-$fname"
               cp "$apk" "client_artifacts/PK-POS-v$VERSION-$fname"
               sha256sum "$apk" > "client_artifacts/PK-POS-v$VERSION-$fname.sha256"
               # Also create a generic PK-POS-vX.X.X.apk link
               cp "$apk" "client_artifacts/PK-POS-v$VERSION.apk"
             fi
-          done < <(find pk-pos-f/pos-client/src-tauri/gen/android -name "*.apk" 2>/dev/null)
+          done < <(find pk-pos-f/pos-client -name "*.apk" 2>/dev/null)
 
           if [ $found -eq 0 ]; then
-            echo "::warning::No APK files found under gen/android"
+            echo "::error::No APK files found under pk-pos-f/pos-client"
+            exit 1
           fi
 
       - name: Upload Android Artifact
