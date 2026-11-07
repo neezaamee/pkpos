@@ -168,8 +168,8 @@ jobs:
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
-          name: PK-POS Client ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
+          tag_name: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: PK-POS Client ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref_name }}
           files: release_assets/*
           draft: false
           prerelease: false
