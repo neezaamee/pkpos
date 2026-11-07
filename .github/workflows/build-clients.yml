@@ -207,16 +207,7 @@ jobs:
           echo "=== Memory and Kernel status on failure ==="
           free -h || true
           dmesg -T | grep -i -E "oom|killed process|out of memory" | tail -n 10 || true
-          python3 -c "
-import glob
-for pattern in ['pk-pos-f/pos-client/*.log', 'pk-pos-f/pos-client/src-tauri/*.log']:
-    for f in glob.glob(pattern):
-        with open(f, 'r', errors='replace') as fp:
-            lines = [l.strip() for l in fp.readlines() if l.strip()]
-            tail = lines[-35:]
-            msg = '%0A'.join(tail)
-            print(f'::error title={f}::{msg}')
-"
+          python3 -c "import glob; [print(f'::error title={f}::' + '%0A'.join([l.strip() for l in open(f, errors='replace').readlines() if l.strip()][-35:])) for pattern in ['pk-pos-f/pos-client/*.log', 'pk-pos-f/pos-client/src-tauri/*.log'] for f in glob.glob(pattern)]" || true
 
       - name: Upload Android Build Log on Failure
         if: failure()
