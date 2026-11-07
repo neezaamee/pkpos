@@ -97,7 +97,24 @@ jobs:
           fi
           echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+
+          LLVM_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "$LLVM_BIN" >> $GITHUB_PATH
+          echo "PATH=$LLVM_BIN:$PATH" >> $GITHUB_ENV
+
+          # Create symlinks for standard target names if missing
+          if [ ! -f "$LLVM_BIN/aarch64-linux-android-clang" ]; then
+            ln -sf "$LLVM_BIN/aarch64-linux-android24-clang" "$LLVM_BIN/aarch64-linux-android-clang" || true
+            ln -sf "$LLVM_BIN/aarch64-linux-android24-clang++" "$LLVM_BIN/aarch64-linux-android-clang++" || true
+          fi
+
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
+          echo "CC_aarch64_linux_android=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
+          echo "CXX_aarch64_linux_android=$LLVM_BIN/aarch64-linux-android24-clang++" >> $GITHUB_ENV
+          echo "AR_aarch64_linux_android=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
+
           echo "Using Android NDK at: $NDK_DIR"
+          echo "Using LLVM bin at: $LLVM_BIN"
 
       - name: Setup Rust Stable with Android Targets
         uses: dtolnay/rust-toolchain@stable
@@ -137,58 +154,32 @@ jobs:
       - name: Build Android APK
         working-directory: pk-pos-f/pos-client
         run: |
+          set -e
+          set -o pipefail
           npm run build
           echo "=== Building Android APK via Tauri CLI ==="
-          if ! npx tauri android build --apk --target aarch64 --split-per-abi --ci > tauri_build.log 2>&1; then
-            echo "::warning title=TauriBuildStatus::Tauri android build returned non-zero code. Extracting errors:"
-            grep -E -i "error|failed|exception|failure|cannot|not found|caused by" tauri_build.log | tail -n 25 | while IFS= read -r line; do
-              echo "::error title=TauriError::$line"
-            done
-            echo "=== Last 50 lines of tauri_build.log ==="
-            tail -n 50 tauri_build.log
-          fi
-
-          if [ -z "$(find src-tauri/gen/android/app/build -name '*.apk' 2>/dev/null)" ]; then
-            echo "=== Assembling APK via direct Gradle assembleArm64Release ==="
-            cd src-tauri/gen/android
-            chmod +x gradlew
-            if ! ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace > gradle_build.log 2>&1; then
-              echo "::warning title=GradleBuildStatus::Gradle assembleArm64Release failed. Extracting errors:"
-              grep -E -i "error|failed|exception|failure|cannot|not found|caused by" gradle_build.log | tail -n 25 | while IFS= read -r line; do
-                echo "::error title=GradleError::$line"
-              done
-              echo "=== Last 50 lines of gradle_build.log ==="
-              tail -n 50 gradle_build.log
-              exit 1
-            fi
-            cd ../../..
-          fi
-
+          npx tauri android build --apk --target aarch64 --ci 2>&1 | tee android_build.log
           echo "=== Verifying build outputs ==="
-          find . -type f \( -iname "*.apk" -o -iname "*.aab" \) || true
+          find src-tauri/gen/android/app/build -name "*.apk" -ls || true
 
       - name: Report Build Diagnostics on Failure
         if: failure()
         shell: bash
         run: |
-          for f in pk-pos-f/pos-client/tauri_build.log pk-pos-f/pos-client/src-tauri/gen/android/gradle_build.log; do
-            if [ -f "$f" ]; then
-              echo "=== Tail of $f on failure ==="
-              tail -n 60 "$f" || true
-              while IFS= read -r err_line; do
-                echo "::error title=FailureDiagnostic::$err_line"
-              done < <(grep -E -i "error|failed|exception|failure|caused by" "$f" | tail -n 15)
-            fi
-          done
+          if [ -f pk-pos-f/pos-client/android_build.log ]; then
+            echo "=== Tail of android_build.log on failure ==="
+            tail -n 120 pk-pos-f/pos-client/android_build.log || true
+            while IFS= read -r err_line; do
+              echo "::error title=FailureDiagnostic::$err_line"
+            done < <(grep -E -i "error\[E|cannot find|undefined reference|fatal error|BUILD FAILED" pk-pos-f/pos-client/android_build.log | tail -n 15)
+          fi
 
       - name: Upload Android Build Log on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: android-build-logs
-          path: |
-            pk-pos-f/pos-client/*.log
-            pk-pos-f/pos-client/src-tauri/gen/android/*.log
+          path: pk-pos-f/pos-client/*.log
 
       - name: Stage & Rename Android APKs
         shell: bash
@@ -219,14 +210,12 @@ jobs:
 
           if [ $found -eq 0 ]; then
             echo "::error::No APK or AAB files found under workspace root!"
-            for f in pk-pos-f/pos-client/tauri_build.log pk-pos-f/pos-client/src-tauri/gen/android/gradle_build.log; do
-              if [ -f "$f" ]; then
-                echo "=== Errors from $f ==="
-                grep -E -i "error|failed|exception|failure|caused by" "$f" | tail -n 20 | while IFS= read -r l; do
-                  echo "::error title=MissingApkLog::$l"
-                done
-              fi
-            done
+            if [ -f pk-pos-f/pos-client/android_build.log ]; then
+              echo "=== Errors from android_build.log ==="
+              grep -E -i "error\[E|cannot find|undefined reference|fatal error|BUILD FAILED" pk-pos-f/pos-client/android_build.log | tail -n 20 | while IFS= read -r l; do
+                echo "::error title=MissingApkLog::$l"
+              done
+            fi
             exit 1
           fi
 
