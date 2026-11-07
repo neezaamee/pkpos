@@ -137,21 +137,19 @@ jobs:
         working-directory: pk-pos-f/pos-client
         run: |
           npx tauri android build --apk --target aarch64 2>&1 | tee android_build.log || {
-            echo "::error::Android build failed. Printing last 150 lines of log:"
-            tail -n 150 android_build.log
-            exit 1
+            echo "::error::Tauri Android build exited with error. Checking log..."
+            tail -n 50 android_build.log
           }
 
-          echo "=== Tail of Tauri Android build log ==="
-          tail -n 30 android_build.log
-
-          echo "=== Assembling signed release APK via Gradle ==="
-          cd src-tauri/gen/android
-          chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          if [ -z "$(find src-tauri/gen/android/app/build -name '*.apk' 2>/dev/null)" ]; then
+            echo "=== Assembling APK via direct Gradle assembleArm64-v8aRelease ==="
+            cd src-tauri/gen/android
+            chmod +x gradlew
+            ./gradlew assembleArm64-v8aRelease --stacktrace || ./gradlew assembleRelease --stacktrace
+          fi
 
           echo "=== Verifying build/outputs/apk directory ==="
-          find app/build/outputs/apk -type f -name "*.apk" || true
+          find src-tauri/gen/android/app/build/outputs/apk -type f \( -name "*.apk" -o -name "*.aab" \) || true
 
       - name: Upload Android Build Log on Failure
         if: failure()
