@@ -35,6 +35,11 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pk-pos-f/pos-client/src-tauri
+
       - name: Install Frontend Dependencies
         working-directory: pk-pos-f/pos-client
         run: npm ci
@@ -102,6 +107,11 @@ jobs:
             i686-linux-android
             x86_64-linux-android
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pk-pos-f/pos-client/src-tauri
+
       - name: Install Frontend Dependencies
         working-directory: pk-pos-f/pos-client
         run: npm ci
@@ -125,7 +135,19 @@ jobs:
 
       - name: Build Android APK
         working-directory: pk-pos-f/pos-client
-        run: npx tauri android build --apk
+        run: |
+          npx tauri android build --apk --target aarch64 2>&1 | tee android_build.log || {
+            echo "::error::Android build failed. Printing last 150 lines of log:"
+            tail -n 150 android_build.log
+            exit 1
+          }
+
+      - name: Upload Android Build Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: pk-pos-f/pos-client/android_build.log
 
       - name: Stage & Rename Android APKs
         shell: bash
