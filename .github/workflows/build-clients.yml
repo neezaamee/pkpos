@@ -87,10 +87,11 @@ jobs:
       - name: Configure Android SDK & NDK
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" || true
           # Automatically find pre-installed NDK or install latest LTS NDK
           NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
-            yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
             /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909129"
             NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
           fi
@@ -136,21 +137,32 @@ jobs:
       - name: Build Android APK
         working-directory: pk-pos-f/pos-client
         run: |
+          npm run build
+          echo "=== Building Android APK via Tauri CLI ==="
           npx tauri android build --apk --target aarch64 --split-per-abi --ci 2>&1 | tee android_build.log || {
-            echo "::warning::Tauri CLI returned non-zero code. Checking build outputs or running Gradle directly..."
-            tail -n 50 android_build.log
+            echo "::warning::Tauri CLI returned non-zero code. Attempting direct Gradle assembleArm64Release..."
           }
 
           if [ -z "$(find src-tauri/gen/android/app/build -name '*.apk' 2>/dev/null)" ]; then
             echo "=== Assembling APK via direct Gradle assembleArm64Release ==="
             cd src-tauri/gen/android
             chmod +x gradlew
-            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace
+            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace 2>&1 | tee -a ../../android_build.log
             cd ../../..
           fi
 
           echo "=== Verifying build/outputs/apk directory ==="
           find src-tauri/gen/android/app/build/outputs/apk -type f \( -name "*.apk" -o -name "*.aab" \) || true
+
+      - name: Report Build Diagnostics on Failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== Tail of build log on failure ==="
+          tail -n 100 pk-pos-f/pos-client/android_build.log || true
+          while IFS= read -r err_line; do
+            echo "::error::$err_line"
+          done < <(grep -E -i "error|failed|exception|failure" pk-pos-f/pos-client/android_build.log | tail -n 20)
 
       - name: Upload Android Build Log on Failure
         if: failure()
