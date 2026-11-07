@@ -160,10 +160,17 @@ jobs:
         working-directory: pk-pos-f/pos-client
         run: npm ci
 
-      - name: Pre-compile Rust Library for Android Target
+      - name: Install cargo-ndk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+
+      - name: Pre-compile Rust Library with cargo-ndk
         working-directory: pk-pos-f/pos-client/src-tauri
         run: |
-          cargo build --lib --target aarch64-linux-android --release
+          set -e
+          set -o pipefail
+          cargo ndk -t aarch64-linux-android --platform 24 build --lib --release 2>&1 | tee ../cargo_ndk.log
 
       - name: Initialize Android Target (if needed)
         working-directory: pk-pos-f/pos-client
@@ -200,13 +207,15 @@ jobs:
           echo "=== Memory and Kernel status on failure ==="
           free -h || true
           dmesg -T | grep -i -E "oom|killed process|out of memory" | tail -n 10 || true
-          if [ -f pk-pos-f/pos-client/android_build.log ]; then
-            echo "=== Tail of android_build.log on failure ==="
-            tail -n 120 pk-pos-f/pos-client/android_build.log || true
-            tail -n 35 pk-pos-f/pos-client/android_build.log | while IFS= read -r line; do
-              echo "::error title=LogDiagnostic::$line"
-            done
-          fi
+          for f in pk-pos-f/pos-client/cargo_ndk.log pk-pos-f/pos-client/android_build.log; do
+            if [ -f "$f" ]; then
+              echo "=== Tail of $f on failure ==="
+              tail -n 120 "$f" || true
+              tail -n 35 "$f" | while IFS= read -r line; do
+                echo "::error title=LogDiagnostic::$line"
+              done
+            fi
+          done
 
       - name: Upload Android Build Log on Failure
         if: failure()
