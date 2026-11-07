@@ -79,13 +79,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Android NDK
+      - name: Configure Android SDK & NDK
         run: |
-          ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909129"
-          echo "NDK_HOME=${ANDROID_HOME}/ndk/26.1.10909129" >> $GITHUB_ENV
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          # Automatically find pre-installed NDK or install latest LTS NDK
+          NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
+            yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+            /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909129"
+            NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
+          fi
+          echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "Using Android NDK at: $NDK_DIR"
 
       - name: Setup Rust Stable with Android Targets
         uses: dtolnay/rust-toolchain@stable
@@ -113,7 +119,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add pk-pos-f/pos-client/src-tauri/gen/android
             git commit -m "chore(pos-client): commit initialized Android target structure" || true
-            git push origin HEAD:${{ github.ref_name }} || true
+            git push origin HEAD:main || true
           fi
 
       - name: Build Android APK
@@ -128,13 +134,20 @@ jobs:
           VERSION="${VERSION#v}"
           [ -z "$VERSION" ] && VERSION="0.1.0"
 
-          # Find generated release or unsigned apks
-          APK_FILE=$(find pk-pos-f/pos-client/src-tauri/gen/android -name "*.apk" | head -n 1)
-          if [ -n "$APK_FILE" ] && [ -f "$APK_FILE" ]; then
-            cp "$APK_FILE" "client_artifacts/PK-POS-v$VERSION.apk"
-            sha256sum "client_artifacts/PK-POS-v$VERSION.apk" > "client_artifacts/PK-POS-v$VERSION.apk.sha256"
-          else
-            echo "::warning::No APK file found under gen/android"
+          found=0
+          while IFS= read -r apk; do
+            if [ -f "$apk" ]; then
+              found=1
+              fname=$(basename "$apk")
+              cp "$apk" "client_artifacts/PK-POS-v$VERSION-$fname"
+              sha256sum "$apk" > "client_artifacts/PK-POS-v$VERSION-$fname.sha256"
+              # Also create a generic PK-POS-vX.X.X.apk link
+              cp "$apk" "client_artifacts/PK-POS-v$VERSION.apk"
+            fi
+          done < <(find pk-pos-f/pos-client/src-tauri/gen/android -name "*.apk" 2>/dev/null)
+
+          if [ $found -eq 0 ]; then
+            echo "::warning::No APK files found under gen/android"
           fi
 
       - name: Upload Android Artifact
