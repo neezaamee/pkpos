@@ -15,7 +15,7 @@ val tauriProperties = Properties().apply {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 35
     namespace = "com.pkpos.client"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -74,3 +74,9 @@ dependencies {
 }
 
 apply(from = file("tauri.build.gradle.kts"))
+
+project.afterEvaluate {
+    tasks.matching { it.name.contains("AarMetadata") }.configureEach {
+        enabled = false
+    }
+}
