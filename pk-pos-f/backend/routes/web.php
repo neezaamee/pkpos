@@ -8,6 +8,7 @@ use App\Http\Controllers\InventoryWebController;
 use App\Http\Controllers\ProductWebController;
 use App\Http\Controllers\SalesDashboardController;
 use App\Http\Controllers\TaxRuleWebController;
+use App\Http\Controllers\TenantTerminalController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
 use App\Http\Controllers\SuperAdmin\SuperAdminAuditController;
 use App\Http\Controllers\SuperAdmin\SuperAdminBackupController;
@@ -274,4 +275,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/inventory/movements', [InventoryWebController::class, 'movements'])->name('inventory.movements');
     Route::get('/inventory/adjust', [InventoryWebController::class, 'adjust'])->name('inventory.adjust');
     Route::post('/inventory/adjust', [InventoryWebController::class, 'storeAdjust'])->name('inventory.adjust.store');
+
+    // Merchant POS Terminal Hardware Counters & Connectivity
+    Route::get('/terminals', [TenantTerminalController::class, 'index'])->name('terminals.index');
+    Route::post('/terminals/pairing-code', [TenantTerminalController::class, 'generatePairingCode'])->name('terminals.pairing-code');
+    Route::post('/terminals/{id}/regenerate-code', [TenantTerminalController::class, 'regeneratePairingCode'])->name('terminals.regenerate-code');
+    Route::delete('/terminals/{id}', [TenantTerminalController::class, 'destroy'])->name('terminals.destroy');
 });

@@ -134,6 +134,7 @@ class DatabaseSeeder extends Seeder
             'summary' => 'Initial offline-first desktop POS client with thermal printing, barcode scanning, and FBR real-time fiscalization.',
             'changelog_markdown' => "### Highlights\n- Offline-first invoice generation with local SQLite/IndexedDB caching.\n- ESC/POS thermal receipt printer integration (RAW 9100 / USB).\n- Cash drawer kick pulse support.\n- FBR real-time fiscalization and QR verification.\n- Automated terminal pairing via 8-character token.",
             'download_url' => url('downloads/PK-POS-v0.1.0.exe'),
+            'sha256_checksum' => '8ea8a2e142c0e85b56fe08cf7ff4c9b043ff24ddcf48509d6fc3fa09ddb3500f',
             'min_supported_version' => '0.1.0',
             'is_critical' => false,
             'is_published' => true,

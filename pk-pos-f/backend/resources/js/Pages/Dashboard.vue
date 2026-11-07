@@ -62,6 +62,26 @@
         <div class="metric-value">{{ stats.pending_outbox_count }}</div>
         <div class="metric-desc">Invoices awaiting cloud / FBR sync</div>
       </div>
+
+      <!-- Card 5: Active Terminals Fleet -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">POS Terminals</span>
+          <div class="metric-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="metric-value">{{ stats.terminals_online ?? 0 }} / {{ stats.terminals_total ?? 0 }}</div>
+        <div class="metric-desc">
+          <span :style="{ color: (stats.terminals_online > 0 ? '#10b981' : 'var(--text-muted)') }">
+            {{ (stats.terminals_online > 0 ? '● Active' : '○ Standby') }}
+          </span> • <Link href="/terminals" style="color: #38bdf8; text-decoration: underline;">Manage Fleet</Link>
+        </div>
+      </div>
     </div>
 
     <!-- Quick Status Breakdown -->

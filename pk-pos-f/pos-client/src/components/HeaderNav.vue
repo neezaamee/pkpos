@@ -62,9 +62,11 @@ async function triggerHeartbeat() {
       if (res.terminal_code) {
         terminalCode.value = res.terminal_code;
       }
+    } else {
+      isOnline.value = false;
     }
   } catch (e) {
-    // ignore
+    isOnline.value = false;
   }
 }
 

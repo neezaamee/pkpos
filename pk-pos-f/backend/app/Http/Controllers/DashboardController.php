@@ -34,6 +34,15 @@ class DashboardController extends Controller
 
         $formattedRevenue = 'PKR ' . number_format($totalRevenueMinor / 100, 2);
 
+        $tenantId = $request->user()->tenant_id;
+        $totalTerminals = \App\Models\PosTerminal::withoutGlobalScopes()->where('tenant_id', $tenantId)->count();
+        $onlineTerminals = \App\Models\PosTerminal::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->where('pairing_status', 'paired')
+            ->where('last_heartbeat_at', '>=', now()->subMinutes(15))
+            ->count();
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'today_sales_count' => $todaySalesCount,
@@ -46,6 +55,8 @@ class DashboardController extends Controller
                 'fbr_pending_count' => $fbrPending,
                 'fbr_eligible_count' => $fbrEligible,
                 'pending_outbox_count' => $pendingOutboxCount,
+                'terminals_total' => $totalTerminals,
+                'terminals_online' => $onlineTerminals,
             ],
         ]);
     }

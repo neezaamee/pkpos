@@ -206,7 +206,7 @@ pub fn run() {
             // 3. Launch background outbox worker
             let worker_db = Arc::clone(&db_arc);
             let base_url = std::env::var("POS_API_BASE_URL")
-                .unwrap_or_else(|_| "http://127.0.0.1:8000/api/v1".to_string());
+                .unwrap_or_else(|_| "https://01pos.01output.com/api/v1".to_string());
 
             tauri::async_runtime::spawn(async move {
                 worker::start_outbox_worker(worker_db, base_url).await;

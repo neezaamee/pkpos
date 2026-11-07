@@ -91,6 +91,8 @@ pub struct LocalSaleSummary {
 pub struct PosSettings {
     pub api_base_url: String,
     pub api_token: Option<String>,
+    pub terminal_code: Option<String>,
+    pub terminal_id: Option<String>,
     pub fbr_pos_id: String,
     pub fbr_bearer_token: String,
     pub fbr_ntn: String,
@@ -107,8 +109,10 @@ pub struct PosSettings {
 impl Default for PosSettings {
     fn default() -> Self {
         Self {
-            api_base_url: "http://127.0.0.1:8000/api/v1".to_string(),
+            api_base_url: "https://01pos.01output.com/api/v1".to_string(),
             api_token: None,
+            terminal_code: None,
+            terminal_id: None,
             fbr_pos_id: "POS-001".to_string(),
             fbr_bearer_token: "".to_string(),
             fbr_ntn: "1234567-8".to_string(),
@@ -823,6 +827,12 @@ pub fn get_all_settings(conn: &Connection) -> Result<PosSettings, DbError> {
     if let Some(val) = get_setting(conn, "api_token")? {
         s.api_token = Some(val);
     }
+    if let Some(val) = get_setting(conn, "terminal_code")? {
+        s.terminal_code = Some(val);
+    }
+    if let Some(val) = get_setting(conn, "terminal_id")? {
+        s.terminal_id = Some(val);
+    }
     if let Some(val) = get_setting(conn, "fbr_pos_id")? {
         s.fbr_pos_id = val;
     }
@@ -867,6 +877,12 @@ pub fn save_all_settings(conn: &Connection, s: &PosSettings) -> Result<(), DbErr
     set_setting(conn, "api_base_url", &s.api_base_url)?;
     if let Some(ref tok) = s.api_token {
         set_setting(conn, "api_token", tok)?;
+    }
+    if let Some(ref code) = s.terminal_code {
+        set_setting(conn, "terminal_code", code)?;
+    }
+    if let Some(ref id) = s.terminal_id {
+        set_setting(conn, "terminal_id", id)?;
     }
     set_setting(conn, "fbr_pos_id", &s.fbr_pos_id)?;
     set_setting(conn, "fbr_bearer_token", &s.fbr_bearer_token)?;

@@ -356,7 +356,7 @@ export async function getSettings(): Promise<PosSettings> {
   }
 
   const result: PosSettings = {
-    api_base_url: local.api_base_url || 'http://127.0.0.1:8000/api/v1',
+    api_base_url: local.api_base_url || 'https://01pos.01output.com/api/v1',
     api_token: local.api_token || '',
     terminal_code: local.terminal_code || '',
     terminal_id: local.terminal_id || '',
@@ -536,13 +536,14 @@ export async function pairTerminal(pairingCode: string, customBaseUrl?: string):
 
 export async function sendHeartbeat(): Promise<{ status: string; is_active: boolean; terminal_code?: string } | null> {
   const settings = await getSettings();
-  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+  const baseUrl = (settings.api_base_url || 'https://01pos.01output.com/api/v1').replace(/\/$/, '');
 
   let hwUuid = '';
   if (typeof window !== 'undefined' && window.localStorage) {
-    hwUuid = localStorage.getItem('pk_pos_hw_uuid') || '';
+    hwUuid = localStorage.getItem('pk_pos_hardware_uuid') || localStorage.getItem('pk_pos_hw_uuid') || '';
     if (!hwUuid) {
-      hwUuid = crypto.randomUUID();
+      hwUuid = 'hw-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
+      localStorage.setItem('pk_pos_hardware_uuid', hwUuid);
       localStorage.setItem('pk_pos_hw_uuid', hwUuid);
     }
   }

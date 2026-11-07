@@ -62,7 +62,7 @@ pub fn handle_sync_result(
 }
 
 /// Starts the background outbox worker running every 10 seconds.
-pub async fn start_outbox_worker(db: Arc<Mutex<Connection>>, base_url: String) {
+pub async fn start_outbox_worker(db: Arc<Mutex<Connection>>, default_base_url: String) {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .build()
@@ -73,17 +73,24 @@ pub async fn start_outbox_worker(db: Arc<Mutex<Connection>>, base_url: String) {
     loop {
         interval.tick().await;
 
-        let (records, api_token) = {
+        let (records, api_token, term_code, base_url) = {
             let guard = match db.lock() {
                 Ok(g) => g,
                 Err(_) => continue,
             };
-            let tok = db::get_all_settings(&guard).ok().and_then(|s| s.api_token);
+            let s = db::get_all_settings(&guard).unwrap_or_default();
+            let tok = s.api_token;
+            let code = s.terminal_code;
+            let url = if !s.api_base_url.trim().is_empty() {
+                s.api_base_url
+            } else {
+                default_base_url.clone()
+            };
             let recs = match db::fetch_ready_outbox_records(&guard, 50) {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            (recs, tok)
+            (recs, tok, code, url)
         };
 
         if records.is_empty() {
@@ -109,7 +116,7 @@ pub async fn start_outbox_worker(db: Arc<Mutex<Connection>>, base_url: String) {
                 }
 
                 let endpoint = match op_type.as_str() {
-                    "CREATE_SALE" => format!("{}/sales/sync", base_url.trim_end_matches('/')),
+                    "sale" | "CREATE_SALE" => format!("{}/sales/sync", base_url.trim_end_matches('/')),
                     _ => format!("{}/stock-movements/sync", base_url.trim_end_matches('/')),
                 };
 
@@ -122,9 +129,22 @@ pub async fn start_outbox_worker(db: Arc<Mutex<Connection>>, base_url: String) {
                 if let Some(ref tok) = api_token {
                     req = req.header("Authorization", format!("Bearer {}", tok));
                 }
+                if let Some(ref code) = term_code {
+                    req = req.header("X-Terminal-Code", code);
+                }
+
+                let body_str = if op_type == "sale" || op_type == "CREATE_SALE" {
+                    if !record.payload.starts_with("{\"sales\"") && !record.payload.starts_with('[') {
+                        format!("{{\"sales\":[{}]}}", record.payload)
+                    } else {
+                        record.payload.clone()
+                    }
+                } else {
+                    record.payload.clone()
+                };
 
                 let resp_result = req
-                    .body(record.payload.clone())
+                    .body(body_str)
                     .send()
                     .await;
 

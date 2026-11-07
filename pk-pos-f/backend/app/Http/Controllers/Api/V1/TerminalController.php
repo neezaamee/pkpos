@@ -126,36 +126,41 @@ class TerminalController extends Controller
     public function heartbeat(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'terminal_id' => ['nullable', 'uuid'],
+            'terminal_id' => ['nullable', 'string', 'max:50'],
             'terminal_code' => ['nullable', 'string', 'max:50'],
             'hardware_uuid' => ['nullable', 'string', 'max:100'],
             'app_version' => ['nullable', 'string', 'max:30'],
         ]);
 
-        $query = PosTerminal::withoutGlobalScopes();
+        $terminal = null;
 
-        if (! empty($validated['terminal_id'])) {
-            $query->where('id', $validated['terminal_id']);
-        } elseif (! empty($validated['terminal_code'])) {
-            $query->where('terminal_code', $validated['terminal_code']);
-        } elseif (! empty($validated['hardware_uuid'])) {
-            $query->where('hardware_uuid', $validated['hardware_uuid']);
-        } elseif ($bearer = $request->bearerToken()) {
-            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
-            if ($pat && str_starts_with($pat->name, 'pos-terminal:')) {
-                $code = substr($pat->name, strlen('pos-terminal:'));
-                $query->where('terminal_code', $code);
-            } else {
-                return response()->json(['message' => 'Either terminal_id, terminal_code, or hardware_uuid must be provided.'], 422);
-            }
-        } else {
-            return response()->json(['message' => 'Either terminal_id, terminal_code, or hardware_uuid must be provided.'], 422);
+        // 1. Identify by explicit X-Terminal-Code header or input terminal_code
+        $code = $request->header('X-Terminal-Code') ?: $request->input('terminal_code');
+        if (! empty($code)) {
+            $terminal = PosTerminal::withoutGlobalScopes()->where('terminal_code', trim($code))->first();
         }
 
-        $terminal = $query->first();
+        // 2. Identify by terminal UUID
+        if (! $terminal && ! empty($validated['terminal_id'])) {
+            $terminal = PosTerminal::withoutGlobalScopes()->where('id', $validated['terminal_id'])->first();
+        }
+
+        // 3. Identify by authenticated terminal Sanctum bearer token
+        if (! $terminal && ($bearer = $request->bearerToken())) {
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($bearer);
+            if ($pat && str_starts_with($pat->name, 'pos-terminal:')) {
+                $termCode = substr($pat->name, strlen('pos-terminal:'));
+                $terminal = PosTerminal::withoutGlobalScopes()->where('terminal_code', $termCode)->first();
+            }
+        }
+
+        // 4. Fallback: Identify by hardware UUID
+        if (! $terminal && ! empty($validated['hardware_uuid'])) {
+            $terminal = PosTerminal::withoutGlobalScopes()->where('hardware_uuid', $validated['hardware_uuid'])->first();
+        }
 
         if (! $terminal) {
-            return response()->json(['message' => 'Terminal record not found.'], 404);
+            return response()->json(['message' => 'Terminal record not found. Please verify pairing configuration.'], 404);
         }
 
         // Check if terminal has been remotely revoked
@@ -166,7 +171,7 @@ class TerminalController extends Controller
             ], 403);
         }
 
-        // Update heartbeat
+        // Update heartbeat timestamp, IP, and version
         $terminal->update([
             'last_heartbeat_at' => now(),
             'app_version' => $validated['app_version'] ?? $terminal->app_version,

@@ -4,7 +4,7 @@ import type { PosSettings } from '../types/pos';
 import { getSettings, saveSettings, testPrinter, openCashDrawer, syncCatalog, pairTerminal, clearLocalSales } from '../services/posService';
 
 const settings = ref<PosSettings>({
-  api_base_url: 'http://127.0.0.1:8000/api/v1',
+  api_base_url: 'https://01pos.01output.com/api/v1',
   fbr_pos_id: 'POS-001',
   fbr_bearer_token: '',
   fbr_ntn: '1234567-8',
