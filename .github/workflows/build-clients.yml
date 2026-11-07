@@ -157,21 +157,29 @@ jobs:
           VERSION="${VERSION#v}"
           [ -z "$VERSION" ] && VERSION="0.1.0"
 
+          echo "=== Last 50 lines of android_build.log ==="
+          tail -n 50 pk-pos-f/pos-client/android_build.log || true
+
+          echo "=== Searching all APK and AAB files across workspace ==="
+          find . -type f \( -iname "*.apk" -o -iname "*.aab" \) -ls || true
+
           found=0
-          while IFS= read -r apk; do
-            if [ -f "$apk" ]; then
+          while IFS= read -r pkg; do
+            if [ -n "$pkg" ] && [ -f "$pkg" ]; then
               found=1
-              fname=$(basename "$apk")
-              echo "Found APK: $apk -> PK-POS-v$VERSION-$fname"
-              cp "$apk" "client_artifacts/PK-POS-v$VERSION-$fname"
-              sha256sum "$apk" > "client_artifacts/PK-POS-v$VERSION-$fname.sha256"
-              # Also create a generic PK-POS-vX.X.X.apk link
-              cp "$apk" "client_artifacts/PK-POS-v$VERSION.apk"
+              fname=$(basename "$pkg")
+              ext="${pkg##*.}"
+              echo "Packaging: $pkg -> PK-POS-v$VERSION-$fname"
+              cp "$pkg" "client_artifacts/PK-POS-v$VERSION-$fname"
+              sha256sum "$pkg" > "client_artifacts/PK-POS-v$VERSION-$fname.sha256"
+              cp "$pkg" "client_artifacts/PK-POS-v$VERSION.$ext"
             fi
-          done < <(find pk-pos-f/pos-client -name "*.apk" 2>/dev/null)
+          done < <(find . -type f \( -iname "*.apk" -o -iname "*.aab" \) 2>/dev/null)
 
           if [ $found -eq 0 ]; then
-            echo "::error::No APK files found under pk-pos-f/pos-client"
+            echo "::error::No APK or AAB files found under workspace root!"
+            echo "=== Detailed directory tree under gen/android ==="
+            find pk-pos-f/pos-client/src-tauri/gen/android/app -type f || true
             exit 1
           fi
 
