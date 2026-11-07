@@ -170,7 +170,7 @@ jobs:
         run: |
           set -e
           set -o pipefail
-          cargo ndk -t aarch64-linux-android --platform 24 build --lib --release 2>&1 | tee ../cargo_ndk.log
+          cargo ndk -t arm64-v8a -p 24 build --lib --release 2>&1 | tee ../cargo_ndk.log
 
       - name: Initialize Android Target (if needed)
         working-directory: pk-pos-f/pos-client
@@ -207,15 +207,16 @@ jobs:
           echo "=== Memory and Kernel status on failure ==="
           free -h || true
           dmesg -T | grep -i -E "oom|killed process|out of memory" | tail -n 10 || true
-          for f in pk-pos-f/pos-client/cargo_ndk.log pk-pos-f/pos-client/android_build.log; do
-            if [ -f "$f" ]; then
-              echo "=== Tail of $f on failure ==="
-              tail -n 120 "$f" || true
-              tail -n 35 "$f" | while IFS= read -r line; do
-                echo "::error title=LogDiagnostic::$line"
-              done
-            fi
-          done
+          python3 -c "
+import glob
+for pattern in ['pk-pos-f/pos-client/*.log', 'pk-pos-f/pos-client/src-tauri/*.log']:
+    for f in glob.glob(pattern):
+        with open(f, 'r', errors='replace') as fp:
+            lines = [l.strip() for l in fp.readlines() if l.strip()]
+            tail = lines[-35:]
+            msg = '%0A'.join(tail)
+            print(f'::error title={f}::{msg}')
+"
 
       - name: Upload Android Build Log on Failure
         if: failure()
