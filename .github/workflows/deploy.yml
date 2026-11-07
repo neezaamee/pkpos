@@ -145,31 +145,45 @@ jobs:
         id: ftp_check
         run: |
           python3 - << 'EOF'
-          import os, sys, ftplib, ssl
+          import os, sys, re, socket, ftplib, ssl
 
-          server = os.environ.get('FTP_SERVER', '').strip()
-          username = os.environ.get('FTP_USERNAME', '').strip()
-          password = os.environ.get('FTP_PASSWORD', '').strip()
+          raw_server = os.environ.get('FTP_SERVER', '').strip()
+          raw_username = os.environ.get('FTP_USERNAME', '').strip()
+          raw_password = os.environ.get('FTP_PASSWORD', '').strip()
           custom_dir = os.environ.get('FTP_REMOTE_DIR', '').strip()
 
-          if not server or not username or not password:
+          if not raw_server or not raw_username or not raw_password:
               print("::error::Missing FTP credentials! Ensure FTP_SERVER, FTP_USERNAME, and FTP_PASSWORD secrets are set in GitHub Repository Secrets.")
               sys.exit(1)
 
-          print(f"Connecting to {server}:21 via FTPS...")
+          # Sanitize server hostname (remove protocol, ports, slashes, whitespace)
+          clean_server = re.sub(r'^[a-zA-Z]+://', '', raw_server)
+          clean_server = clean_server.split('/')[0].split(':')[0].strip().strip('"\'')
+          if not clean_server:
+              clean_server = "46.202.138.81"
+
+          # Verify DNS resolution with fallback to Hostinger server IP
+          try:
+              ip = socket.gethostbyname(clean_server)
+              print(f"✅ Host {clean_server} resolved to {ip}")
+          except Exception as dns_err:
+              print(f"⚠️ DNS lookup failed for '{clean_server}': {dns_err}. Falling back to 46.202.138.81")
+              clean_server = "46.202.138.81"
+
+          print(f"Connecting to {clean_server}:21 via FTPS...")
           class HostingerFTPS(ftplib.FTP_TLS):
               def ssl_wrap(self, sock):
                   ctx = ssl.create_default_context()
                   ctx.check_hostname = False
                   ctx.verify_mode = ssl.CERT_NONE
-                  return ctx.wrap_socket(sock, server_hostname=self.host)
+                  return ctx.wrap_socket(sock, server_hostname=clean_server)
 
           target_dir = "./"
           try:
               ftp = HostingerFTPS()
-              ftp.connect(server, 21, timeout=15)
+              ftp.connect(clean_server, 21, timeout=15)
               ftp.auth()
-              ftp.login(username, password)
+              ftp.login(raw_username, raw_password)
               ftp.prot_p()
               lines = []
               ftp.retrlines('LIST', lines.append)
@@ -185,13 +199,19 @@ jobs:
               else:
                   target_dir = "./"
 
+              if not target_dir.endswith('/'):
+                  target_dir += '/'
+
               print(f"✅ Selected target directory: {target_dir}")
               ftp.quit()
           except Exception as e:
-              print(f"⚠️ Warning during FTP probe: {e}. Falling back to default directory.")
+              print(f"⚠️ FTP probe notice: {e}. Falling back to default directory.")
               target_dir = custom_dir if custom_dir else "domains/01pos.01output.com/public_html/"
+              if not target_dir.endswith('/'):
+                  target_dir += '/'
 
           with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f"FTP_CLEAN_SERVER={clean_server}\n")
               f.write(f"FTP_TARGET_DIR={target_dir}\n")
           EOF
         env:
@@ -203,7 +223,7 @@ jobs:
       - name: Deploy to Hostinger via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: ${{ env.FTP_CLEAN_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
