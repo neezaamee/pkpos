@@ -16,7 +16,6 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 35
-    ndkVersion = "26.1.10909129"
     namespace = "com.pkpos.client"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"

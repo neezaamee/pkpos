@@ -98,43 +98,65 @@ jobs:
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
           /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" || true
-          # Explicitly target LTS NDK 26 (Tauri 2 & Android LTS standard)
-          NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
-          if [ ! -d "$NDK_DIR" ]; then
-            NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -name "26.*" 2>/dev/null | sort -V | tail -n 1)
-            if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
-              echo "Installing Android NDK 26.1.10909129..."
-              /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909129"
-              NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
-            fi
+          
+          # List all available NDK directories for diagnostics
+          echo "=== Installed NDK directories ==="
+          ls -la /usr/local/lib/android/sdk/ndk || true
+
+          # Find highest stable NDK (27.*, 26.*, 25.*), explicitly ignoring 30.* or higher experimental versions
+          NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 ! -name "*30*" 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
+            echo "Installing NDK via sdkmanager..."
+            yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.2.12479018" || true
+            NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 ! -name "*30*" 2>/dev/null | sort -V | tail -n 1)
           fi
+
+          echo "Selected NDK: $NDK_DIR"
+          if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
+            echo "::error::No valid NDK directory found!"
+            exit 1
+          fi
+
           echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$NDK_DIR" >> $GITHUB_ENV
 
           LLVM_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
           echo "$LLVM_BIN" >> $GITHUB_PATH
           echo "PATH=$LLVM_BIN:$PATH" >> $GITHUB_ENV
 
+          CLANG_BIN=$(find "$LLVM_BIN" -name "aarch64-linux-android*-clang" ! -name "*++*" | sort -V | head -n 1)
+          CLANGXX_BIN="${CLANG_BIN}++"
+          [ ! -f "$CLANGXX_BIN" ] && CLANGXX_BIN=$(find "$LLVM_BIN" -name "aarch64-linux-android*-clang++" | sort -V | head -n 1)
+          AR_BIN="$LLVM_BIN/llvm-ar"
+
+          echo "Selected Clang: $CLANG_BIN"
+          echo "Selected Clang++: $CLANGXX_BIN"
+          echo "Selected AR: $AR_BIN"
+
           # Create symlinks for standard target names if missing
-          if [ ! -f "$LLVM_BIN/aarch64-linux-android-clang" ]; then
-            ln -sf "$LLVM_BIN/aarch64-linux-android24-clang" "$LLVM_BIN/aarch64-linux-android-clang" || true
-            ln -sf "$LLVM_BIN/aarch64-linux-android24-clang++" "$LLVM_BIN/aarch64-linux-android-clang++" || true
-          fi
+          ln -sf "$CLANG_BIN" "$LLVM_BIN/aarch64-linux-android-clang" || true
+          ln -sf "$CLANGXX_BIN" "$LLVM_BIN/aarch64-linux-android-clang++" || true
 
           # Export linker and archiver for Cargo and cc-rs
-          echo "TARGET_CC=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
-          echo "TARGET_AR=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
-          echo "CC_aarch64_linux_android=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
-          echo "CXX_aarch64_linux_android=$LLVM_BIN/aarch64-linux-android24-clang++" >> $GITHUB_ENV
-          echo "AR_aarch64_linux_android=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
+          echo "TARGET_CC=$CLANG_BIN" >> $GITHUB_ENV
+          echo "TARGET_AR=$AR_BIN" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$CLANG_BIN" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=$AR_BIN" >> $GITHUB_ENV
+          echo "CC_aarch64_linux_android=$CLANG_BIN" >> $GITHUB_ENV
+          echo "CXX_aarch64_linux_android=$CLANGXX_BIN" >> $GITHUB_ENV
+          echo "AR_aarch64_linux_android=$AR_BIN" >> $GITHUB_ENV
 
           # Configure global and local Cargo target linkers
           mkdir -p ~/.cargo
-          printf '[build]\njobs = 1\nincremental = false\n\n[target.aarch64-linux-android]\nar = "%s/llvm-ar"\nlinker = "%s/aarch64-linux-android24-clang"\n' "$LLVM_BIN" "$LLVM_BIN" > ~/.cargo/config.toml
+          printf '[build]\njobs = 1\nincremental = false\n\n[target.aarch64-linux-android]\nar = "%s"\nlinker = "%s"\n' "$AR_BIN" "$CLANG_BIN" > ~/.cargo/config.toml
           mkdir -p pk-pos-f/pos-client/src-tauri/.cargo
           cp ~/.cargo/config.toml pk-pos-f/pos-client/src-tauri/.cargo/config.toml
+
+          # Configure local.properties for Gradle
+          mkdir -p pk-pos-f/pos-client/src-tauri/gen/android
+          echo "sdk.dir=/usr/local/lib/android/sdk" > pk-pos-f/pos-client/src-tauri/gen/android/local.properties
+          echo "ndk.dir=$NDK_DIR" >> pk-pos-f/pos-client/src-tauri/gen/android/local.properties
 
           echo "Using Android NDK at: $NDK_DIR"
           echo "Using LLVM bin at: $LLVM_BIN"
@@ -175,6 +197,8 @@ jobs:
           set -e
           set -o pipefail
           cargo ndk -t arm64-v8a -p 24 build --lib --release 2>&1 | tee ../cargo_ndk.log
+          mkdir -p gen/android/app/src/main/jniLibs/arm64-v8a
+          cp target/aarch64-linux-android/release/libpos_client_lib.so gen/android/app/src/main/jniLibs/arm64-v8a/ || true
 
       - name: Initialize Android Target (if needed)
         working-directory: pk-pos-f/pos-client

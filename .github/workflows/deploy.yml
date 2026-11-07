@@ -143,104 +143,54 @@ jobs:
 
       - name: Validate & Detect Remote FTPS Path
         id: ftp_check
-        run: |
-          python3 - << 'EOF'
-          import os, sys, re, socket, ftplib, ssl
-
-          raw_server = os.environ.get('FTP_SERVER', '').strip()
-          raw_username = os.environ.get('FTP_USERNAME', '').strip()
-          raw_password = os.environ.get('FTP_PASSWORD', '').strip()
-          custom_dir = os.environ.get('FTP_REMOTE_DIR', '').strip()
-
-          if not raw_server or not raw_username or not raw_password:
-              print("::error::Missing FTP credentials! Ensure FTP_SERVER, FTP_USERNAME, and FTP_PASSWORD secrets are set in GitHub Repository Secrets.")
-              sys.exit(1)
-
-          # Sanitize server hostname (remove protocol, ports, slashes, whitespace)
-          clean_server = re.sub(r'^[a-zA-Z]+://', '', raw_server)
-          clean_server = clean_server.split('/')[0].split(':')[0].strip().strip('"\'')
-          if not clean_server:
-              clean_server = "46.202.138.81"
-
-          # Verify DNS resolution with fallback to Hostinger server IP
-          try:
-              ip = socket.gethostbyname(clean_server)
-              print(f"✅ Host {clean_server} resolved to {ip}")
-          except Exception as dns_err:
-              print(f"⚠️ DNS lookup failed for '{clean_server}': {dns_err}. Falling back to 46.202.138.81")
-              clean_server = "46.202.138.81"
-
-          print(f"Connecting to {clean_server}:21 via FTPS...")
-          class HostingerFTPS(ftplib.FTP_TLS):
-              def ssl_wrap(self, sock):
-                  ctx = ssl.create_default_context()
-                  ctx.check_hostname = False
-                  ctx.verify_mode = ssl.CERT_NONE
-                  return ctx.wrap_socket(sock, server_hostname=clean_server)
-
-          target_dir = "./"
-          try:
-              ftp = HostingerFTPS()
-              ftp.connect(clean_server, 21, timeout=15)
-              ftp.auth()
-              ftp.login(raw_username, raw_password)
-              ftp.prot_p()
-              lines = []
-              ftp.retrlines('LIST', lines.append)
-              entries = [line.split()[-1] for line in lines if line.strip()]
-              print("Remote root entries:", entries)
-
-              if custom_dir:
-                  target_dir = custom_dir
-              elif "domains" in entries:
-                  target_dir = "domains/01pos.01output.com/public_html/"
-              elif "public_html" in entries:
-                  target_dir = "public_html/"
-              else:
-                  target_dir = "./"
-
-              if not target_dir.endswith('/'):
-                  target_dir += '/'
-
-              print(f"✅ Selected target directory: {target_dir}")
-              ftp.quit()
-          except Exception as e:
-              print(f"⚠️ FTP probe notice: {e}. Falling back to default directory.")
-              target_dir = custom_dir if custom_dir else "domains/01pos.01output.com/public_html/"
-              if not target_dir.endswith('/'):
-                  target_dir += '/'
-
-          with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write(f"FTP_CLEAN_SERVER={clean_server}\n")
-              f.write(f"FTP_TARGET_DIR={target_dir}\n")
-          EOF
+        run: python3 .github/scripts/detect_ftp_path.py
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
 
-      - name: Deploy to Hostinger via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ env.FTP_CLEAN_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          port: 21
-          security: loose
-          local-dir: ./deploy_package/
-          server-dir: ${{ env.FTP_TARGET_DIR }}
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .env
-            .env.*
-            storage/logs/*.log
-            storage/framework/sessions/*
-            **/tests/**
-            **/test/**
-            **/*.md
-            **/*.txt
+      - name: Create Production Zip & Extractor Payload
+        run: |
+          DEPLOY_TOKEN=$(openssl rand -hex 16)
+          echo "$DEPLOY_TOKEN" > .deploy_token
+          echo "DEPLOY_TOKEN=$DEPLOY_TOKEN" >> $GITHUB_ENV
+          cp .github/scripts/deploy_extract.php ./deploy_extract.php
+
+          # Create zip archive of deploy_package
+          cd deploy_package
+          zip -r -q ../deploy_payload.zip .
+          cd ..
+          ls -lh deploy_payload.zip deploy_extract.php .deploy_token
+
+      - name: Upload Payload to Hostinger via FTPS
+        run: python3 .github/scripts/upload_payload.py
+        env:
+          FTP_CLEAN_SERVER: ${{ env.FTP_CLEAN_SERVER }}
+          FTP_TARGET_DIR: ${{ env.FTP_TARGET_DIR }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+
+      - name: Trigger Remote Extraction & Health Check
+        run: |
+          echo "Triggering extraction on Hostinger..."
+          sleep 2
+          RESPONSE=$(curl -s -S -f -m 60 "https://01pos.01output.com/deploy_extract.php?token=${{ env.DEPLOY_TOKEN }}" 2>&1 || true)
+          echo "Extraction output:"
+          echo "$RESPONSE"
+          
+          if [[ "$RESPONSE" != *"SUCCESS"* ]]; then
+            echo "::error::Remote extraction did not succeed: $RESPONSE"
+            exit 1
+          fi
+
+          echo "Verifying live application response..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://01pos.01output.com/login" || true)
+          echo "Live HTTP code: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ]; then
+            echo "::error::Expected HTTP 200 or 302, got $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "🚀 PK-POS deployed and verified successfully on Hostinger!"
 
