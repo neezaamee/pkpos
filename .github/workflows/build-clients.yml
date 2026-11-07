@@ -139,29 +139,33 @@ jobs:
         run: |
           npm run build
           echo "=== Building Android APK via Tauri CLI ==="
-          npx tauri android build --apk --target aarch64 --split-per-abi --ci 2>&1 | tee tauri_build.log || {
-            echo "::warning::Tauri CLI returned non-zero code. Logging errors:"
-            grep -E -i "error|failed|exception|failure|cannot|not found" tauri_build.log | tail -n 15 | while IFS= read -r line; do
-              echo "::error title=TauriBuildError::$line"
+          if ! npx tauri android build --apk --target aarch64 --split-per-abi --ci > tauri_build.log 2>&1; then
+            echo "::warning title=TauriBuildStatus::Tauri android build returned non-zero code. Extracting errors:"
+            grep -E -i "error|failed|exception|failure|cannot|not found|caused by" tauri_build.log | tail -n 25 | while IFS= read -r line; do
+              echo "::error title=TauriError::$line"
             done
-          }
+            echo "=== Last 50 lines of tauri_build.log ==="
+            tail -n 50 tauri_build.log
+          fi
 
           if [ -z "$(find src-tauri/gen/android/app/build -name '*.apk' 2>/dev/null)" ]; then
             echo "=== Assembling APK via direct Gradle assembleArm64Release ==="
             cd src-tauri/gen/android
             chmod +x gradlew
-            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace 2>&1 | tee gradle_build.log || {
-              echo "::warning::Gradle returned non-zero code. Logging errors:"
-              grep -E -i "error|failed|exception|failure|cannot|not found|caused by" gradle_build.log | tail -n 20 | while IFS= read -r line; do
-                echo "::error title=GradleBuildError::$line"
+            if ! ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace > gradle_build.log 2>&1; then
+              echo "::warning title=GradleBuildStatus::Gradle assembleArm64Release failed. Extracting errors:"
+              grep -E -i "error|failed|exception|failure|cannot|not found|caused by" gradle_build.log | tail -n 25 | while IFS= read -r line; do
+                echo "::error title=GradleError::$line"
               done
+              echo "=== Last 50 lines of gradle_build.log ==="
+              tail -n 50 gradle_build.log
               exit 1
-            }
+            fi
             cd ../../..
           fi
 
-          echo "=== Verifying build/outputs/apk directory ==="
-          find src-tauri/gen/android/app/build/outputs/apk -type f \( -name "*.apk" -o -name "*.aab" \) || true
+          echo "=== Verifying build outputs ==="
+          find . -type f \( -iname "*.apk" -o -iname "*.aab" \) || true
 
       - name: Report Build Diagnostics on Failure
         if: failure()
@@ -215,8 +219,14 @@ jobs:
 
           if [ $found -eq 0 ]; then
             echo "::error::No APK or AAB files found under workspace root!"
-            echo "=== Detailed directory tree under gen/android ==="
-            find pk-pos-f/pos-client/src-tauri/gen/android/app -type f || true
+            for f in pk-pos-f/pos-client/tauri_build.log pk-pos-f/pos-client/src-tauri/gen/android/gradle_build.log; do
+              if [ -f "$f" ]; then
+                echo "=== Errors from $f ==="
+                grep -E -i "error|failed|exception|failure|caused by" "$f" | tail -n 20 | while IFS= read -r l; do
+                  echo "::error title=MissingApkLog::$l"
+                done
+              fi
+            done
             exit 1
           fi
 
