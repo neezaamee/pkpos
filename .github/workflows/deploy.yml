@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -140,20 +141,74 @@ jobs:
               ->handleRequest(Request::capture());
           EOF
 
-      - name: Determine Target Remote Directory
+      - name: Validate & Detect Remote FTPS Path
+        id: ftp_check
         run: |
-          REMOTE_DIR="${{ secrets.FTP_REMOTE_DIR }}"
-          if [ -z "$REMOTE_DIR" ]; then
-            REMOTE_DIR="domains/01pos.01output.com/public_html/"
-          fi
-          echo "FTP_TARGET_DIR=$REMOTE_DIR" >> $GITHUB_ENV
+          python3 - << 'EOF'
+          import os, sys, ftplib, ssl
 
-      - name: Deploy to Hostinger via FTP
+          server = os.environ.get('FTP_SERVER', '').strip()
+          username = os.environ.get('FTP_USERNAME', '').strip()
+          password = os.environ.get('FTP_PASSWORD', '').strip()
+          custom_dir = os.environ.get('FTP_REMOTE_DIR', '').strip()
+
+          if not server or not username or not password:
+              print("::error::Missing FTP credentials! Ensure FTP_SERVER, FTP_USERNAME, and FTP_PASSWORD secrets are set in GitHub Repository Secrets.")
+              sys.exit(1)
+
+          print(f"Connecting to {server}:21 via FTPS...")
+          class HostingerFTPS(ftplib.FTP_TLS):
+              def ssl_wrap(self, sock):
+                  ctx = ssl.create_default_context()
+                  ctx.check_hostname = False
+                  ctx.verify_mode = ssl.CERT_NONE
+                  return ctx.wrap_socket(sock, server_hostname=self.host)
+
+          target_dir = "./"
+          try:
+              ftp = HostingerFTPS()
+              ftp.connect(server, 21, timeout=15)
+              ftp.auth()
+              ftp.login(username, password)
+              ftp.prot_p()
+              lines = []
+              ftp.retrlines('LIST', lines.append)
+              entries = [line.split()[-1] for line in lines if line.strip()]
+              print("Remote root entries:", entries)
+
+              if custom_dir:
+                  target_dir = custom_dir
+              elif "domains" in entries:
+                  target_dir = "domains/01pos.01output.com/public_html/"
+              elif "public_html" in entries:
+                  target_dir = "public_html/"
+              else:
+                  target_dir = "./"
+
+              print(f"✅ Selected target directory: {target_dir}")
+              ftp.quit()
+          except Exception as e:
+              print(f"⚠️ Warning during FTP probe: {e}. Falling back to default directory.")
+              target_dir = custom_dir if custom_dir else "domains/01pos.01output.com/public_html/"
+
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f"FTP_TARGET_DIR={target_dir}\n")
+          EOF
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+
+      - name: Deploy to Hostinger via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          security: loose
           local-dir: ./deploy_package/
           server-dir: ${{ env.FTP_TARGET_DIR }}
           dangerous-clean-slate: false
@@ -164,4 +219,8 @@ jobs:
             .env.*
             storage/logs/*.log
             storage/framework/sessions/*
+            **/tests/**
+            **/test/**
+            **/*.md
+            **/*.txt
 
