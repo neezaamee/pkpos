@@ -84,15 +84,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configure Linux Swap Space & Cargo Concurrency (Prevent OOM)
+      - name: Configure Linux Swap Space (Prevent OOM)
         run: |
-          sudo fallocate -l 10G /swapfile || true
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192 status=none || true
           sudo chmod 600 /swapfile || true
           sudo mkswap /swapfile || true
           sudo swapon /swapfile || true
+          swapon --show || true
           free -h
-          echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
-          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
 
       - name: Configure Android SDK & NDK
         run: |
@@ -118,10 +117,29 @@ jobs:
             ln -sf "$LLVM_BIN/aarch64-linux-android24-clang++" "$LLVM_BIN/aarch64-linux-android-clang++" || true
           fi
 
+          # Export linker and archiver for Cargo and cc-rs
+          echo "TARGET_CC=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
+          echo "TARGET_AR=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
           echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
           echo "CC_aarch64_linux_android=$LLVM_BIN/aarch64-linux-android24-clang" >> $GITHUB_ENV
           echo "CXX_aarch64_linux_android=$LLVM_BIN/aarch64-linux-android24-clang++" >> $GITHUB_ENV
           echo "AR_aarch64_linux_android=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
+
+          # Configure global and local Cargo target linkers
+          mkdir -p ~/.cargo
+          cat <<EOF > ~/.cargo/config.toml
+[build]
+jobs = 1
+incremental = false
+
+[target.aarch64-linux-android]
+ar = "$LLVM_BIN/llvm-ar"
+linker = "$LLVM_BIN/aarch64-linux-android24-clang"
+EOF
+
+          mkdir -p pk-pos-f/pos-client/src-tauri/.cargo
+          cp ~/.cargo/config.toml pk-pos-f/pos-client/src-tauri/.cargo/config.toml
 
           echo "Using Android NDK at: $NDK_DIR"
           echo "Using LLVM bin at: $LLVM_BIN"
@@ -145,10 +163,16 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: pk-pos-f/pos-client/src-tauri
+          key: android-v3
 
       - name: Install Frontend Dependencies
         working-directory: pk-pos-f/pos-client
         run: npm ci
+
+      - name: Pre-compile Rust Library for Android Target
+        working-directory: pk-pos-f/pos-client/src-tauri
+        run: |
+          cargo build --lib --target aarch64-linux-android --release
 
       - name: Initialize Android Target (if needed)
         working-directory: pk-pos-f/pos-client
