@@ -116,6 +116,12 @@ jobs:
           echo "Using Android NDK at: $NDK_DIR"
           echo "Using LLVM bin at: $LLVM_BIN"
 
+          # Ensure Android debug keystore exists for signing
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+          fi
+
       - name: Setup Rust Stable with Android Targets
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -169,9 +175,9 @@ jobs:
           if [ -f pk-pos-f/pos-client/android_build.log ]; then
             echo "=== Tail of android_build.log on failure ==="
             tail -n 120 pk-pos-f/pos-client/android_build.log || true
-            while IFS= read -r err_line; do
-              echo "::error title=FailureDiagnostic::$err_line"
-            done < <(grep -E -i "error\[E|cannot find|undefined reference|fatal error|BUILD FAILED" pk-pos-f/pos-client/android_build.log | tail -n 15)
+            tail -n 35 pk-pos-f/pos-client/android_build.log | while IFS= read -r line; do
+              echo "::error title=LogDiagnostic::$line"
+            done
           fi
 
       - name: Upload Android Build Log on Failure

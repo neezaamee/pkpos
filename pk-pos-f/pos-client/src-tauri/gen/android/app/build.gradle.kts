@@ -40,15 +40,7 @@ android {
         }
         getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
-            optimization {
-               enable = true
-            }
-            proguardFiles(
-                *fileTree(".") {
-                  include("**/*.pro")
-                  exclude("build/**")
-                }.files.toTypedArray()
-            )
+            isMinifyEnabled = false
         }
     }
     compileOptions {
