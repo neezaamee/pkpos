@@ -98,11 +98,15 @@ jobs:
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
           /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" || true
-          # Automatically find pre-installed NDK or install latest LTS NDK
-          NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 2>/dev/null | sort -V | tail -n 1)
-          if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
-            /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909129"
-            NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
+          # Explicitly target LTS NDK 26 (Tauri 2 & Android LTS standard)
+          NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
+          if [ ! -d "$NDK_DIR" ]; then
+            NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -name "26.*" 2>/dev/null | sort -V | tail -n 1)
+            if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
+              echo "Installing Android NDK 26.1.10909129..."
+              /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909129"
+              NDK_DIR="/usr/local/lib/android/sdk/ndk/26.1.10909129"
+            fi
           fi
           echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
