@@ -139,7 +139,7 @@ jobs:
         run: |
           npm run build
           echo "=== Building Android APK via Tauri CLI ==="
-          npx tauri android build --apk --target aarch64 --split-per-abi --ci 2>&1 | tee android_build.log || {
+          npx tauri android build --apk --target aarch64 --split-per-abi --ci || {
             echo "::warning::Tauri CLI returned non-zero code. Attempting direct Gradle assembleArm64Release..."
           }
 
@@ -147,7 +147,7 @@ jobs:
             echo "=== Assembling APK via direct Gradle assembleArm64Release ==="
             cd src-tauri/gen/android
             chmod +x gradlew
-            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace 2>&1 | tee -a ../../android_build.log
+            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace
             cd ../../..
           fi
 
