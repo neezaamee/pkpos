@@ -139,15 +139,24 @@ jobs:
         run: |
           npm run build
           echo "=== Building Android APK via Tauri CLI ==="
-          npx tauri android build --apk --target aarch64 --split-per-abi --ci || {
-            echo "::warning::Tauri CLI returned non-zero code. Attempting direct Gradle assembleArm64Release..."
+          npx tauri android build --apk --target aarch64 --split-per-abi --ci 2>&1 | tee tauri_build.log || {
+            echo "::warning::Tauri CLI returned non-zero code. Logging errors:"
+            grep -E -i "error|failed|exception|failure|cannot|not found" tauri_build.log | tail -n 15 | while IFS= read -r line; do
+              echo "::error title=TauriBuildError::$line"
+            done
           }
 
           if [ -z "$(find src-tauri/gen/android/app/build -name '*.apk' 2>/dev/null)" ]; then
             echo "=== Assembling APK via direct Gradle assembleArm64Release ==="
             cd src-tauri/gen/android
             chmod +x gradlew
-            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace
+            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace 2>&1 | tee gradle_build.log || {
+              echo "::warning::Gradle returned non-zero code. Logging errors:"
+              grep -E -i "error|failed|exception|failure|cannot|not found|caused by" gradle_build.log | tail -n 20 | while IFS= read -r line; do
+                echo "::error title=GradleBuildError::$line"
+              done
+              exit 1
+            }
             cd ../../..
           fi
 
@@ -158,18 +167,24 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          echo "=== Tail of build log on failure ==="
-          tail -n 100 pk-pos-f/pos-client/android_build.log || true
-          while IFS= read -r err_line; do
-            echo "::error::$err_line"
-          done < <(grep -E -i "error|failed|exception|failure" pk-pos-f/pos-client/android_build.log | tail -n 20)
+          for f in pk-pos-f/pos-client/tauri_build.log pk-pos-f/pos-client/src-tauri/gen/android/gradle_build.log; do
+            if [ -f "$f" ]; then
+              echo "=== Tail of $f on failure ==="
+              tail -n 60 "$f" || true
+              while IFS= read -r err_line; do
+                echo "::error title=FailureDiagnostic::$err_line"
+              done < <(grep -E -i "error|failed|exception|failure|caused by" "$f" | tail -n 15)
+            fi
+          done
 
       - name: Upload Android Build Log on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: android-build-log
-          path: pk-pos-f/pos-client/android_build.log
+          name: android-build-logs
+          path: |
+            pk-pos-f/pos-client/*.log
+            pk-pos-f/pos-client/src-tauri/gen/android/*.log
 
       - name: Stage & Rename Android APKs
         shell: bash
