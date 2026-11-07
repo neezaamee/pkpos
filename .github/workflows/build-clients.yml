@@ -79,7 +79,7 @@ jobs:
           cache-dependency-path: pk-pos-f/pos-client/package-lock.json
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -136,16 +136,17 @@ jobs:
       - name: Build Android APK
         working-directory: pk-pos-f/pos-client
         run: |
-          npx tauri android build --apk --target aarch64 2>&1 | tee android_build.log || {
-            echo "::error::Tauri Android build exited with error. Checking log..."
+          npx tauri android build --apk --target aarch64 --split-per-abi --ci 2>&1 | tee android_build.log || {
+            echo "::warning::Tauri CLI returned non-zero code. Checking build outputs or running Gradle directly..."
             tail -n 50 android_build.log
           }
 
           if [ -z "$(find src-tauri/gen/android/app/build -name '*.apk' 2>/dev/null)" ]; then
-            echo "=== Assembling APK via direct Gradle assembleArm64-v8aRelease ==="
+            echo "=== Assembling APK via direct Gradle assembleArm64Release ==="
             cd src-tauri/gen/android
             chmod +x gradlew
-            ./gradlew assembleArm64-v8aRelease --stacktrace || ./gradlew assembleRelease --stacktrace
+            ./gradlew assembleArm64Release -PtargetList=aarch64 -ParchList=arm64 -PabiList=arm64-v8a --stacktrace
+            cd ../../..
           fi
 
           echo "=== Verifying build/outputs/apk directory ==="
