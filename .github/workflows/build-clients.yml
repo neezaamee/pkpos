@@ -142,6 +142,17 @@ jobs:
             exit 1
           }
 
+          echo "=== Tail of Tauri Android build log ==="
+          tail -n 30 android_build.log
+
+          echo "=== Assembling signed release APK via Gradle ==="
+          cd src-tauri/gen/android
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+          echo "=== Verifying build/outputs/apk directory ==="
+          find app/build/outputs/apk -type f -name "*.apk" || true
+
       - name: Upload Android Build Log on Failure
         if: failure()
         uses: actions/upload-artifact@v4
