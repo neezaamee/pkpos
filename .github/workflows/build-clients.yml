@@ -84,6 +84,16 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Configure Linux Swap Space & Cargo Concurrency (Prevent OOM)
+        run: |
+          sudo fallocate -l 10G /swapfile || true
+          sudo chmod 600 /swapfile || true
+          sudo mkswap /swapfile || true
+          sudo swapon /swapfile || true
+          free -h
+          echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
+          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
+
       - name: Configure Android SDK & NDK
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
@@ -172,6 +182,9 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          echo "=== Memory and Kernel status on failure ==="
+          free -h || true
+          dmesg -T | grep -i -E "oom|killed process|out of memory" | tail -n 10 || true
           if [ -f pk-pos-f/pos-client/android_build.log ]; then
             echo "=== Tail of android_build.log on failure ==="
             tail -n 120 pk-pos-f/pos-client/android_build.log || true
