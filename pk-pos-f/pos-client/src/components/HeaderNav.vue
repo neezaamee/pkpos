@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { getPendingOutboxCount, syncCatalog, getSettings, sendHeartbeat } from '../services/posService';
+import {
+  getPendingOutboxCount,
+  syncCatalog,
+  syncOutboxNow,
+  getSettings,
+  sendHeartbeat,
+  checkTerminalVersion,
+  type VersionStatus,
+} from '../services/posService';
 
 defineProps<{
   activeTab: 'checkout' | 'history' | 'settings';
@@ -15,6 +23,7 @@ const isSyncing = ref<boolean>(false);
 const isOnline = ref<boolean>(navigator.onLine);
 const syncFeedback = ref<string | null>(null);
 const terminalCode = ref<string>('POS-001');
+const updateAvailable = ref<VersionStatus | null>(null);
 
 // Theme management
 const currentTheme = ref<'dark' | 'light'>('dark');
@@ -78,22 +87,57 @@ async function refreshPendingCount() {
   }
 }
 
-async function triggerCatalogSync() {
+async function triggerOutboxSync() {
   if (isSyncing.value) return;
   isSyncing.value = true;
-  syncFeedback.value = null;
+  syncFeedback.value = 'Syncing local outbox sales to server...';
   try {
-    const res = await syncCatalog();
+    const res = await syncOutboxNow();
     syncFeedback.value = res.message;
     await triggerHeartbeat();
     setTimeout(() => {
       syncFeedback.value = null;
-    }, 4000);
+    }, 5000);
+  } catch (err: any) {
+    syncFeedback.value = 'Outbox sync error: ' + (err?.message || String(err));
+  } finally {
+    isSyncing.value = false;
+    await refreshPendingCount();
+  }
+}
+
+async function triggerCatalogSync() {
+  if (isSyncing.value) return;
+  isSyncing.value = true;
+  syncFeedback.value = 'Syncing products and local sales...';
+  try {
+    const catalogRes = await syncCatalog();
+    let msg = catalogRes.message;
+    if (pendingOutbox.value > 0) {
+      const outboxRes = await syncOutboxNow();
+      msg = `${catalogRes.synced_count} products refreshed. ${outboxRes.message}`;
+    }
+    syncFeedback.value = msg;
+    await triggerHeartbeat();
+    setTimeout(() => {
+      syncFeedback.value = null;
+    }, 5000);
   } catch (err: any) {
     syncFeedback.value = 'Sync failed: ' + (err?.message || String(err));
   } finally {
     isSyncing.value = false;
     await refreshPendingCount();
+  }
+}
+
+async function checkAppVersion() {
+  try {
+    const status = await checkTerminalVersion('0.1.0');
+    if (status && status.is_outdated) {
+      updateAvailable.value = status;
+    }
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -123,6 +167,7 @@ onMounted(() => {
   initTheme();
   loadTerminalInfo();
   triggerHeartbeat();
+  checkAppVersion();
   heartbeatTimer = window.setInterval(triggerHeartbeat, 25000);
   refreshPendingCount();
   pollTimer = window.setInterval(refreshPendingCount, 5000);
@@ -190,6 +235,18 @@ onUnmounted(() => {
     </nav>
 
     <div class="actions-section">
+      <!-- Update Notification Banner -->
+      <a
+        v-if="updateAvailable"
+        :href="updateAvailable.download_url || 'https://01pos.01output.com/downloads/desktop'"
+        target="_blank"
+        class="update-pill"
+        :title="'Click to download latest version v' + updateAvailable.latest_version"
+      >
+        <span class="update-icon">🚀</span>
+        <span>Update v{{ updateAvailable.latest_version }}</span>
+      </a>
+
       <!-- Theme Toggle Button -->
       <button
         class="theme-toggle-btn"
@@ -204,12 +261,19 @@ onUnmounted(() => {
         {{ syncFeedback }}
       </div>
 
-      <div class="outbox-indicator" title="Pending sales waiting to sync to Laravel">
+      <!-- Outbox Indicator with 1-Click Sync -->
+      <button
+        class="outbox-indicator clickable"
+        :class="{ has_pending: pendingOutbox > 0, syncing: isSyncing }"
+        :disabled="isSyncing"
+        @click="triggerOutboxSync"
+        title="Click to manually push all pending sales in local outbox to central server"
+      >
         <span class="outbox-label">Outbox</span>
         <span class="outbox-badge" :class="{ pending: pendingOutbox > 0 }">
           {{ pendingOutbox }}
         </span>
-      </div>
+      </button>
 
       <button
         class="sync-btn"
@@ -226,7 +290,7 @@ onUnmounted(() => {
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
-        {{ isSyncing ? 'Syncing...' : 'Sync Catalog' }}
+        {{ isSyncing ? 'Syncing...' : 'Sync All' }}
       </button>
     </div>
   </header>
@@ -376,12 +440,61 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+  animation: pulse-update 2s infinite;
+  transition: transform 0.15s ease;
+}
+
+.update-pill:hover {
+  transform: scale(1.05);
+}
+
+@keyframes pulse-update {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); }
+}
+
 .outbox-indicator {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
   color: #9ca3af;
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
+.outbox-indicator.clickable {
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease;
+}
+
+.outbox-indicator.clickable:hover {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+
+.outbox-indicator.has_pending {
+  color: #fbbf24;
+}
+
+.outbox-indicator.syncing {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .outbox-badge {

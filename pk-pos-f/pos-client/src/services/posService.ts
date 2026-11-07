@@ -431,12 +431,157 @@ export async function openCashDrawer(): Promise<void> {
   }
 }
 
+export interface OutboxSyncResult {
+  success: boolean;
+  synced_count: number;
+  failed_count: number;
+  remaining_count: number;
+  message: string;
+}
+
 export async function getPendingOutboxCount(): Promise<number> {
   if (isTauri()) {
     const { invoke } = await import('@tauri-apps/api/core');
     return await invoke<number>('get_pending_outbox_count');
   }
+  const sales = getStoredSales();
+  return sales.filter((s) => s.sale.fbr_status === 'provisional').length;
+}
+
+export async function syncOutboxNow(): Promise<OutboxSyncResult> {
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<OutboxSyncResult>('sync_outbox_now');
+  }
+
+  // Browser fallback
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'https://01pos.01output.com/api/v1').replace(/\/$/, '');
+  const sales = getStoredSales();
+  const unsubmitted = sales.filter((s) => s.sale.fbr_status === 'provisional');
+
+  if (unsubmitted.length === 0) {
+    return {
+      success: true,
+      synced_count: 0,
+      failed_count: 0,
+      remaining_count: 0,
+      message: 'No pending local sales in outbox.',
+    };
+  }
+
+  if (!token) {
+    return {
+      success: false,
+      synced_count: 0,
+      failed_count: unsubmitted.length,
+      remaining_count: unsubmitted.length,
+      message: 'Terminal is unpaired. Please pair terminal in Settings to sync sales.',
+    };
+  }
+
+  let synced = 0;
+  let failed = 0;
+  let lastErr = '';
+
+  for (const item of unsubmitted) {
+    try {
+      const payload = {
+        id: item.sale.id,
+        sale_number: item.sale.sale_number,
+        payment_method: item.sale.payment_method,
+        subtotal_minor: item.sale.subtotal_minor,
+        tax_minor: item.sale.tax_minor,
+        total_minor: item.sale.total_minor,
+        status: 'completed',
+        items: (item.items || []).map((i) => ({
+          id: i.id || crypto.randomUUID(),
+          product_id: i.product_id,
+          product_name: i.product_name,
+          hs_code: i.hs_code || '00000000',
+          quantity: i.quantity,
+          unit_price_minor: i.unit_price_minor,
+          tax_rate_basis_points: i.tax_rate_basis_points || 1800,
+          tax_amount_minor: i.tax_minor || 0,
+          line_total_minor: i.total_minor || 0,
+        })),
+      };
+
+      const res = await fetch(`${cleanUrl}/sales/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Idempotency-Key': item.sale.id,
+          ...(settings.terminal_code ? { 'X-Terminal-Code': settings.terminal_code } : {}),
+        },
+        body: JSON.stringify({ sales: [payload] }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.synced > 0) {
+          synced++;
+          item.sale.fbr_status = 'submitted';
+        } else {
+          failed++;
+          lastErr = JSON.stringify(data.errors || 'Validation error');
+        }
+      } else {
+        failed++;
+        lastErr = `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      failed++;
+      lastErr = e?.message || String(e);
+    }
+  }
+
+  saveStoredSales(sales);
+  return {
+    success: failed === 0,
+    synced_count: synced,
+    failed_count: failed,
+    remaining_count: failed,
+    message: failed === 0
+      ? `All ${synced} sales synced successfully!`
+      : `Synced ${synced} sales, ${failed} failed: ${lastErr}`,
+  };
+}
+
+export async function resetOutbox(): Promise<number> {
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<number>('reset_outbox_now');
+  }
   return 0;
+}
+
+export interface VersionStatus {
+  current_version: string;
+  latest_version: string;
+  is_outdated: boolean;
+  is_critical: boolean;
+  download_url?: string;
+  release_title?: string;
+}
+
+export async function checkTerminalVersion(currentVersion = '0.1.0'): Promise<VersionStatus | null> {
+  try {
+    const settings = await getSettings();
+    const baseUrl = (settings.api_base_url || 'https://01pos.01output.com/api/v1').replace(/\/$/, '');
+    const res = await fetch(`${baseUrl}/version/check?current_version=${encodeURIComponent(currentVersion)}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    // Ignore offline/network issues
+  }
+  return null;
 }
 
 export interface PairTerminalResult {

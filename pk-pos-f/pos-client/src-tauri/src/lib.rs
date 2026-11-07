@@ -27,6 +27,26 @@ fn get_pending_outbox_count(state: State<'_, AppState>) -> Result<i64, String> {
 }
 
 #[tauri::command]
+async fn sync_outbox_now(state: State<'_, AppState>) -> Result<worker::OutboxSyncResult, String> {
+    let base_url = {
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        let s = db::get_all_settings(&conn).unwrap_or_default();
+        if !s.api_base_url.trim().is_empty() {
+            s.api_base_url
+        } else {
+            "https://01pos.01output.com/api/v1".to_string()
+        }
+    };
+    Ok(worker::flush_outbox_now(Arc::clone(&state.db), base_url).await)
+}
+
+#[tauri::command]
+fn reset_outbox_now(state: State<'_, AppState>) -> Result<usize, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    db::reset_all_outbox_for_sync(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn enqueue_sale(state: State<'_, AppState>, sale_json: String) -> Result<String, String> {
     let mut conn = state.db.lock().map_err(|e| e.to_string())?;
     db::enqueue_sale_tx(&mut conn, &sale_json).map_err(|e| e.to_string())
@@ -235,6 +255,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_pending_outbox_count,
+            sync_outbox_now,
+            reset_outbox_now,
             enqueue_sale,
             process_sale,
             open_cash_drawer,

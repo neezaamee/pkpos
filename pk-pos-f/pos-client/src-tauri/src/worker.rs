@@ -19,6 +19,15 @@ pub fn calculate_backoff_seconds(attempt: u32, jitter: f64) -> f64 {
     base + jitter
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OutboxSyncResult {
+    pub success: bool,
+    pub synced_count: usize,
+    pub failed_count: usize,
+    pub remaining_count: i64,
+    pub message: String,
+}
+
 /// Handles the outcome of syncing an outbox record based on HTTP status code or network error.
 pub fn handle_sync_result(
     conn: &Connection,
@@ -30,6 +39,25 @@ pub fn handle_sync_result(
 ) -> Result<String, DbError> {
     match status_code {
         Some(200..=299) => {
+            // Check if backend returned synced: 0 with errors in JSON
+            if let Some(body) = error_msg {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(body) {
+                    if let Some(0) = val.get("synced").and_then(|v| v.as_i64()) {
+                        if let Some(errs) = val.get("errors").and_then(|v| v.as_array()) {
+                            if !errs.is_empty() {
+                                let err_str = serde_json::to_string(errs).unwrap_or_default();
+                                db::mark_outbox_permanently_failed(
+                                    conn,
+                                    record_id,
+                                    &format!("Backend rejected: {}", err_str),
+                                    None,
+                                )?;
+                                return Ok("rejected".to_string());
+                            }
+                        }
+                    }
+                }
+            }
             db::mark_outbox_completed(conn, record_id)?;
             Ok("completed".to_string())
         }
@@ -53,11 +81,172 @@ pub fn handle_sync_result(
                 let backoff_secs = calculate_backoff_seconds(new_attempts as u32, jitter);
                 let next_retry = Utc::now()
                     + chrono::Duration::milliseconds((backoff_secs * 1000.0) as i64);
-                let next_retry_str = next_retry.to_rfc3339();
+                let next_retry_str = next_retry.format("%Y-%m-%d %H:%M:%S").to_string();
                 db::mark_outbox_retry(conn, record_id, new_attempts, &next_retry_str, msg)?;
                 Ok("retrying".to_string())
             }
         }
+    }
+}
+
+/// Executes a synchronization round for pending outbox items.
+pub async fn sync_ready_outbox_records(
+    client: &reqwest::Client,
+    db: &Arc<Mutex<Connection>>,
+    default_base_url: &str,
+) -> (usize, usize, String) {
+    let (records, api_token, term_code, base_url) = {
+        let guard = match db.lock() {
+            Ok(g) => g,
+            Err(_) => return (0, 0, "Database lock failed".to_string()),
+        };
+        let s = db::get_all_settings(&guard).unwrap_or_default();
+        let tok = s.api_token;
+        let code = s.terminal_code;
+        let url = if !s.api_base_url.trim().is_empty() {
+            s.api_base_url
+        } else {
+            default_base_url.to_string()
+        };
+        let recs = match db::fetch_ready_outbox_records(&guard, 50) {
+            Ok(r) => r,
+            Err(_) => return (0, 0, "Fetch ready records failed".to_string()),
+        };
+        (recs, tok, code, url)
+    };
+
+    if records.is_empty() {
+        return (0, 0, String::new());
+    }
+
+    let mut synced_count = 0;
+    let mut failed_count = 0;
+    let mut last_err = String::new();
+
+    // Group records by operation_type
+    let mut groups: HashMap<String, Vec<OutboxRecord>> = HashMap::new();
+    for record in records {
+        groups
+            .entry(record.operation_type.clone())
+            .or_default()
+            .push(record);
+    }
+
+    for (op_type, group_records) in groups {
+        for record in group_records {
+            // Mark record as processing
+            {
+                if let Ok(guard) = db.lock() {
+                    let _ = db::mark_outbox_processing(&guard, &record.id);
+                }
+            }
+
+            let endpoint = match op_type.as_str() {
+                "sale" | "CREATE_SALE" => format!("{}/sales/sync", base_url.trim_end_matches('/')),
+                _ => format!("{}/stock-movements/sync", base_url.trim_end_matches('/')),
+            };
+
+            let mut req = client
+                .post(&endpoint)
+                .header("Idempotency-Key", &record.id)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json");
+
+            if let Some(ref tok) = api_token {
+                req = req.header("Authorization", format!("Bearer {}", tok));
+            }
+            if let Some(ref code) = term_code {
+                req = req.header("X-Terminal-Code", code);
+            }
+
+            let body_str = if op_type == "sale" || op_type == "CREATE_SALE" {
+                if !record.payload.starts_with("{\"sales\"") && !record.payload.starts_with('[') {
+                    format!("{{\"sales\":[{}]}}", record.payload)
+                } else {
+                    record.payload.clone()
+                }
+            } else {
+                record.payload.clone()
+            };
+
+            let resp_result = req.body(body_str).send().await;
+
+            let (status, text) = match resp_result {
+                Ok(resp) => {
+                    let status = resp.status().as_u16();
+                    let text = resp.text().await.unwrap_or_default();
+                    (Some(status), Some(text))
+                }
+                Err(err) => (None, Some(err.to_string())),
+            };
+
+            let jitter: f64 = rand::thread_rng().gen_range(0.0..1.0);
+
+            if let Ok(guard) = db.lock() {
+                let res = handle_sync_result(
+                    &guard,
+                    &record.id,
+                    record.attempt_count,
+                    status,
+                    text.as_deref(),
+                    jitter,
+                );
+                match res {
+                    Ok(ref s) if s == "completed" => synced_count += 1,
+                    _ => {
+                        failed_count += 1;
+                        if let Some(t) = text {
+                            last_err = t;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    (synced_count, failed_count, last_err)
+}
+
+/// Forces an immediate synchronization of all pending outbox records and resets retry timers.
+pub async fn flush_outbox_now(
+    db: Arc<Mutex<Connection>>,
+    default_base_url: String,
+) -> OutboxSyncResult {
+    // 1. Reset in-flight / retrying items so they can sync right now
+    {
+        if let Ok(guard) = db.lock() {
+            let _ = db::recover_in_flight_records(&guard);
+        }
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .unwrap_or_default();
+
+    let (synced, failed, err) = sync_ready_outbox_records(&client, &db, &default_base_url).await;
+    let remaining = db
+        .lock()
+        .ok()
+        .and_then(|g| db::get_pending_outbox_count(&g).ok())
+        .unwrap_or(0);
+
+    let message = if remaining == 0 && synced > 0 {
+        format!("All {} local sales synced to central server successfully!", synced)
+    } else if synced > 0 && failed > 0 {
+        format!("Synced {} sales. {} sales failed to sync: {}", synced, failed, err)
+    } else if failed > 0 {
+        format!("Sync failed ({} pending): {}", remaining, err)
+    } else {
+        "Outbox is empty. All local records are synced.".to_string()
+    };
+
+    OutboxSyncResult {
+        success: failed == 0,
+        synced_count: synced,
+        failed_count: failed,
+        remaining_count: remaining,
+        message,
     }
 }
 
@@ -72,105 +261,7 @@ pub async fn start_outbox_worker(db: Arc<Mutex<Connection>>, default_base_url: S
 
     loop {
         interval.tick().await;
-
-        let (records, api_token, term_code, base_url) = {
-            let guard = match db.lock() {
-                Ok(g) => g,
-                Err(_) => continue,
-            };
-            let s = db::get_all_settings(&guard).unwrap_or_default();
-            let tok = s.api_token;
-            let code = s.terminal_code;
-            let url = if !s.api_base_url.trim().is_empty() {
-                s.api_base_url
-            } else {
-                default_base_url.clone()
-            };
-            let recs = match db::fetch_ready_outbox_records(&guard, 50) {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-            (recs, tok, code, url)
-        };
-
-        if records.is_empty() {
-            continue;
-        }
-
-        // Group records by operation_type
-        let mut groups: HashMap<String, Vec<OutboxRecord>> = HashMap::new();
-        for record in records {
-            groups
-                .entry(record.operation_type.clone())
-                .or_default()
-                .push(record);
-        }
-
-        for (op_type, group_records) in groups {
-            for record in group_records {
-                // Mark record as processing
-                {
-                    if let Ok(guard) = db.lock() {
-                        let _ = db::mark_outbox_processing(&guard, &record.id);
-                    }
-                }
-
-                let endpoint = match op_type.as_str() {
-                    "sale" | "CREATE_SALE" => format!("{}/sales/sync", base_url.trim_end_matches('/')),
-                    _ => format!("{}/stock-movements/sync", base_url.trim_end_matches('/')),
-                };
-
-                let mut req = client
-                    .post(&endpoint)
-                    .header("Idempotency-Key", &record.id)
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "application/json");
-
-                if let Some(ref tok) = api_token {
-                    req = req.header("Authorization", format!("Bearer {}", tok));
-                }
-                if let Some(ref code) = term_code {
-                    req = req.header("X-Terminal-Code", code);
-                }
-
-                let body_str = if op_type == "sale" || op_type == "CREATE_SALE" {
-                    if !record.payload.starts_with("{\"sales\"") && !record.payload.starts_with('[') {
-                        format!("{{\"sales\":[{}]}}", record.payload)
-                    } else {
-                        record.payload.clone()
-                    }
-                } else {
-                    record.payload.clone()
-                };
-
-                let resp_result = req
-                    .body(body_str)
-                    .send()
-                    .await;
-
-                let (status, text) = match resp_result {
-                    Ok(resp) => {
-                        let status = resp.status().as_u16();
-                        let text = resp.text().await.unwrap_or_default();
-                        (Some(status), Some(text))
-                    }
-                    Err(err) => (None, Some(err.to_string())),
-                };
-
-                let jitter: f64 = rand::thread_rng().gen_range(0.0..1.0);
-
-                if let Ok(guard) = db.lock() {
-                    let _ = handle_sync_result(
-                        &guard,
-                        &record.id,
-                        record.attempt_count,
-                        status,
-                        text.as_deref(),
-                        jitter,
-                    );
-                }
-            }
-        }
+        let _ = sync_ready_outbox_records(&client, &db, &default_base_url).await;
     }
 }
 

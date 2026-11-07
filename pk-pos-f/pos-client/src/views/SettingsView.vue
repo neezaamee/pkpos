@@ -1,7 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import type { PosSettings } from '../types/pos';
-import { getSettings, saveSettings, testPrinter, openCashDrawer, syncCatalog, pairTerminal, clearLocalSales } from '../services/posService';
+import {
+  getSettings,
+  saveSettings,
+  testPrinter,
+  openCashDrawer,
+  syncCatalog,
+  syncOutboxNow,
+  resetOutbox,
+  getPendingOutboxCount,
+  pairTerminal,
+  clearLocalSales,
+  checkTerminalVersion,
+  type VersionStatus,
+} from '../services/posService';
 
 const settings = ref<PosSettings>({
   api_base_url: 'https://01pos.01output.com/api/v1',
@@ -139,8 +152,59 @@ async function handleResetTerminalData() {
   }
 }
 
+const outboxCount = ref(0);
+const outboxFeedback = ref<string | null>(null);
+const isOutboxSyncing = ref(false);
+const versionInfo = ref<VersionStatus | null>(null);
+
+async function refreshOutboxCount() {
+  try {
+    outboxCount.value = await getPendingOutboxCount();
+  } catch (e) {
+    // fallback
+  }
+}
+
+async function handleSyncOutbox() {
+  isOutboxSyncing.value = true;
+  outboxFeedback.value = 'Syncing queued sales to central server...';
+  try {
+    const res = await syncOutboxNow();
+    outboxFeedback.value = res.message;
+    await refreshOutboxCount();
+    setTimeout(() => { outboxFeedback.value = null; }, 5000);
+  } catch (e: any) {
+    outboxFeedback.value = 'Outbox sync error: ' + (e?.message || String(e));
+  } finally {
+    isOutboxSyncing.value = false;
+  }
+}
+
+async function handleResetOutbox() {
+  if (confirm('Force-reset retry timers for all queued sales so they retry immediately?')) {
+    isOutboxSyncing.value = true;
+    try {
+      const count = await resetOutbox();
+      outboxFeedback.value = `Reset ${count} queued records to ready state. Now syncing...`;
+      const res = await syncOutboxNow();
+      outboxFeedback.value = res.message;
+      await refreshOutboxCount();
+    } catch (e: any) {
+      outboxFeedback.value = 'Reset error: ' + (e?.message || String(e));
+    } finally {
+      isOutboxSyncing.value = false;
+    }
+  }
+}
+
+async function handleCheckVersion() {
+  versionInfo.value = await checkTerminalVersion('0.1.0');
+}
+
 onMounted(() => {
   loadSettingsData();
+  refreshOutboxCount();
+  handleCheckVersion();
 });
 </script>
 
@@ -250,6 +314,81 @@ onMounted(() => {
 
         <p v-if="saveFeedback" class="feedback-toast success">{{ saveFeedback }}</p>
         <p v-if="syncFeedback" class="feedback-toast info">{{ syncFeedback }}</p>
+      </div>
+
+      <!-- Section 1.5: Offline Sales Outbox & Sync -->
+      <div class="settings-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h3 class="card-title" style="margin: 0;">Offline Sales Outbox</h3>
+          <span
+            :style="{
+              padding: '0.25rem 0.75rem',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              background: outboxCount > 0 ? '#d97706' : '#059669',
+              color: '#ffffff'
+            }"
+          >
+            {{ outboxCount }} Pending Orders
+          </span>
+        </div>
+        <p class="card-desc">
+          Sales created offline or during network outages are queued locally in SQLite. The background worker attempts automatic syncing every 10 seconds. You can also manually push or force-reset them below.
+        </p>
+
+        <div class="card-actions" style="flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+          <button class="primary-btn" :disabled="isOutboxSyncing" @click="handleSyncOutbox">
+            {{ isOutboxSyncing ? 'Syncing Outbox...' : 'Sync Outbox Sales Now' }}
+          </button>
+          <button class="secondary-btn" :disabled="isOutboxSyncing" @click="handleResetOutbox" title="Clears retry backoff timers so queued sales attempt to sync right away" style="color: #fbbf24;">
+            Force-Reset &amp; Retry Outbox
+          </button>
+        </div>
+
+        <p v-if="outboxFeedback" class="feedback-toast info" style="margin-top: 0.75rem;">{{ outboxFeedback }}</p>
+      </div>
+
+      <!-- Section 1.6: Software Updates & Release Information -->
+      <div class="settings-card">
+        <h3 class="card-title">Software Updates &amp; Terminal Version</h3>
+        <p class="card-desc">Check for the latest desktop client releases published on Hostinger by your administrator.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; margin-bottom: 1rem;">
+          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.75rem; color: #9ca3af;">Installed Version</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #f3f4f6; font-family: monospace;">v0.1.0</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.75rem; color: #9ca3af;">Latest on Central Server</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #10b981; font-family: monospace;">
+              v{{ versionInfo?.latest_version || '0.1.0' }}
+            </div>
+          </div>
+        </div>
+
+        <div v-if="versionInfo?.is_outdated" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 0.5rem; padding: 0.85rem; margin-bottom: 1rem;">
+          <div style="font-weight: 700; color: #34d399; margin-bottom: 0.25rem;">
+            🚀 New Version Available: v{{ versionInfo.latest_version }}
+          </div>
+          <div style="font-size: 0.85rem; color: #d1d5db; margin-bottom: 0.75rem;">
+            {{ versionInfo.release_title || 'An updated POS release is available with stability and sync fixes.' }}
+          </div>
+          <a
+            :href="versionInfo.download_url || 'https://01pos.01output.com/downloads/desktop'"
+            target="_blank"
+            class="primary-btn"
+            style="display: inline-block; text-decoration: none;"
+          >
+            Download Latest PK-POS (.exe)
+          </a>
+        </div>
+
+        <div class="card-actions">
+          <button class="secondary-btn" @click="handleCheckVersion">
+            Check for Updates Now
+          </button>
+        </div>
       </div>
 
       <!-- Section 2: FBR Credentials (Read-Only) -->

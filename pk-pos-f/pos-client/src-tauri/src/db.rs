@@ -204,10 +204,19 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
-/// On app startup, reset all `processing` records to `pending` (crash recovery).
+/// On app startup, reset all `processing` and `retrying` records to `pending` (crash recovery).
 pub fn recover_in_flight_records(conn: &Connection) -> Result<usize, DbError> {
     let count = conn.execute(
-        "UPDATE sync_outbox SET status = 'pending' WHERE status = 'processing'",
+        "UPDATE sync_outbox SET status = 'pending', next_retry_at = NULL WHERE status IN ('processing', 'retrying')",
+        [],
+    )?;
+    Ok(count)
+}
+
+/// Force reset all outbox records that are not completed so they immediately attempt to sync.
+pub fn reset_all_outbox_for_sync(conn: &Connection) -> Result<usize, DbError> {
+    let count = conn.execute(
+        "UPDATE sync_outbox SET status = 'pending', next_retry_at = NULL WHERE status != 'completed'",
         [],
     )?;
     Ok(count)
@@ -409,7 +418,7 @@ pub fn fetch_ready_outbox_records(
                next_retry_at, last_error, created_at, completed_at
         FROM sync_outbox
         WHERE status IN ('pending', 'retrying')
-          AND (next_retry_at IS NULL OR next_retry_at <= datetime('now'))
+          AND (next_retry_at IS NULL OR datetime(next_retry_at) <= datetime('now') OR next_retry_at <= datetime('now'))
         ORDER BY created_at ASC
         LIMIT ?1
         "#,
