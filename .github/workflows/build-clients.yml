@@ -103,12 +103,15 @@ jobs:
           echo "=== Installed NDK directories ==="
           ls -la /usr/local/lib/android/sdk/ndk || true
 
-          # Find highest stable NDK (27.*, 26.*, 25.*), explicitly ignoring 30.* or higher experimental versions
-          NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 ! -name "*30*" 2>/dev/null | sort -V | tail -n 1)
+          # Pick LTS NDK 27 (or 26) which are officially supported by Android Gradle Plugin and Tauri 2
+          NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -name "27.*" 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
-            echo "Installing NDK via sdkmanager..."
+            NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -name "26.*" 2>/dev/null | sort -V | tail -n 1)
+          fi
+          if [ -z "$NDK_DIR" ] || [ ! -d "$NDK_DIR" ]; then
+            echo "Installing NDK 27.2.12479018 via sdkmanager..."
             yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.2.12479018" || true
-            NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 ! -name "*30*" 2>/dev/null | sort -V | tail -n 1)
+            NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -name "27.*" 2>/dev/null | sort -V | tail -n 1)
           fi
 
           echo "Selected NDK: $NDK_DIR"
@@ -186,17 +189,12 @@ jobs:
         working-directory: pk-pos-f/pos-client
         run: npm ci
 
-      - name: Install cargo-ndk
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-ndk
-
-      - name: Pre-compile Rust Library with cargo-ndk
+      - name: Pre-compile Rust Library for Android
         working-directory: pk-pos-f/pos-client/src-tauri
         run: |
           set -e
           set -o pipefail
-          cargo ndk -t arm64-v8a -p 24 build --lib --release 2>&1 | tee ../cargo_ndk.log
+          cargo build --target aarch64-linux-android --release 2>&1 | tee ../cargo_precompile.log
           mkdir -p gen/android/app/src/main/jniLibs/arm64-v8a
           cp target/aarch64-linux-android/release/libpos_client_lib.so gen/android/app/src/main/jniLibs/arm64-v8a/ || true
 
