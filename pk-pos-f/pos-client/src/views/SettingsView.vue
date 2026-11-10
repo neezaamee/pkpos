@@ -13,6 +13,8 @@ import {
   pairTerminal,
   clearLocalSales,
   checkTerminalVersion,
+  APP_VERSION,
+  isAndroidDevice,
   type VersionStatus,
 } from '../services/posService';
 
@@ -198,7 +200,7 @@ async function handleResetOutbox() {
 }
 
 async function handleCheckVersion() {
-  versionInfo.value = await checkTerminalVersion('0.1.0');
+  versionInfo.value = await checkTerminalVersion(APP_VERSION);
 }
 
 onMounted(() => {
@@ -217,10 +219,10 @@ onMounted(() => {
 
     <div class="settings-grid">
       <!-- Section 0: Hardware Terminal Fleet Pairing -->
-      <div class="settings-card" style="grid-column: 1 / -1; border: 1px solid #6366f1; background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%);">
+      <div class="settings-card pairing-card" style="grid-column: 1 / -1;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
           <div>
-            <h3 class="card-title" style="color: #a5b4fc; display: flex; align-items: center; gap: 0.5rem;">
+            <h3 class="card-title pairing-card-title" style="display: flex; align-items: center; gap: 0.5rem;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                 <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -244,17 +246,16 @@ onMounted(() => {
           </div>
         </div>
 
-        <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; align-items: center; flex-wrap: wrap;">
+        <div class="pairing-input-row">
           <input
             type="text"
             v-model="pairingCode"
             maxlength="12"
             placeholder="Enter 8-char Code (e.g. 7X9B2K4A)"
-            style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.1rem; max-width: 340px; font-weight: 700;"
-            class="form-input"
+            class="form-input pairing-code-input"
             @keyup.enter="handlePair"
           />
-          <button class="primary-btn" :disabled="isPairing || !pairingCode.trim()" @click="handlePair" style="background: #6366f1;">
+          <button class="primary-btn pairing-btn" :disabled="isPairing || !pairingCode.trim()" @click="handlePair">
             {{ isPairing ? 'Pairing Hardware...' : 'Pair Terminal Now' }}
           </button>
         </div>
@@ -352,17 +353,17 @@ onMounted(() => {
       <!-- Section 1.6: Software Updates & Release Information -->
       <div class="settings-card">
         <h3 class="card-title">Software Updates &amp; Terminal Version</h3>
-        <p class="card-desc">Check for the latest desktop client releases published on Hostinger by your administrator.</p>
+        <p class="card-desc">Check for the latest client releases published on Hostinger by your administrator.</p>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; margin-bottom: 1rem;">
-          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.08);">
-            <div style="font-size: 0.75rem; color: #9ca3af;">Installed Version</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #f3f4f6; font-family: monospace;">v0.1.0</div>
+        <div class="version-boxes-grid">
+          <div class="version-box">
+            <div class="version-label">Installed Version</div>
+            <div class="version-val">v{{ APP_VERSION }}</div>
           </div>
-          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.08);">
-            <div style="font-size: 0.75rem; color: #9ca3af;">Latest on Central Server</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #10b981; font-family: monospace;">
-              v{{ versionInfo?.latest_version || '0.1.0' }}
+          <div class="version-box">
+            <div class="version-label">Latest on Central Server</div>
+            <div class="version-val version-latest">
+              v{{ versionInfo?.latest_version || APP_VERSION }}
             </div>
           </div>
         </div>
@@ -380,7 +381,7 @@ onMounted(() => {
             class="primary-btn"
             style="display: inline-block; text-decoration: none;"
           >
-            Download Latest PK-POS (.exe)
+            {{ isAndroidDevice() ? 'Download Latest PK-POS (.apk)' : 'Download Latest PK-POS (.exe)' }}
           </a>
         </div>
 
@@ -514,7 +515,10 @@ onMounted(() => {
 <style scoped>
 .settings-container {
   padding: 1.5rem;
-  height: calc(100vh - 64px);
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
   overflow-y: auto;
   box-sizing: border-box;
   background: #0f172a;
@@ -542,7 +546,7 @@ onMounted(() => {
 
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
   gap: 1.5rem;
 }
 
@@ -553,6 +557,69 @@ onMounted(() => {
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.pairing-card {
+  border: 1px solid #6366f1;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, rgba(15, 23, 42, 0.5) 100%);
+}
+
+.pairing-card-title {
+  color: #a5b4fc;
+}
+
+.pairing-input-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pairing-code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: monospace;
+  font-size: 1.1rem;
+  width: 100%;
+  max-width: 340px;
+  font-weight: 700;
+}
+
+.pairing-btn {
+  background: #6366f1;
+}
+
+.version-boxes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.version-box {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.version-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.version-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f3f4f6;
+  font-family: monospace;
+}
+
+.version-latest {
+  color: #10b981;
 }
 
 .card-title {
@@ -590,6 +657,8 @@ onMounted(() => {
 }
 
 .form-input, .form-select {
+  width: 100%;
+  min-width: 0;
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 0.5rem;
@@ -617,7 +686,8 @@ onMounted(() => {
 
 .card-actions {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   margin-top: auto;
   padding-top: 0.75rem;
 }
@@ -681,5 +751,48 @@ onMounted(() => {
   background: rgba(59, 130, 246, 0.15);
   border: 1px solid #3b82f6;
   color: #60a5fa;
+}
+
+@media (max-width: 640px) {
+  .settings-container {
+    padding: 0.9rem;
+  }
+
+  .settings-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+  }
+
+  .settings-title {
+    font-size: 1.25rem;
+  }
+
+  .settings-grid {
+    gap: 1rem;
+  }
+
+  .settings-card {
+    padding: 1rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .pairing-code-input {
+    max-width: 100%;
+    font-size: 1rem;
+  }
+
+  .pairing-btn {
+    width: 100%;
+  }
+
+  .card-actions .primary-btn,
+  .card-actions .secondary-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
 }
 </style>

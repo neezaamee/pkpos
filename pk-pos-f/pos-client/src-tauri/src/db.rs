@@ -653,7 +653,7 @@ pub fn clear_product_cache(conn: &Connection) -> Result<(), DbError> {
 pub fn clear_local_sales(conn: &Connection) -> Result<(), DbError> {
     conn.execute("DELETE FROM local_sale_items", [])?;
     conn.execute("DELETE FROM local_sales", [])?;
-    conn.execute("DELETE FROM outbox", [])?;
+    conn.execute("DELETE FROM sync_outbox", [])?;
     Ok(())
 }
 

@@ -7,6 +7,12 @@ import type {
   ProcessResult,
 } from '../types/pos';
 
+export const APP_VERSION = '0.1.1';
+
+export function isAndroidDevice(): boolean {
+  return typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent);
+}
+
 function isTauri(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -568,7 +574,7 @@ export interface VersionStatus {
   release_title?: string;
 }
 
-export async function checkTerminalVersion(currentVersion = '0.1.0'): Promise<VersionStatus | null> {
+export async function checkTerminalVersion(currentVersion = APP_VERSION): Promise<VersionStatus | null> {
   try {
     const settings = await getSettings();
     const baseUrl = (settings.api_base_url || 'https://01pos.01output.com/api/v1').replace(/\/$/, '');
@@ -609,8 +615,8 @@ export async function pairTerminal(pairingCode: string, customBaseUrl?: string):
     pairing_token: pairingCode.trim().toUpperCase(),
     hardware_uuid: hwUuid,
     hostname: 'TERMINAL-' + hwUuid.substring(0, 8).toUpperCase(),
-    platform_os: isTauri() ? 'windows-tauri' : 'browser-client',
-    app_version: '0.1.0',
+    platform_os: isTauri() ? (isAndroidDevice() ? 'android-tauri' : 'windows-tauri') : 'browser-client',
+    app_version: APP_VERSION,
   };
 
   try {
@@ -697,7 +703,7 @@ export async function sendHeartbeat(): Promise<{ status: string; is_active: bool
     terminal_code: settings.terminal_code || undefined,
     terminal_id: settings.terminal_id || undefined,
     hardware_uuid: hwUuid || undefined,
-    app_version: '0.1.0',
+    app_version: APP_VERSION,
   };
 
   try {

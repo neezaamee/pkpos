@@ -164,6 +164,46 @@ onMounted(() => {
       </table>
     </div>
 
+    <!-- Mobile Sales Card List (<= 768px) -->
+    <div class="mobile-sales-cards">
+      <div v-if="sales.length === 0 && !isLoading" class="empty-mobile-card">
+        No sales recorded yet. Completed sales will appear here.
+      </div>
+      <div
+        v-for="s in sales"
+        :key="'m_' + s.id"
+        class="sale-card-mobile"
+        @click="viewSaleDetails(s.id)"
+      >
+        <div class="m-card-top">
+          <span class="sale-num-cell">{{ s.sale_number }}</span>
+          <span
+            class="status-badge"
+            :class="{
+              submitted: s.fbr_status === 'submitted',
+              offline: s.fbr_status === 'offline',
+              failed: s.fbr_status === 'failed' || s.fbr_status === 'rejected',
+            }"
+          >
+            {{ s.fbr_status }}
+          </span>
+        </div>
+
+        <div class="m-card-meta">
+          <span>{{ formatDateTime(s.created_at) }}</span>
+          <span>{{ s.items_count }} items &bull; <span class="cap">{{ s.payment_method }}</span></span>
+          <span v-if="s.fbr_usin" class="usin-cell">USIN: {{ s.fbr_usin }}</span>
+        </div>
+
+        <div class="m-card-bottom">
+          <span class="total-cell m-total-val">{{ formatPKR(s.total_minor) }}</span>
+          <button class="action-btn" @click.stop="viewSaleDetails(s.id)">
+            View & Reprint
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Sale Detail & Reprint Modal -->
     <div v-if="selectedSale" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
@@ -257,7 +297,10 @@ onMounted(() => {
 <style scoped>
 .history-container {
   padding: 1.5rem;
-  height: calc(100vh - 64px);
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
   overflow-y: auto;
   box-sizing: border-box;
   background: #0f172a;
@@ -268,6 +311,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #1e293b;
@@ -289,7 +334,8 @@ onMounted(() => {
 .summary-stats {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .stat-pill {
@@ -337,7 +383,7 @@ onMounted(() => {
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: 0.75rem;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .sales-table {
@@ -637,5 +683,115 @@ onMounted(() => {
 
 .cap {
   text-transform: capitalize;
+}
+
+.mobile-sales-cards {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .history-container {
+    padding: 0.9rem;
+  }
+
+  .history-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+  }
+
+  .history-title {
+    font-size: 1.25rem;
+  }
+
+  .summary-stats {
+    width: 100%;
+  }
+
+  .stat-pill {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+  }
+
+  .table-container {
+    display: none;
+  }
+
+  .mobile-sales-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .empty-mobile-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 0.75rem;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .sale-card-mobile {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    cursor: pointer;
+  }
+
+  .m-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .m-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+
+  .m-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.45rem;
+    border-top: 1px solid #283548;
+  }
+
+  .m-total-val {
+    font-size: 1.05rem;
+  }
+
+  .modal-card {
+    max-height: 90dvh;
+    overflow-y: auto;
+    padding: 1.15rem;
+  }
+
+  .detail-status-bar {
+    flex-wrap: wrap;
+    gap: 0.65rem 1.25rem;
+  }
+
+  .items-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .reprint-btn,
+  .dismiss-btn {
+    flex: 1 1 140px;
+  }
 }
 </style>

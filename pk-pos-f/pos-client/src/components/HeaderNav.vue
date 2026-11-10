@@ -7,6 +7,7 @@ import {
   getSettings,
   sendHeartbeat,
   checkTerminalVersion,
+  APP_VERSION,
   type VersionStatus,
 } from '../services/posService';
 
@@ -132,7 +133,7 @@ async function triggerCatalogSync() {
 
 async function checkAppVersion() {
   try {
-    const status = await checkTerminalVersion('0.1.0');
+    const status = await checkTerminalVersion(APP_VERSION);
     if (status && status.is_outdated) {
       updateAvailable.value = status;
     }
@@ -194,7 +195,7 @@ onUnmounted(() => {
       <span class="station-badge">{{ terminalCode }}</span>
       <div class="network-badge" :class="isOnline ? 'online' : 'offline'">
         <span class="dot"></span>
-        {{ isOnline ? 'Online' : 'Offline Mode' }}
+        <span>{{ isOnline ? 'Online' : 'Offline' }}<span v-if="!isOnline" class="mobile-hide-inline"> Mode</span></span>
       </div>
     </div>
 
@@ -218,7 +219,7 @@ onUnmounted(() => {
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        Sale History <span class="shortcut">Alt 2</span>
+        <span><span class="mobile-hide-inline">Sale </span>History</span> <span class="shortcut">Alt 2</span>
       </button>
 
       <button
@@ -257,10 +258,6 @@ onUnmounted(() => {
         <span v-else>🌙</span>
       </button>
 
-      <div v-if="syncFeedback" class="sync-toast">
-        {{ syncFeedback }}
-      </div>
-
       <!-- Outbox Indicator with 1-Click Sync -->
       <button
         class="outbox-indicator clickable"
@@ -290,10 +287,15 @@ onUnmounted(() => {
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
-        {{ isSyncing ? 'Syncing...' : 'Sync All' }}
+        <span>{{ isSyncing ? 'Syncing...' : 'Sync' }}</span>
+        <span class="sync-all-suffix" v-if="!isSyncing">&nbsp;All</span>
       </button>
     </div>
   </header>
+
+  <div v-if="syncFeedback" class="sync-toast-floating">
+    {{ syncFeedback }}
+  </div>
 </template>
 
 <style scoped>
@@ -541,14 +543,138 @@ onUnmounted(() => {
 .icon {
   width: 1rem;
   height: 1rem;
+  flex-shrink: 0;
 }
 
 .spin {
   animation: spin 1s linear infinite;
 }
 
+.sync-toast-floating {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  max-width: calc(100vw - 2rem);
+  text-align: center;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Tablet & Mobile Responsive Header */
+@media (max-width: 960px) {
+  .header-nav {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 0.45rem 0.75rem;
+    gap: 0.45rem;
+    flex-shrink: 0;
+  }
+
+  .brand-section {
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .brand-logo {
+    font-size: 1.05rem;
+  }
+
+  .station-badge {
+    font-size: 0.68rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .network-badge {
+    font-size: 0.68rem;
+    padding: 0.18rem 0.5rem;
+  }
+
+  .actions-section {
+    gap: 0.35rem;
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .theme-toggle-btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+    min-height: 32px;
+  }
+
+  .outbox-indicator.clickable {
+    padding: 0.25rem 0.4rem;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+  }
+
+  .outbox-badge {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .sync-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+    min-height: 32px;
+    gap: 0.25rem;
+  }
+
+  .sync-all-suffix,
+  .shortcut,
+  .mobile-hide-inline {
+    display: none;
+  }
+
+  .nav-tabs {
+    order: 3;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+  }
+
+  .tab-btn {
+    justify-content: center;
+    padding: 0.45rem 0.3rem;
+    font-size: 0.78rem;
+    gap: 0.35rem;
+    min-height: 36px;
+    white-space: nowrap;
+  }
+
+  .update-pill {
+    font-size: 0.68rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .sync-toast-floating {
+    top: 96px;
+    width: calc(100vw - 1.5rem);
+  }
+}
+
+@media (max-width: 440px) {
+  .station-badge {
+    display: none;
+  }
+
+  .outbox-label {
+    font-size: 0.68rem;
+  }
 }
 </style>

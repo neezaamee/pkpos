@@ -18,6 +18,16 @@ const products = ref<CachedProduct[]>([]);
 const isSearching = ref(false);
 const cart = ref<CartItem[]>([]);
 const searchInputRef = ref<HTMLInputElement | null>(null);
+const mobileSection = ref<'products' | 'cart' | 'pay'>('products');
+
+const cartUnitsCount = computed(() => {
+  return cart.value.reduce((acc, item) => acc + item.quantity, 0);
+});
+
+function isTouchOrCompactViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth <= 960 || window.matchMedia('(pointer: coarse)').matches;
+}
 
 // Product Variant Selection State
 const showVariantModal = ref(false);
@@ -265,7 +275,10 @@ function setQuickTender(amount: number) {
   amountTendered.value = amount;
 }
 
-function focusSearch() {
+function focusSearch(desktopOnly = true) {
+  if (desktopOnly && isTouchOrCompactViewport()) {
+    return;
+  }
   nextTick(() => {
     searchInputRef.value?.focus();
   });
@@ -540,6 +553,7 @@ async function handleCompleteSale() {
 function closeConfirmationModal() {
   showConfirmation.value = false;
   completedResult.value = null;
+  mobileSection.value = 'products';
   clearCart();
 }
 
@@ -569,7 +583,7 @@ onUnmounted(() => {
         <button class="s-pill" :class="{ active: discountPercent > 0 }" @click="openDiscountModal">
           <kbd>F3</kbd> Discount <span v-if="discountPercent > 0">({{ discountPercent }}%)</span>
         </button>
-        <button class="s-pill" @click="focusSearch">
+        <button class="s-pill" @click="mobileSection = 'products'; focusSearch(false);">
           <kbd>F4</kbd> Search
         </button>
         <button class="s-pill" :disabled="cart.length === 0" @click="parkCurrentSale">
@@ -595,7 +609,7 @@ onUnmounted(() => {
     <!-- 3-COLUMN MAIN WORKSPACE -->
     <div class="checkout-main-grid">
       <!-- COLUMN 1: Product Catalog & Search (~34% width) -->
-      <div class="col-catalog">
+      <div class="col-catalog" :class="{ 'mobile-panel-active': mobileSection === 'products' }">
         <div class="search-box">
           <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -658,7 +672,7 @@ onUnmounted(() => {
       </div>
 
       <!-- COLUMN 2: Full-Height Cart Items List (~40% width) -->
-      <div class="col-cart">
+      <div class="col-cart" :class="{ 'mobile-panel-active': mobileSection === 'cart' }">
         <div class="cart-header">
           <div class="cart-title-row">
             <h2 class="cart-title">Order Basket</h2>
@@ -678,6 +692,9 @@ onUnmounted(() => {
             </svg>
             <p class="empty-hint">Cart is empty.</p>
             <span class="empty-sub">Scan barcode or enter 5*barcode to ring items.</span>
+            <button class="mobile-browse-btn" @click="mobileSection = 'products'">
+              Browse Products
+            </button>
           </div>
 
           <div v-for="item in cart" :key="item.variant ? item.product.id + '_' + item.variant.id : item.product.id" class="cart-item-row">
@@ -717,7 +734,7 @@ onUnmounted(() => {
       </div>
 
       <!-- COLUMN 3: Totals, Settlement & Financial Calculations (~26% width) -->
-      <div class="col-settlement">
+      <div class="col-settlement" :class="{ 'mobile-panel-active': mobileSection === 'pay' }">
         <div class="settlement-header">
           <h3 class="settlement-title">Summary & Payment</h3>
           <span class="fiscal-tag">FBR Tax Ready</span>
@@ -847,6 +864,58 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Mobile Sticky Cart Summary Bar (visible <= 960px when cart has items) -->
+    <div
+      v-if="cart.length > 0 && mobileSection !== 'pay'"
+      class="mobile-sticky-bar"
+    >
+      <div class="sticky-summary" @click="mobileSection = 'cart'">
+        <span class="sticky-count">{{ cartUnitsCount }} {{ cartUnitsCount === 1 ? 'item' : 'items' }}</span>
+        <span class="sticky-total">{{ formatPKR(totalMinor) }}</span>
+      </div>
+      <button class="sticky-pay-btn" @click="mobileSection = 'pay'">
+        Pay Now &rarr;
+      </button>
+    </div>
+
+    <!-- Mobile Bottom 3-Tab Switcher (visible <= 960px) -->
+    <div class="mobile-bottom-tabs">
+      <button
+        class="mobile-tab-btn"
+        :class="{ active: mobileSection === 'products' }"
+        @click="mobileSection = 'products'"
+      >
+        <svg class="m-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+        </svg>
+        <span>Products</span>
+        <span class="m-tab-pill" v-if="products.length > 0">{{ products.length }}</span>
+      </button>
+
+      <button
+        class="mobile-tab-btn"
+        :class="{ active: mobileSection === 'cart' }"
+        @click="mobileSection = 'cart'"
+      >
+        <svg class="m-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <span>Basket</span>
+        <span class="m-tab-badge" v-if="cartUnitsCount > 0">{{ cartUnitsCount }}</span>
+      </button>
+
+      <button
+        class="mobile-tab-btn"
+        :class="{ active: mobileSection === 'pay' }"
+        @click="mobileSection = 'pay'"
+      >
+        <svg class="m-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <span>Pay</span>
+      </button>
+    </div>
+
     <!-- Product Variant Selection Modal -->
     <div v-if="showVariantModal && selectedProductForVariants" class="modal-overlay" @click.self="showVariantModal = false">
       <div class="modal-card variant-selector-modal" style="max-width: 540px; width: 92%;">
@@ -913,7 +982,7 @@ onUnmounted(() => {
     <div v-if="showCustomerModal" class="modal-overlay" @click.self="showCustomerModal = false">
       <div class="modal-card">
         <h3 class="modal-title">Customer Identification</h3>
-        <p class="modal-sub">Required for B2B or invoices $\ge$ Rs 100,000</p>
+        <p class="modal-sub">Required for B2B or invoices &ge; Rs 100,000</p>
         <div class="form-group-pos">
           <label>Customer / Business Name</label>
           <input v-model="customerDetails.name" class="pos-input" placeholder="e.g. Al-Madina Traders" />
@@ -1035,7 +1104,10 @@ onUnmounted(() => {
 .checkout-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
   overflow: hidden;
   background: #0a0f1d;
 }
@@ -1139,8 +1211,9 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 34% 41% 25%;
   flex: 1;
+  min-height: 0;
+  width: 100%;
   overflow: hidden;
-  height: calc(100vh - 64px - 38px);
 }
 
 @media (max-width: 1440px) {
@@ -1161,6 +1234,8 @@ onUnmounted(() => {
   flex-direction: column;
   border-right: 1px solid #1e293b;
   overflow: hidden;
+  min-height: 0;
+  min-width: 0;
   background: #0f172a;
 }
 
@@ -1179,10 +1254,12 @@ onUnmounted(() => {
   width: 1.25rem;
   height: 1.25rem;
   color: #94a3b8;
+  flex-shrink: 0;
 }
 
 .search-input {
   flex: 1;
+  min-width: 0;
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 0.5rem;
@@ -1312,6 +1389,8 @@ onUnmounted(() => {
   flex-direction: column;
   border-right: 1px solid #1e293b;
   overflow: hidden;
+  min-height: 0;
+  min-width: 0;
   background: #111827;
 }
 
@@ -1541,6 +1620,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  min-height: 0;
+  min-width: 0;
   background: #0a0f1d;
   padding: 0.85rem 1.15rem;
   gap: 0.75rem;
@@ -2221,5 +2302,349 @@ kbd {
 
 .variant-option-card:hover .variant-opt-add {
   background: #1d4ed8;
+}
+
+.mobile-browse-btn,
+.mobile-sticky-bar,
+.mobile-bottom-tabs {
+  display: none;
+}
+
+/* Mobile & Portrait Tablet Checkout (<= 960px) */
+@media (max-width: 960px) {
+  .shortcuts-command-bar {
+    height: auto;
+    padding: 0.4rem 0.65rem;
+    gap: 0.5rem;
+  }
+
+  .shortcut-pills-row {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 1px;
+  }
+
+  .shortcut-pills-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .s-pill {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 30px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .s-pill kbd,
+  .scanner-status-indicator,
+  .next-sale-btn .shortcut {
+    display: none;
+  }
+
+  .checkout-main-grid {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .col-catalog,
+  .col-cart,
+  .col-settlement {
+    display: none;
+    flex: 1;
+    width: 100%;
+    border-right: none;
+    min-height: 0;
+  }
+
+  .col-catalog.mobile-panel-active,
+  .col-cart.mobile-panel-active,
+  .col-settlement.mobile-panel-active {
+    display: flex;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    padding: 0.75rem;
+    gap: 0.65rem;
+  }
+
+  .mobile-browse-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1rem;
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .mobile-sticky-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: #1e293b;
+    border-top: 1px solid #334155;
+    padding: 0.5rem 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .sticky-summary {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .sticky-count {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  .sticky-total {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #10b981;
+  }
+
+  .sticky-pay-btn {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+  }
+
+  .mobile-bottom-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: #111827;
+    border-top: 1px solid #1f2937;
+    flex-shrink: 0;
+  }
+
+  .mobile-tab-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: none;
+    border-top: 2px solid transparent;
+    color: #94a3b8;
+    padding: 0.65rem 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 48px;
+  }
+
+  .mobile-tab-btn.active {
+    color: #ffffff;
+    background: rgba(37, 99, 235, 0.14);
+    border-top-color: #3b82f6;
+  }
+
+  .m-tab-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .m-tab-pill {
+    font-size: 0.68rem;
+    background: #1e293b;
+    color: #cbd5e1;
+    padding: 0.05rem 0.4rem;
+    border-radius: 9999px;
+  }
+
+  .m-tab-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    background: #2563eb;
+    color: #ffffff;
+    padding: 0.08rem 0.42rem;
+    border-radius: 9999px;
+  }
+
+  .modal-overlay {
+    padding: 0.75rem;
+    overflow-y: auto;
+  }
+
+  .modal-card {
+    max-height: 88dvh;
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+}
+
+/* Smartphone Layout Refinements (<= 600px) */
+@media (max-width: 600px) {
+  .search-box {
+    padding: 0.55rem 0.65rem;
+    gap: 0.5rem;
+  }
+
+  .search-input {
+    font-size: 16px;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    padding: 0.6rem;
+  }
+
+  .product-card {
+    padding: 0.65rem;
+    min-height: 92px;
+  }
+
+  .product-name {
+    font-size: 0.84rem;
+    word-break: break-word;
+  }
+
+  .product-meta {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .price-tag {
+    font-size: 0.95rem;
+  }
+
+  .cart-header {
+    padding: 0.65rem 0.85rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .cart-title {
+    font-size: 1rem;
+  }
+
+  .cart-items-list {
+    padding: 0.6rem;
+    gap: 0.5rem;
+  }
+
+  .cart-item-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'info remove'
+      'qty total';
+    align-items: center;
+    gap: 0.55rem 0.45rem;
+    padding: 0.7rem 0.75rem;
+  }
+
+  .item-info {
+    grid-area: info;
+  }
+
+  .item-name {
+    white-space: normal;
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .item-sub {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .remove-line-btn {
+    grid-area: remove;
+    justify-self: end;
+    align-self: start;
+    font-size: 1.35rem;
+    padding: 0.1rem 0.3rem;
+  }
+
+  .item-qty-controls {
+    grid-area: qty;
+    justify-self: start;
+  }
+
+  .qty-btn {
+    width: 36px;
+    height: 34px;
+    font-size: 1.1rem;
+  }
+
+  .qty-input {
+    width: 42px;
+    height: 34px;
+    font-size: 0.95rem;
+  }
+
+  .item-total {
+    grid-area: total;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .col-settlement {
+    padding: 0.75rem;
+    gap: 0.65rem;
+  }
+
+  .payment-method-selector {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+  }
+
+  .pay-method-btn {
+    min-height: 42px;
+    font-size: 0.85rem;
+  }
+
+  .quick-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 0.4rem;
+  }
+
+  .chip-btn {
+    min-height: 38px;
+    min-width: 0;
+  }
+
+  .tender-input {
+    font-size: 1.15rem;
+  }
+
+  .variant-option-card {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .variant-opt-right {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 </style>

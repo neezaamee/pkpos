@@ -1,6 +1,6 @@
 [package]
 name = "pos-client"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pakistan POS Foundation Client"
 edition = "2021"
 
