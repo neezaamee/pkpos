@@ -34,13 +34,28 @@ class SuperAdminTenantController extends Controller
     public function index(Request $request): Response
     {
         $search = $request->input('search');
+        $status = $request->input('status');
+        $province = $request->input('province');
 
-        $tenants = Tenant::query()
+        $query = Tenant::query()
             ->when($search, function ($query, $search) {
                 $query->where(function ($sub) use ($search) {
                     $sub->whereLike('name', "%{$search}%")
-                        ->orWhereLike('ntn', "%{$search}%");
+                        ->orWhereLike('ntn', "%{$search}%")
+                        ->orWhereLike('strn', "%{$search}%")
+                        ->orWhereHas('users', function ($uq) use ($search) {
+                            $uq->withoutGlobalScope(TenantScope::class)->whereLike('email', "%{$search}%");
+                        });
                 });
+            })
+            ->when($status === 'active', function ($q) {
+                $q->whereNull('suspended_at');
+            })
+            ->when($status === 'suspended', function ($q) {
+                $q->whereNotNull('suspended_at');
+            })
+            ->when($province && $province !== 'all', function ($q) use ($province) {
+                $q->where('province', $province);
             })
             ->with([
                 'users' => function ($q) {
@@ -60,8 +75,21 @@ class SuperAdminTenantController extends Controller
                 'locations' => function ($q) {
                     $q->withoutGlobalScopes();
                 },
-            ])
-            ->latest()
+            ]);
+
+        $totalTenants = Tenant::count();
+        $activeTenants = Tenant::whereNull('suspended_at')->count();
+        $suspendedTenants = Tenant::whereNotNull('suspended_at')->count();
+        $totalTerminals = PosTerminal::withoutGlobalScopes()->where('is_active', true)->count();
+
+        $metrics = [
+            'total_tenants' => $totalTenants,
+            'active_tenants' => $activeTenants,
+            'suspended_tenants' => $suspendedTenants,
+            'total_terminals' => $totalTerminals,
+        ];
+
+        $tenants = $query->latest()
             ->paginate(15)
             ->withQueryString()
             ->through(function ($tenant) {
@@ -75,6 +103,7 @@ class SuperAdminTenantController extends Controller
                     'ntn' => $tenant->ntn,
                     'strn' => $tenant->strn,
                     'province' => $tenant->province,
+                    'owner_name' => $owner?->name ?? 'Store Owner',
                     'owner_email' => $owner?->email ?? 'N/A',
                     'owner_id' => $owner?->id,
                     'plan_name' => $plan?->name ?? 'Free Tier',
@@ -84,15 +113,20 @@ class SuperAdminTenantController extends Controller
                     'locations_count' => $tenant->locations->count(),
                     'max_locations' => $plan?->max_locations,
                     'created_at' => $tenant->created_at?->format('Y-m-d H:i') ?? '',
+                    'created_at_human' => $tenant->created_at?->diffForHumans() ?? '',
                     'status' => $tenant->suspended_at ? 'suspended' : 'active',
                     'suspended_at' => $tenant->suspended_at?->format('Y-m-d H:i'),
+                    'suspended_reason' => $tenant->suspended_reason,
                 ];
             });
 
         return Inertia::render('SuperAdmin/Tenants/Index', [
             'tenants' => $tenants,
+            'metrics' => $metrics,
             'filters' => [
-                'search' => $search,
+                'search' => $search ?? '',
+                'status' => $status ?? '',
+                'province' => $province ?? '',
             ],
         ]);
     }

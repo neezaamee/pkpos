@@ -110,15 +110,15 @@
       </div>
 
       <!-- Filter Toolbar -->
-      <div class="card" style="padding: 1rem;">
+      <div class="card" style="padding: 1rem 1.25rem;">
         <form @submit.prevent="applyFilters" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-          <div style="flex: 1; min-width: 240px; position: relative;">
+          <div style="flex: 1; min-width: 260px; position: relative;">
             <input
               type="text"
               v-model="filterForm.q"
               placeholder="Search business name, application #, NTN, contact email..."
               class="form-control"
-              style="width: 100%; padding-left: 2.25rem;"
+              style="padding-left: 2.35rem;"
             />
             <svg
               width="16"
@@ -127,31 +127,38 @@
               fill="none"
               stroke="currentColor"
               stroke-width="2"
-              style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: #64748b;"
+              style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #64748b; pointer-events: none;"
             >
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
           </div>
 
-          <select v-model="filterForm.status" class="form-control" style="width: 170px;">
-            <option value="">All Statuses</option>
-            <option value="pending_review">Pending Review</option>
-            <option value="under_investigation">Under Investigation</option>
-            <option value="approved">Approved & Live</option>
-            <option value="rejected">Rejected</option>
-          </select>
+          <div style="min-width: 180px;">
+            <select v-model="filterForm.status" class="form-control">
+              <option value="">All Statuses</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="under_investigation">Under Investigation</option>
+              <option value="approved">Approved & Live</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
 
-          <select v-model="filterForm.province" class="form-control" style="width: 170px;">
-            <option value="">All Provinces</option>
-            <option value="punjab">Punjab</option>
-            <option value="sindh">Sindh</option>
-            <option value="kpk">KPK</option>
-            <option value="balochistan">Balochistan</option>
-            <option value="islamabad">Islamabad</option>
-          </select>
+          <div style="min-width: 180px;">
+            <select v-model="filterForm.province" class="form-control">
+              <option value="">All Provinces</option>
+              <option value="punjab">Punjab</option>
+              <option value="sindh">Sindh</option>
+              <option value="kpk">KPK</option>
+              <option value="balochistan">Balochistan</option>
+              <option value="islamabad">Islamabad</option>
+            </select>
+          </div>
 
-          <button type="submit" class="btn btn-secondary">
+          <button type="submit" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 0.4rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
             Filter
           </button>
           <button

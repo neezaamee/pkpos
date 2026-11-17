@@ -555,7 +555,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { router, usePage, useForm } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import SuperAdminLayout from '@/Layouts/SuperAdminLayout.vue';
 
 const props = defineProps({
@@ -571,14 +571,6 @@ const props = defineProps({
     type: Object,
     required: true,
   },
-  ip_whitelists: {
-    type: Array,
-    default: () => [],
-  },
-  current_ip: {
-    type: String,
-    default: '',
-  },
 });
 
 const page = usePage();
@@ -588,45 +580,6 @@ const isSuperAdmin = computed(() => staffRole.value === 'super_admin');
 const activeTab = ref('sessions');
 const isSubmitting = ref(false);
 const verificationCode = ref('');
-
-const addIpForm = useForm({
-  ip_address: '',
-  label: '',
-  notes: '',
-});
-
-const activeWhitelistCount = computed(() => (props.ip_whitelists || []).filter(r => r.is_active).length);
-const isCurrentIpWhitelisted = computed(() => (props.ip_whitelists || []).some(r => r.ip_address === props.current_ip));
-
-function addCurrentIp() {
-  addIpForm.ip_address = props.current_ip || '127.0.0.1';
-  if (!addIpForm.label) {
-    addIpForm.label = 'Current Location';
-  }
-}
-
-function submitAddIp() {
-  addIpForm.post('/superadmin/security/ip-whitelist', {
-    preserveScroll: true,
-    onSuccess: () => {
-      addIpForm.reset();
-    },
-  });
-}
-
-function toggleIpRule(rule) {
-  router.post(`/superadmin/security/ip-whitelist/${rule.id}/toggle`, {}, {
-    preserveScroll: true,
-  });
-}
-
-function deleteIpRule(rule) {
-  if (confirm(`Remove ${rule.ip_address} (${rule.label}) from Super Admin IP Whitelist?`)) {
-    router.delete(`/superadmin/security/ip-whitelist/${rule.id}`, {
-      preserveScroll: true,
-    });
-  }
-}
 
 function killSession(s) {
   if (confirm(`Terminate session for ${s.user?.name || s.ip_address}? The user will be logged out immediately.`)) {

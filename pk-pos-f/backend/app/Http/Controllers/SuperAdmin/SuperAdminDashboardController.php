@@ -111,7 +111,7 @@ class SuperAdminDashboardController extends Controller
             )
             ->groupBy('tenants.province')
             ->get()
-            ->map(fn ($r) => [
+            ->map(fn($r) => [
                 'province' => $r->province ?: 'other',
                 'tenant_count' => (int) $r->tenant_count,
                 'total_volume' => (int) $r->total_volume,
@@ -119,13 +119,13 @@ class SuperAdminDashboardController extends Controller
             ]);
 
         // 6. Top Merchants by Volume
-        $topMerchants = Tenant::withCount(['sales as total_sales' => fn ($q) => $q->withoutGlobalScope(TenantScope::class)])
-            ->withSum(['sales as total_volume' => fn ($q) => $q->withoutGlobalScope(TenantScope::class)], 'total_minor')
+        $topMerchants = Tenant::withCount(['sales as total_sales' => fn($q) => $q->withoutGlobalScope(TenantScope::class)])
+            ->withSum(['sales as total_volume' => fn($q) => $q->withoutGlobalScope(TenantScope::class)], 'total_minor')
             ->withCount('terminals')
             ->orderByDesc('total_volume')
             ->take(5)
             ->get()
-            ->map(fn ($t) => [
+            ->map(fn($t) => [
                 'id' => $t->id,
                 'name' => $t->name,
                 'province' => $t->province,
