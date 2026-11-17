@@ -55,7 +55,7 @@ Route::post('/apply', [PublicOnboardingController::class, 'store'])->name('apply
 Route::get('/downloads/desktop', [\App\Http\Controllers\Api\V1\ReleaseApiController::class, 'downloadLatestDesktop'])->name('downloads.desktop');
 
 // Super Admin platform routes
-Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+Route::middleware(['auth', 'superadmin', 'superadmin.ip_whitelist'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/dashboard', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
 
     // Tenant Mutations & Locations (Super Admin Only)
@@ -249,6 +249,9 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
         Route::post('/security/sessions/{id}/kill', [SuperAdminSecurityController::class, 'killSession'])->name('security.sessions.kill');
         Route::post('/security/sessions/kill-all', [SuperAdminSecurityController::class, 'killAllSessions'])->name('security.sessions.kill-all');
         Route::post('/security/enforce-2fa', [SuperAdminSecurityController::class, 'toggleEnforceStaff2fa'])->name('security.enforce-2fa');
+        Route::post('/security/ip-whitelist', [SuperAdminSecurityController::class, 'storeIpWhitelist'])->name('security.ip-whitelist.store');
+        Route::post('/security/ip-whitelist/{id}/toggle', [SuperAdminSecurityController::class, 'toggleIpWhitelist'])->name('security.ip-whitelist.toggle');
+        Route::delete('/security/ip-whitelist/{id}', [SuperAdminSecurityController::class, 'destroyIpWhitelist'])->name('security.ip-whitelist.destroy');
 
         // Platform Global Settings & Payment Gateways
         Route::get('/settings', [SuperAdminSettingsController::class, 'index'])->name('settings.index');

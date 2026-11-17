@@ -53,6 +53,53 @@
       </div>
     </div>
 
+    <!-- SaaS Recurring Revenue & Churn Performance Banner -->
+    <div v-if="saas_metrics" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #818cf8; box-shadow: 0 0 8px #6366f1;"></div>
+          <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">SaaS Commercial Engine (MRR & ARR)</span>
+        </div>
+        <Link href="/superadmin/plans" style="font-size: 0.8rem; color: #818cf8; text-decoration: none; font-weight: 600;">
+          Manage Subscription Tiers &rarr;
+        </Link>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+        <div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Monthly Recurring (MRR)</span>
+          <div style="font-size: 1.4rem; font-weight: 800; color: #818cf8; margin-top: 0.25rem;">
+            {{ formatRupees(saas_metrics.mrr_minor) }}
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">ARR: {{ formatRupees(saas_metrics.arr_minor) }}</span>
+        </div>
+
+        <div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Active Subscriptions</span>
+          <div style="font-size: 1.4rem; font-weight: 800; color: #34d399; margin-top: 0.25rem;">
+            {{ saas_metrics.active_subscriptions_count }}
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ saas_metrics.trialing_subscriptions_count }} trialing / {{ saas_metrics.past_due_subscriptions_count }} overdue</span>
+        </div>
+
+        <div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Monthly Churn Rate</span>
+          <div style="font-size: 1.4rem; font-weight: 800; margin-top: 0.25rem;" :style="{ color: saas_metrics.churn_rate_pct <= 5 ? '#34d399' : '#fb7185' }">
+            {{ saas_metrics.churn_rate_pct }}%
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Monthly tenant cancellations</span>
+        </div>
+
+        <div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Average Revenue / Store (ARPA)</span>
+          <div style="font-size: 1.4rem; font-weight: 800; color: #38bdf8; margin-top: 0.25rem;">
+            {{ formatRupees(saas_metrics.arpa_minor) }}
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Per active monthly subscriber</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Executive KPI Grid (6 Cards) -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
       <!-- Platform All-Time GMV -->
@@ -436,6 +483,18 @@ const props = defineProps({
   metrics: {
     type: Object,
     required: true,
+  },
+  saas_metrics: {
+    type: Object,
+    default: () => ({
+      mrr_minor: 0,
+      arr_minor: 0,
+      active_subscriptions_count: 0,
+      trialing_subscriptions_count: 0,
+      past_due_subscriptions_count: 0,
+      churn_rate_pct: 0,
+      arpa_minor: 0,
+    }),
   },
   fbr_breakdown: {
     type: Object,

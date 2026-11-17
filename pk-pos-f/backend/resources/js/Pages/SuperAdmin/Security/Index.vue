@@ -141,6 +141,14 @@
         >
           Two-Factor Authentication (TOTP)
         </button>
+
+        <button
+          @click="activeTab = 'ip_whitelist'"
+          class="btn"
+          :style="activeTab === 'ip_whitelist' ? 'background: rgba(129, 140, 248, 0.2); color: #818cf8; border-color: rgba(129, 140, 248, 0.4);' : 'background: transparent; color: #94a3b8; border-color: transparent;'"
+        >
+          IP Whitelist Access Control ({{ ip_whitelists.length }})
+        </button>
       </div>
 
       <!-- TAB 1: SESSIONS & KILLSWITCH -->
@@ -377,13 +385,177 @@
           </div>
         </div>
       </div>
+
+      <!-- TAB 3: IP WHITELIST ACCESS CONTROL -->
+      <div v-if="activeTab === 'ip_whitelist'" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Status & Policy Banner -->
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-weight: 700; color: #fff; font-size: 1rem;">Super Admin Perimeter Enforcement</span>
+              <span
+                class="badge"
+                :style="activeWhitelistCount > 0 ? 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);' : 'background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);'"
+              >
+                {{ activeWhitelistCount > 0 ? `RESTRICTED (${activeWhitelistCount} Active Rules)` : 'OPEN MODE (Unrestricted)' }}
+              </span>
+            </div>
+            <p style="font-size: 0.825rem; color: #94a3b8; margin: 0; line-height: 1.4;">
+              {{ activeWhitelistCount > 0 ? 'All connections from non-whitelisted IP addresses are automatically blocked with HTTP 403 Forbidden.' : 'No active IP rules configured. Super Admin portal is accessible from any network.' }}
+            </p>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(15, 23, 42, 0.6); padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="font-size: 0.8rem; color: #94a3b8;">
+              Your Detected IP: <strong style="color: #38bdf8; font-family: monospace;">{{ current_ip || '127.0.0.1' }}</strong>
+            </div>
+            <button
+              v-if="isSuperAdmin && !isCurrentIpWhitelisted"
+              @click="addCurrentIp"
+              type="button"
+              class="btn btn-secondary"
+              style="padding: 0.25rem 0.6rem; font-size: 0.75rem;"
+            >
+              + Whitelist My IP
+            </button>
+          </div>
+        </div>
+
+        <!-- Add Rule Form -->
+        <div v-if="isSuperAdmin" class="card" style="padding: 1.25rem;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0 0 1rem 0;">
+            Authorize New IP Address or CIDR Subnet
+          </h3>
+          <form @submit.prevent="submitAddIp" style="display: grid; grid-template-columns: 2fr 2fr 3fr auto; gap: 0.75rem; align-items: flex-end;">
+            <div>
+              <label class="form-label" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">IP Address or CIDR *</label>
+              <input
+                type="text"
+                v-model="addIpForm.ip_address"
+                placeholder="e.g. 110.38.10.12 or 10.0.0.0/24"
+                class="form-control"
+                required
+                style="font-family: monospace; font-size: 0.875rem;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Office / Location Label *</label>
+              <input
+                type="text"
+                v-model="addIpForm.label"
+                placeholder="e.g. Lahore Head Office NOC"
+                class="form-control"
+                required
+                style="font-size: 0.875rem;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Internal Notes (Optional)</label>
+              <input
+                type="text"
+                v-model="addIpForm.notes"
+                placeholder="e.g. Dedicated corporate static IP"
+                class="form-control"
+                style="font-size: 0.875rem;"
+              />
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary"
+              :disabled="addIpForm.processing"
+              style="padding: 0.55rem 1rem; font-weight: 600; font-size: 0.85rem;"
+            >
+              {{ addIpForm.processing ? 'Adding...' : 'Authorize IP' }}
+            </button>
+          </form>
+        </div>
+
+        <!-- Whitelisted Rules Table -->
+        <div class="card" style="overflow: hidden;">
+          <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%; text-align: left; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">IP / CIDR Range</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Label</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Status</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Created By</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Added At</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!ip_whitelists.length">
+                  <td colspan="6" style="text-align: center; color: #64748b; padding: 2.5rem;">
+                    No IP whitelist rules configured. Super Admin portal access is currently unrestricted.
+                  </td>
+                </tr>
+                <tr
+                  v-for="rule in ip_whitelists"
+                  :key="rule.id"
+                  style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
+                >
+                  <td style="padding: 0.875rem 1rem;">
+                    <div style="font-family: monospace; font-size: 0.9rem; font-weight: 700; color: #38bdf8;">
+                      {{ rule.ip_address }}
+                    </div>
+                    <div v-if="rule.notes" style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">
+                      {{ rule.notes }}
+                    </div>
+                  </td>
+                  <td style="padding: 0.875rem 1rem; font-weight: 600; color: #f8fafc; font-size: 0.85rem;">
+                    {{ rule.label }}
+                  </td>
+                  <td style="padding: 0.875rem 1rem;">
+                    <span
+                      class="badge"
+                      :style="rule.is_active ? 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);' : 'background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3);'"
+                    >
+                      {{ rule.is_active ? 'Active' : 'Disabled' }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: #cbd5e1;">
+                    {{ rule.created_by_name }}
+                  </td>
+                  <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: #64748b;">
+                    {{ rule.created_at }}
+                  </td>
+                  <td style="padding: 0.875rem 1rem; text-align: right;">
+                    <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                      <button
+                        v-if="isSuperAdmin"
+                        @click="toggleIpRule(rule)"
+                        class="btn btn-secondary"
+                        style="padding: 0.25rem 0.55rem; font-size: 0.75rem;"
+                      >
+                        {{ rule.is_active ? 'Disable' : 'Enable' }}
+                      </button>
+                      <button
+                        v-if="isSuperAdmin"
+                        @click="deleteIpRule(rule)"
+                        class="btn btn-danger"
+                        style="padding: 0.25rem 0.55rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </SuperAdminLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { router, usePage, useForm } from '@inertiajs/vue3';
 import SuperAdminLayout from '@/Layouts/SuperAdminLayout.vue';
 
 const props = defineProps({
@@ -399,6 +571,14 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  ip_whitelists: {
+    type: Array,
+    default: () => [],
+  },
+  current_ip: {
+    type: String,
+    default: '',
+  },
 });
 
 const page = usePage();
@@ -408,6 +588,45 @@ const isSuperAdmin = computed(() => staffRole.value === 'super_admin');
 const activeTab = ref('sessions');
 const isSubmitting = ref(false);
 const verificationCode = ref('');
+
+const addIpForm = useForm({
+  ip_address: '',
+  label: '',
+  notes: '',
+});
+
+const activeWhitelistCount = computed(() => (props.ip_whitelists || []).filter(r => r.is_active).length);
+const isCurrentIpWhitelisted = computed(() => (props.ip_whitelists || []).some(r => r.ip_address === props.current_ip));
+
+function addCurrentIp() {
+  addIpForm.ip_address = props.current_ip || '127.0.0.1';
+  if (!addIpForm.label) {
+    addIpForm.label = 'Current Location';
+  }
+}
+
+function submitAddIp() {
+  addIpForm.post('/superadmin/security/ip-whitelist', {
+    preserveScroll: true,
+    onSuccess: () => {
+      addIpForm.reset();
+    },
+  });
+}
+
+function toggleIpRule(rule) {
+  router.post(`/superadmin/security/ip-whitelist/${rule.id}/toggle`, {}, {
+    preserveScroll: true,
+  });
+}
+
+function deleteIpRule(rule) {
+  if (confirm(`Remove ${rule.ip_address} (${rule.label}) from Super Admin IP Whitelist?`)) {
+    router.delete(`/superadmin/security/ip-whitelist/${rule.id}`, {
+      preserveScroll: true,
+    });
+  }
+}
 
 function killSession(s) {
   if (confirm(`Terminate session for ${s.user?.name || s.ip_address}? The user will be logged out immediately.`)) {

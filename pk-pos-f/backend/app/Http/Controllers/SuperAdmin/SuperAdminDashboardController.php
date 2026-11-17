@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use App\Models\PosTerminal;
 use App\Models\Sale;
 use App\Models\Scopes\TenantScope;
+use App\Models\Subscription;
 use App\Models\SupportTicket;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
@@ -138,6 +140,43 @@ class SuperAdminDashboardController extends Controller
             ->take(5)
             ->get(['id', 'name', 'ntn', 'province', 'created_at', 'suspended_at']);
 
+        // 8. SaaS Recurring Revenue & Churn Analytics
+        $activeSubs = Subscription::withoutGlobalScopes()
+            ->with('plan')
+            ->where('status', 'active')
+            ->get();
+
+        $mrrMinor = 0;
+        foreach ($activeSubs as $sub) {
+            $plan = $sub->plan;
+            if (! $plan) {
+                continue;
+            }
+            if ($plan->billing_interval === 'yearly') {
+                $mrrMinor += (int) round($plan->price_minor / 12);
+            } else {
+                $mrrMinor += (int) $plan->price_minor;
+            }
+        }
+
+        $arrMinor = $mrrMinor * 12;
+        $activeSubsCount = $activeSubs->count();
+        $trialingSubsCount = Subscription::withoutGlobalScopes()->where('status', 'trialing')->count();
+        $pastDueSubsCount = Subscription::withoutGlobalScopes()->where('status', 'past_due')->count();
+
+        $startOfMonth = now()->startOfMonth();
+        $canceledThisMonth = Subscription::withoutGlobalScopes()
+            ->whereIn('status', ['canceled', 'expired'])
+            ->where('updated_at', '>=', $startOfMonth)
+            ->count();
+
+        $totalSubscribersAtBase = $activeSubsCount + $canceledThisMonth;
+        $churnRatePct = $totalSubscribersAtBase > 0
+            ? round(($canceledThisMonth / $totalSubscribersAtBase) * 100, 1)
+            : 0.0;
+
+        $arpaMinor = $activeSubsCount > 0 ? (int) round($mrrMinor / $activeSubsCount) : 0;
+
         return Inertia::render('SuperAdmin/Dashboard', [
             'metrics' => [
                 'total_tenants' => $totalTenants,
@@ -151,6 +190,15 @@ class SuperAdminDashboardController extends Controller
                 'pending_invoices_count' => $pendingCount,
                 'open_tickets_count' => $openTicketsCount,
                 'active_terminals_count' => $activeTerminalsCount,
+            ],
+            'saas_metrics' => [
+                'mrr_minor' => $mrrMinor,
+                'arr_minor' => $arrMinor,
+                'active_subscriptions_count' => $activeSubsCount,
+                'trialing_subscriptions_count' => $trialingSubsCount,
+                'past_due_subscriptions_count' => $pastDueSubsCount,
+                'churn_rate_pct' => $churnRatePct,
+                'arpa_minor' => $arpaMinor,
             ],
             'fbr_breakdown' => [
                 'submitted' => $submittedCount,

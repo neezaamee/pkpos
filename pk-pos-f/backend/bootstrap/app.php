@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'idempotent' => \App\Http\Middleware\IdempotencyMiddleware::class,
             'superadmin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+            'superadmin.ip_whitelist' => \App\Http\Middleware\EnforceSuperAdminIpWhitelist::class,
             'tenant.active' => \App\Http\Middleware\EnsureTenantNotSuspended::class,
             'staff_role' => \App\Http\Middleware\EnsureStaffRole::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,

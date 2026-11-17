@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\SuperAdminIpWhitelist;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,9 +76,24 @@ class SuperAdminSecurityController extends Controller
         /** @var User $currentUser */
         $currentUser = Auth::user();
 
+        $ipWhitelists = SuperAdminIpWhitelist::with('createdBy:id,name')
+            ->latest()
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'ip_address' => $item->ip_address,
+                'label' => $item->label,
+                'is_active' => (bool) $item->is_active,
+                'notes' => $item->notes,
+                'created_by_name' => $item->createdBy?->name ?? 'System',
+                'created_at' => $item->created_at?->format('Y-m-d H:i') ?? 'N/A',
+            ]);
+
         return Inertia::render('SuperAdmin/Security/Index', [
             'sessions' => $sessions,
             'metrics' => $metrics,
+            'ip_whitelists' => $ipWhitelists,
+            'current_ip' => $request->ip(),
             'user2fa' => [
                 'is_enabled' => $currentUser->hasTwoFactorEnabled(),
                 'confirmed_at' => $currentUser->two_factor_confirmed_at?->toIso8601String(),
@@ -255,6 +271,85 @@ class SuperAdminSecurityController extends Controller
         ]);
 
         return back()->with('success', "Platform 2FA policy is now {$statusStr} for all staff accounts.");
+    }
+
+    /**
+     * Store a new whitelisted IP or CIDR network.
+     */
+    public function storeIpWhitelist(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ip_address' => ['required', 'string', 'max:50', 'unique:super_admin_ip_whitelists,ip_address'],
+            'label' => ['required', 'string', 'max:150'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $entry = SuperAdminIpWhitelist::create([
+            'ip_address' => trim($validated['ip_address']),
+            'label' => trim($validated['label']),
+            'notes' => $validated['notes'] ?? null,
+            'is_active' => true,
+            'created_by' => Auth::id(),
+        ]);
+
+        AuditLog::create([
+            'tenant_id' => null,
+            'user_id' => Auth::id(),
+            'event' => 'ip_whitelist_created',
+            'auditable_type' => SuperAdminIpWhitelist::class,
+            'auditable_id' => $entry->id,
+            'new_values' => ['ip_address' => $entry->ip_address, 'label' => $entry->label],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', "IP address '{$entry->ip_address}' added to authorized whitelist.");
+    }
+
+    /**
+     * Toggle active state of a whitelisted IP entry.
+     */
+    public function toggleIpWhitelist(Request $request, string $id): RedirectResponse
+    {
+        $entry = SuperAdminIpWhitelist::findOrFail($id);
+        $entry->update(['is_active' => ! $entry->is_active]);
+
+        AuditLog::create([
+            'tenant_id' => null,
+            'user_id' => Auth::id(),
+            'event' => 'ip_whitelist_toggled',
+            'auditable_type' => SuperAdminIpWhitelist::class,
+            'auditable_id' => $entry->id,
+            'new_values' => ['ip_address' => $entry->ip_address, 'is_active' => $entry->is_active],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        $status = $entry->is_active ? 'enabled' : 'disabled';
+        return back()->with('success', "Whitelist rule for '{$entry->ip_address}' {$status}.");
+    }
+
+    /**
+     * Remove a whitelisted IP entry.
+     */
+    public function destroyIpWhitelist(Request $request, string $id): RedirectResponse
+    {
+        $entry = SuperAdminIpWhitelist::findOrFail($id);
+        $ip = $entry->ip_address;
+        $entry->delete();
+
+        AuditLog::create([
+            'tenant_id' => null,
+            'user_id' => Auth::id(),
+            'event' => 'ip_whitelist_deleted',
+            'auditable_type' => SuperAdminIpWhitelist::class,
+            'auditable_id' => $id,
+            'old_values' => ['ip_address' => $ip],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', "IP rule '{$ip}' deleted successfully.");
     }
 
     /**
