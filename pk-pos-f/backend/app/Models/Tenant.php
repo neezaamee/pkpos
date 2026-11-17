@@ -40,10 +40,22 @@ class Tenant extends Model
         ];
     }
 
+    protected $appends = [
+        'is_suspended',
+    ];
+
     /**
      * Determine if the tenant is currently suspended.
      */
     public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    /**
+     * Accessor for is_suspended.
+     */
+    public function getIsSuspendedAttribute(): bool
     {
         return $this->suspended_at !== null;
     }
