@@ -8,6 +8,7 @@ use App\Models\MasterHsCode;
 use App\Models\ProvincialTaxTemplate;
 use App\Models\TaxRule;
 use App\Models\Tenant;
+use App\Services\StarterCatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -325,6 +326,45 @@ class SuperAdminMasterDataController extends Controller
         ]);
 
         return back()->with('success', "Successfully synchronized '{$tmpl->name}' across {$syncedCount} active tenants in {$tmpl->province}.");
+    }
+
+    /**
+     * Display the Starter Industry Catalogs library.
+     */
+    public function catalogs(Request $request): Response
+    {
+        $catalogs = StarterCatalogService::getAvailableCatalogs();
+        $tenants = Tenant::withoutGlobalScopes()
+            ->whereNull('suspended_at')
+            ->orderBy('name')
+            ->get(['id', 'name', 'ntn']);
+
+        return Inertia::render('SuperAdmin/MasterData/Catalogs', [
+            'catalogs' => array_values($catalogs),
+            'tenants' => $tenants,
+        ]);
+    }
+
+    /**
+     * Seed a starter catalog into a designated tenant store.
+     */
+    public function seedCatalogToTenant(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'tenant_id' => ['required', 'uuid', 'exists:tenants,id'],
+            'catalog_key' => ['required', 'string', 'in:grocery_fmcg,pharmacy'],
+        ]);
+
+        $tenant = Tenant::findOrFail($validated['tenant_id']);
+
+        try {
+            $result = StarterCatalogService::seedToTenant($tenant, $validated['catalog_key']);
+            return back()->with('success', $result['message']);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to seed catalog: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -107,6 +107,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::middleware('staff_role:super_admin,compliance_auditor')->group(function () {
         Route::get('/master-data/hs-codes', [SuperAdminMasterDataController::class, 'hsCodes'])->name('master-data.hs-codes.index');
         Route::get('/master-data/tax-templates', [SuperAdminMasterDataController::class, 'taxTemplates'])->name('master-data.tax-templates.index');
+        Route::get('/master-data/catalogs', [SuperAdminMasterDataController::class, 'catalogs'])->name('master-data.catalogs.index');
     });
 
     Route::middleware('staff_role:super_admin')->group(function () {
@@ -116,6 +117,8 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
         Route::post('/master-data/tax-templates', [SuperAdminMasterDataController::class, 'storeTaxTemplate'])->name('master-data.tax-templates.store');
         Route::put('/master-data/tax-templates/{id}', [SuperAdminMasterDataController::class, 'updateTaxTemplate'])->name('master-data.tax-templates.update');
         Route::post('/master-data/tax-templates/{id}/sync', [SuperAdminMasterDataController::class, 'syncTaxTemplateToTenants'])->name('master-data.tax-templates.sync');
+        Route::post('/master-data/catalogs/seed', [SuperAdminMasterDataController::class, 'seedCatalogToTenant'])->name('master-data.catalogs.seed');
+        Route::post('/tenants/{id}/seed-catalog', [SuperAdminTenantController::class, 'seedCatalog'])->name('tenants.seed-catalog');
     });
 
     // POS Terminal Fleet Management

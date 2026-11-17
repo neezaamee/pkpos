@@ -247,9 +247,19 @@
             <h2>Subscription Package & Quotas</h2>
             <span style="font-size: 0.8rem; color: var(--text-muted);">SaaS billing tier, hardware limits & included features</span>
           </div>
-          <button @click="openPlanModal" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
-            Change Package
-          </button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button @click="openSeedCatalogModal" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.35rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
+              Seed Industry Catalog
+            </button>
+            <button @click="openPlanModal" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+              Change Package
+            </button>
+          </div>
         </div>
 
         <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; border-bottom: 1px solid var(--border-color);">
@@ -1374,6 +1384,39 @@
         </form>
       </div>
     </div>
+
+    <!-- MODAL: SEED INDUSTRY STARTER CATALOG -->
+    <div v-if="showSeedCatalogModal" class="modal-backdrop">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Seed Starter Catalog into {{ tenant.name }}</h3>
+          <button @click="showSeedCatalogModal = false" class="modal-close">&times;</button>
+        </div>
+        <form @submit.prevent="submitSeedCatalog">
+          <div class="modal-body">
+            <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem;">
+              <p style="font-size: 0.85rem; color: #c7d2fe; margin: 0; line-height: 1.5;">
+                Populate standard branded products with Pakistani barcodes, official HS codes, and standard retail prices so store cashiers can immediately begin scanning and testing.
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Select Industry Package *</label>
+              <select v-model="seedCatalogForm.catalog_key" class="form-input" required>
+                <option value="grocery_fmcg">Standard FMCG & Supermarket Grocery (25 Products)</option>
+                <option value="pharmacy">Standard Community Retail Pharmacy (20 Products)</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" @click="showSeedCatalogModal = false" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" :disabled="seedCatalogForm.processing">
+              {{ seedCatalogForm.processing ? 'Seeding...' : 'Confirm Seeding' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </SuperAdminLayout>
 </template>
 
@@ -1658,6 +1701,26 @@ function submitPurgeTenant() {
   deleteForm.delete(`/superadmin/tenants/${props.tenant.id}`, {
     onSuccess: () => {
       showDeleteModal.value = false;
+    },
+  });
+}
+
+// Seed Starter Catalog
+const showSeedCatalogModal = ref(false);
+const seedCatalogForm = useForm({
+  catalog_key: 'grocery_fmcg',
+});
+
+function openSeedCatalogModal() {
+  seedCatalogForm.catalog_key = 'grocery_fmcg';
+  showSeedCatalogModal.value = true;
+}
+
+function submitSeedCatalog() {
+  seedCatalogForm.post(`/superadmin/tenants/${props.tenant.id}/seed-catalog`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showSeedCatalogModal.value = false;
     },
   });
 }

@@ -14,6 +14,7 @@ use App\Models\Scopes\TenantScope;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\StarterCatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -967,5 +968,26 @@ class SuperAdminTenantController extends Controller
         return redirect()
             ->route('superadmin.tenants.index')
             ->with('success', "Tenant '{$tenantName}' and all associated records have been permanently purged.");
+    }
+
+    /**
+     * Seed an industry catalog directly into this tenant.
+     */
+    public function seedCatalog(Request $request, string $id): RedirectResponse
+    {
+        $tenant = Tenant::findOrFail($id);
+
+        $validated = $request->validate([
+            'catalog_key' => ['required', 'string', 'in:grocery_fmcg,pharmacy'],
+        ]);
+
+        try {
+            $result = StarterCatalogService::seedToTenant($tenant, $validated['catalog_key']);
+            return back()->with('success', $result['message']);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to seed catalog: ' . $e->getMessage());
+        }
     }
 }
