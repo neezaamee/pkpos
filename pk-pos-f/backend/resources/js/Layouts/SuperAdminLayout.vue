@@ -689,13 +689,17 @@
         <!-- Left: Sidebar Toggle + Breadcrumb + Page Title -->
         <div class="topbar-left">
           <button
+            type="button"
             class="topbar-sidebar-toggle"
+            :class="{ active: isRailMode }"
             :title="isRailMode ? 'Expand Sidebar' : 'Collapse Sidebar to Mini-Rail'"
+            aria-label="Toggle Sidebar Navigation"
             @click="toggleRailMode"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="9" y1="3" x2="9" y2="21"></line>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
 
@@ -1082,6 +1086,9 @@ function toggleGroup(groupKey) {
 
 function toggleRailMode() {
   isRailMode.value = !isRailMode.value;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('pk_pos_rail_mode', isRailMode.value ? 'true' : 'false');
+  }
 }
 
 // Live PKT (UTC+5) Clock
@@ -1239,6 +1246,12 @@ function toggleTheme() {
 
 onMounted(() => {
   initTheme();
+  if (typeof window !== 'undefined') {
+    const savedRail = localStorage.getItem('pk_pos_rail_mode');
+    if (savedRail !== null) {
+      isRailMode.value = savedRail === 'true';
+    }
+  }
   updateClock();
   clockTimer = setInterval(updateClock, 1000);
   window.addEventListener('keydown', handleGlobalKey);
@@ -1508,24 +1521,51 @@ onUnmounted(() => {
 }
 
 .topbar-sidebar-toggle {
-  background: transparent;
+  background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  color: var(--text-primary);
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .topbar-sidebar-toggle:hover {
-  color: var(--text-primary);
+  background: var(--bg-card-hover);
   border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.1);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.topbar-sidebar-toggle.active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: var(--accent-primary);
+  color: #818cf8;
+}
+
+[data-theme="light"] .topbar-sidebar-toggle {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme="light"] .topbar-sidebar-toggle:hover {
+  background: #e2e8f0;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+[data-theme="light"] .topbar-sidebar-toggle.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 .page-title-group {

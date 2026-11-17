@@ -1,10 +1,10 @@
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'rail-mode': isRailMode }">
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'sidebar-collapsed': isRailMode }">
       <div class="sidebar-header">
         <div class="brand-logo" title="PK POS Merchant Portal">PK</div>
-        <div class="brand-text">
+        <div v-if="!isRailMode" class="brand-text">
           <h1>PK POS</h1>
           <span>FBR POS Admin</span>
         </div>
@@ -12,7 +12,7 @@
 
       <nav class="sidebar-nav">
         <!-- Platform Super Admin Switcher -->
-        <div v-if="user?.is_super_admin" style="margin-bottom: 0.85rem; padding: 0.75rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2)); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 8px;">
+        <div v-if="user?.is_super_admin && !isRailMode" style="margin-bottom: 0.85rem; padding: 0.75rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2)); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 8px;">
           <div style="font-size: 0.68rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;">
             Platform Control
           </div>
@@ -24,11 +24,21 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </Link>
         </div>
+        <Link
+          v-if="user?.is_super_admin && isRailMode"
+          href="/superadmin/dashboard"
+          class="nav-link"
+          title="Super Admin Console"
+          style="justify-content: center; color: #a5b4fc; margin-bottom: 0.85rem;"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+        </Link>
 
         <Link
           href="/dashboard"
           class="nav-link"
           :class="{ active: currentPath === '/dashboard' || currentPath === '/' }"
+          :title="isRailMode ? 'Dashboard' : ''"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7"></rect>
@@ -36,20 +46,21 @@
             <rect x="14" y="14" width="7" height="7"></rect>
             <rect x="3" y="14" width="7" height="7"></rect>
           </svg>
-          <span>Dashboard</span>
+          <span v-if="!isRailMode">Dashboard</span>
         </Link>
 
         <Link
           href="/sales"
           class="nav-link"
           :class="{ active: currentPath.startsWith('/sales') }"
+          :title="isRailMode ? 'Sales & Invoices' : ''"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <path d="M16 10a4 4 0 0 1-8 0"></path>
           </svg>
-          <span>Sales & Invoices</span>
+          <span v-if="!isRailMode">Sales &amp; Invoices</span>
         </Link>
 
         <Link
@@ -57,15 +68,16 @@
           href="/fbr-credentials"
           class="nav-link"
           :class="{ active: currentPath.startsWith('/fbr-credentials') }"
+          :title="isRailMode ? 'FBR Credentials' : ''"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
-          <span>FBR Credentials</span>
+          <span v-if="!isRailMode">FBR Credentials</span>
         </Link>
 
-        <div style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
+        <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
           Catalog
         </div>
 
@@ -73,60 +85,64 @@
           href="/products"
           class="nav-link"
           :class="{ active: currentPath.startsWith('/products') }"
+          :title="isRailMode ? 'Products' : ''"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
             <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
             <line x1="12" y1="22.08" x2="12" y2="12"></line>
           </svg>
-          <span>Products</span>
+          <span v-if="!isRailMode">Products</span>
         </Link>
 
         <Link
           href="/tax-rules"
           class="nav-link"
           :class="{ active: currentPath.startsWith('/tax-rules') }"
+          :title="isRailMode ? 'Tax Rules' : ''"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="19" y1="5" x2="5" y2="19"></line>
             <circle cx="6.5" cy="6.5" r="2.5"></circle>
             <circle cx="17.5" cy="17.5" r="2.5"></circle>
           </svg>
-          <span>Tax Rules</span>
+          <span v-if="!isRailMode">Tax Rules</span>
         </Link>
 
         <!-- Stock Section -->
         <template v-if="user?.role === 'owner' || user?.role === 'manager'">
-          <div style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
-            Stock & Inventory
+          <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
+            Stock &amp; Inventory
           </div>
 
           <Link
             href="/inventory/levels"
             class="nav-link"
             :class="{ active: currentPath.startsWith('/inventory/levels') || currentPath.startsWith('/inventory/adjust') }"
+            :title="isRailMode ? 'Stock Levels' : ''"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
             </svg>
-            <span>Stock Levels</span>
+            <span v-if="!isRailMode">Stock Levels</span>
           </Link>
 
           <Link
             href="/inventory/movements"
             class="nav-link"
             :class="{ active: currentPath.startsWith('/inventory/movements') }"
+            :title="isRailMode ? 'Movements Log' : ''"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
               <polyline points="17 6 23 6 23 12"></polyline>
             </svg>
-            <span>Movements Log</span>
+            <span v-if="!isRailMode">Movements Log</span>
           </Link>
         </template>
 
-        <div style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
+        <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
           POS Terminal
         </div>
 
@@ -134,27 +150,28 @@
           href="/terminals"
           class="nav-link"
           :class="{ active: currentPath.startsWith('/terminals') }"
+          :title="isRailMode ? 'Terminals & Counters' : ''"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
             <line x1="12" y1="17" x2="12" y2="21"></line>
           </svg>
-          <span>Terminals &amp; Counters</span>
+          <span v-if="!isRailMode">Terminals &amp; Counters</span>
         </Link>
 
         <a
           href="/downloads/desktop"
           class="nav-link"
           style="color: #38bdf8; font-weight: 600;"
-          title="Download the latest desktop POS application installer"
+          :title="isRailMode ? 'Download POS (.exe)' : 'Download the latest desktop POS application installer'"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>Download POS (.exe)</span>
+          <span v-if="!isRailMode">Download POS (.exe)</span>
         </a>
       </nav>
 
@@ -164,12 +181,13 @@
             <div class="user-avatar">
               {{ user?.name ? user.name.charAt(0).toUpperCase() : 'U' }}
             </div>
-            <div class="user-info">
+            <div v-if="!isRailMode" class="user-info">
               <span class="user-name">{{ user?.name || 'Authorized User' }}</span>
               <span class="user-role">{{ user?.role || 'Staff' }} • Merchant</span>
             </div>
           </div>
           <Link
+            v-if="!isRailMode"
             href="/logout"
             method="post"
             as="button"
@@ -214,7 +232,23 @@
       </div>
 
       <header class="topbar">
-        <h2 class="page-title">{{ title }}</h2>
+        <div class="topbar-left" style="display: flex; align-items: center; gap: 0.85rem; min-width: 0;">
+          <button
+            type="button"
+            class="topbar-sidebar-toggle"
+            :class="{ active: isRailMode }"
+            :title="isRailMode ? 'Expand Sidebar' : 'Collapse Sidebar to Mini-Rail'"
+            aria-label="Toggle Sidebar Navigation"
+            @click="toggleRailMode"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <h2 class="page-title">{{ title }}</h2>
+        </div>
         <div class="topbar-actions" style="display: flex; align-items: center; gap: 0.75rem;">
           <!-- Theme Toggle Button -->
           <button
@@ -330,8 +364,9 @@ const isFbrSandbox = computed(() => telemetry.value?.fbr_sandbox_mode ?? true);
 const livePktClock = ref('');
 let clockTimer = null;
 
-// Theme management
+// Theme and rail mode management
 const currentTheme = ref('dark');
+const isRailMode = ref(false);
 
 function initTheme() {
   if (typeof window !== 'undefined') {
@@ -347,6 +382,13 @@ function toggleTheme() {
   if (typeof window !== 'undefined') {
     localStorage.setItem('pk_pos_theme', next);
     document.documentElement.setAttribute('data-theme', next);
+  }
+}
+
+function toggleRailMode() {
+  isRailMode.value = !isRailMode.value;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('pk_pos_rail_mode', isRailMode.value ? 'true' : 'false');
   }
 }
 
@@ -370,6 +412,12 @@ function handleKeyDown(e) {
 
 onMounted(() => {
   initTheme();
+  if (typeof window !== 'undefined') {
+    const savedRail = localStorage.getItem('pk_pos_rail_mode');
+    if (savedRail !== null) {
+      isRailMode.value = savedRail === 'true';
+    }
+  }
   updateClock();
   clockTimer = setInterval(updateClock, 1000);
   window.addEventListener('keydown', handleKeyDown);
@@ -382,6 +430,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.sidebar {
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  height: 100vh;
+}
+
+.sidebar.sidebar-collapsed {
+  width: 68px;
+}
+
+.sidebar.sidebar-collapsed .sidebar-header {
+  justify-content: center;
+  padding: 1rem 0.5rem;
+}
+
+.sidebar.sidebar-collapsed .nav-link {
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+
+.sidebar.sidebar-collapsed .sidebar-footer {
+  padding: 0.75rem 0.5rem;
+  justify-content: center;
+}
+
 .theme-toggle-btn {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
