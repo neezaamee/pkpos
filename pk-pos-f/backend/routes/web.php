@@ -63,11 +63,16 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
         Route::post('/tenants', [SuperAdminTenantController::class, 'store'])->name('tenants.store');
         Route::post('/tenants/{id}/suspend', [SuperAdminTenantController::class, 'toggleSuspend'])->name('tenants.suspend')->whereUuid('id');
         Route::post('/tenants/{id}/locations', [SuperAdminTenantController::class, 'storeLocation'])->name('tenants.locations.store')->whereUuid('id');
+        Route::post('/tenants/{id}/plan', [SuperAdminTenantController::class, 'assignPlan'])->name('tenants.plan.assign')->whereUuid('id');
+        Route::post('/tenants/{id}/terminals/pairing-code', [SuperAdminTenantController::class, 'generatePairingCode'])->name('tenants.terminals.pairing-code')->whereUuid('id');
+        Route::post('/tenants/{id}/terminals/{terminalId}/revoke', [SuperAdminTenantController::class, 'revokeTerminal'])->name('tenants.terminals.revoke')->whereUuid(['id', 'terminalId']);
+        Route::post('/tenants/{id}/terminals/{terminalId}/reactivate', [SuperAdminTenantController::class, 'reactivateTerminal'])->name('tenants.terminals.reactivate')->whereUuid(['id', 'terminalId']);
     });
 
     // Tenant Directory & Details (Accessible to all internal staff)
     Route::get('/tenants', [SuperAdminTenantController::class, 'index'])->name('tenants.index');
     Route::get('/tenants/{id}', [SuperAdminTenantController::class, 'show'])->name('tenants.show')->whereUuid('id');
+    Route::get('/tenants/{id}/sales/export', [SuperAdminTenantController::class, 'exportSales'])->name('tenants.sales.export')->whereUuid('id');
 
     // Tenant Profile & Staff Reset (Super Admin & Support Agent)
     Route::middleware('staff_role:super_admin,support_agent')->group(function () {

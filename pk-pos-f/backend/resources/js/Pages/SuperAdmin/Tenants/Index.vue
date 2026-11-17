@@ -57,6 +57,7 @@
             <th>Tenant Name</th>
             <th>NTN</th>
             <th>Province</th>
+            <th>Plan & Quota</th>
             <th>Owner Email</th>
             <th>Created At</th>
             <th>Status</th>
@@ -65,7 +66,7 @@
         </thead>
         <tbody>
           <tr v-if="tenants.data.length === 0">
-            <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
               No tenants found matching your query.
             </td>
           </tr>
@@ -82,6 +83,16 @@
               <span class="badge badge-neutral" style="text-transform: uppercase;">
                 {{ tenant.province }}
               </span>
+            </td>
+            <td>
+              <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <span class="badge" style="background: rgba(99, 102, 241, 0.18); color: #a5b4fc; font-weight: 600; width: fit-content; font-size: 0.75rem;">
+                  {{ tenant.plan_name || 'Free Tier' }}
+                </span>
+                <span style="font-size: 0.725rem; color: var(--text-muted);">
+                  {{ tenant.active_terminals_count || 0 }} / {{ tenant.max_terminals ?? '∞' }} Terminals
+                </span>
+              </div>
             </td>
             <td style="font-size: 0.825rem;">
               {{ tenant.owner_email }}

@@ -225,3 +225,186 @@ test('super admin can add an additional branch location', function () {
     expect($newLocation->address)->toBe('Shop 4, Main Boulevard, Gulberg, Lahore');
 });
 
+test('super admin can view comprehensive tenant details with subscription quotas, terminals, and paginated sales', function () {
+    $plan = \App\Models\Plan::create([
+        'code' => 'pro-tier',
+        'name' => 'Professional Retailer',
+        'price_minor' => 999900,
+        'billing_interval' => 'monthly',
+        'max_locations' => 5,
+        'max_terminals' => 10,
+        'is_active' => true,
+    ]);
+
+    \App\Models\Subscription::create([
+        'tenant_id' => $this->tenant->id,
+        'plan_id' => $plan->id,
+        'status' => 'active',
+        'starts_at' => now()->subMonths(1),
+    ]);
+
+    $terminal = \App\Models\PosTerminal::withoutGlobalScopes()->create([
+        'tenant_id' => $this->tenant->id,
+        'location_id' => $this->location->id,
+        'terminal_code' => 'REG-101',
+        'name' => 'Main Cash Counter 1',
+        'pairing_status' => 'paired',
+        'is_active' => true,
+        'last_heartbeat_at' => now()->subMinutes(2),
+    ]);
+
+    $sale = \App\Models\Sale::create([
+        'id' => (string) \Illuminate\Support\Str::uuid(),
+        'tenant_id' => $this->tenant->id,
+        'location_id' => $this->location->id,
+        'user_id' => $this->owner->id,
+        'sale_number' => 'INV-TEST-001',
+        'payment_method' => 'cash',
+        'currency' => 'PKR',
+        'subtotal_minor' => 500000,
+        'tax_minor' => 90000,
+        'total_minor' => 590000,
+        'status' => 'completed',
+        'fbr_status' => 'submitted',
+        'fbr_usin' => 'USIN-12345',
+    ]);
+
+    $response = $this->actingAs($this->superAdmin)
+        ->get("/superadmin/tenants/{$this->tenant->id}");
+
+    $response->assertStatus(200)
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Tenants/Show')
+            ->where('tenant.id', $this->tenant->id)
+            ->where('subscription.plan_name', 'Professional Retailer')
+            ->where('subscription.max_terminals', 10)
+            ->where('subscription.active_terminals_count', 1)
+            ->has('terminals', 1)
+            ->where('terminals.0.terminal_code', 'REG-101')
+            ->where('terminals.0.is_online', true)
+            ->has('sales.data', 1)
+            ->where('sales.data.0.sale_number', 'INV-TEST-001')
+            ->where('sales.data.0.fbr_usin', 'USIN-12345')
+        );
+});
+
+test('super admin can export tenant sales to csv with full fiscal headers', function () {
+    \App\Models\Sale::create([
+        'id' => (string) \Illuminate\Support\Str::uuid(),
+        'tenant_id' => $this->tenant->id,
+        'location_id' => $this->location->id,
+        'user_id' => $this->owner->id,
+        'sale_number' => 'INV-CSV-001',
+        'payment_method' => 'card',
+        'currency' => 'PKR',
+        'subtotal_minor' => 100000,
+        'tax_minor' => 18000,
+        'total_minor' => 118000,
+        'status' => 'completed',
+        'fbr_status' => 'submitted',
+        'fbr_usin' => 'USIN-CSV-999',
+    ]);
+
+    $response = $this->actingAs($this->superAdmin)
+        ->get("/superadmin/tenants/{$this->tenant->id}/sales/export");
+
+    $response->assertStatus(200);
+    $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+    
+    // Capture stream
+    ob_start();
+    $response->sendContent();
+    $csvContent = ob_get_clean();
+
+    expect($csvContent)->toContain('Invoice #');
+    expect($csvContent)->toContain('FBR Fiscal Status');
+    expect($csvContent)->toContain('INV-CSV-001');
+    expect($csvContent)->toContain('USIN-CSV-999');
+    expect($csvContent)->toContain('1180.00');
+});
+
+test('super admin can assign and update subscription plan for tenant', function () {
+    $plan = \App\Models\Plan::create([
+        'code' => 'enterprise-tier',
+        'name' => 'Enterprise Fleet Tier',
+        'price_minor' => 2999900,
+        'billing_interval' => 'annual',
+        'max_locations' => 20,
+        'max_terminals' => 50,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($this->superAdmin)
+        ->post("/superadmin/tenants/{$this->tenant->id}/plan", [
+            'plan_id' => $plan->id,
+            'status' => 'active',
+            'starts_at' => now()->toDateString(),
+            'ends_at' => now()->addYear()->toDateString(),
+            'notes' => 'Contract agreement signed for 2027',
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success');
+
+    $activeSub = $this->tenant->currentSubscription();
+    expect($activeSub)->not->toBeNull();
+    expect($activeSub->plan_id)->toBe($plan->id);
+    expect($activeSub->notes)->toBe('Contract agreement signed for 2027');
+});
+
+test('super admin can generate terminal pairing code from tenant page', function () {
+    $response = $this->actingAs($this->superAdmin)
+        ->post("/superadmin/tenants/{$this->tenant->id}/terminals/pairing-code", [
+            'terminal_code' => 'REG-NEW-01',
+            'name' => 'Cosmetics Counter',
+            'location_id' => $this->location->id,
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success');
+
+    $terminal = \App\Models\PosTerminal::withoutGlobalScopes()
+        ->where('tenant_id', $this->tenant->id)
+        ->where('terminal_code', 'REG-NEW-01')
+        ->first();
+
+    expect($terminal)->not->toBeNull();
+    expect($terminal->name)->toBe('Cosmetics Counter');
+    expect($terminal->pairing_status)->toBe('pending_pairing');
+    expect(strlen($terminal->pairing_token))->toBe(8);
+});
+
+test('super admin can revoke and reactivate terminal from tenant page', function () {
+    $terminal = \App\Models\PosTerminal::withoutGlobalScopes()->create([
+        'tenant_id' => $this->tenant->id,
+        'location_id' => $this->location->id,
+        'terminal_code' => 'REG-REV-01',
+        'name' => 'Back Store Counter',
+        'pairing_status' => 'paired',
+        'is_active' => true,
+    ]);
+
+    // Revoke
+    $revokeResponse = $this->actingAs($this->superAdmin)
+        ->post("/superadmin/tenants/{$this->tenant->id}/terminals/{$terminal->id}/revoke", [
+            'reason' => 'Suspected unauthorized access',
+        ]);
+
+    $revokeResponse->assertRedirect();
+    $terminal->refresh();
+    expect($terminal->is_active)->toBeFalse();
+    expect($terminal->pairing_status)->toBe('revoked');
+    expect($terminal->revocation_reason)->toBe('Suspected unauthorized access');
+
+    // Reactivate
+    $reactivateResponse = $this->actingAs($this->superAdmin)
+        ->post("/superadmin/tenants/{$this->tenant->id}/terminals/{$terminal->id}/reactivate");
+
+    $reactivateResponse->assertRedirect();
+    $terminal->refresh();
+    expect($terminal->is_active)->toBeTrue();
+    expect($terminal->pairing_status)->toBe('paired');
+    expect($terminal->revocation_reason)->toBeNull();
+});
+
+
