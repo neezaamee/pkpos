@@ -54,30 +54,38 @@ class SystemSetting extends Model
      */
     public static function get(string $key, mixed $default = null): mixed
     {
-        $setting = static::where('key', $key)->first();
-        if (! $setting || $setting->value === null) {
-            return $default;
-        }
-
-        $raw = $setting->value;
-
-        // Decrypt if secret
-        if ($setting->is_secret && ! empty($raw)) {
-            try {
-                $raw = Crypt::decryptString($raw);
-            } catch (\Throwable $e) {
-                Log::warning("SystemSetting: Failed to decrypt setting key '{$key}': " . $e->getMessage());
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('system_settings')) {
                 return $default;
             }
-        }
 
-        // Type casting
-        return match ($setting->type) {
-            'boolean' => filter_var($raw, FILTER_VALIDATE_BOOLEAN),
-            'integer' => (int) $raw,
-            'json', 'array' => json_decode($raw, true) ?? $default,
-            default => $raw,
-        };
+            $setting = static::where('key', $key)->first();
+            if (! $setting || $setting->value === null) {
+                return $default;
+            }
+
+            $raw = $setting->value;
+
+            // Decrypt if secret
+            if ($setting->is_secret && ! empty($raw)) {
+                try {
+                    $raw = Crypt::decryptString($raw);
+                } catch (\Throwable $e) {
+                    Log::warning("SystemSetting: Failed to decrypt setting key '{$key}': " . $e->getMessage());
+                    return $default;
+                }
+            }
+
+            // Type casting
+            return match ($setting->type) {
+                'boolean' => filter_var($raw, FILTER_VALIDATE_BOOLEAN),
+                'integer' => (int) $raw,
+                'json', 'array' => json_decode($raw, true) ?? $default,
+                default => $raw,
+            };
+        } catch (\Throwable) {
+            return $default;
+        }
     }
 
     /**

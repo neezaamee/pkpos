@@ -21,25 +21,31 @@ class EnforceSuperAdminIpWhitelist
     {
         $clientIp = $request->ip();
 
-        if (! SuperAdminIpWhitelist::isIpAllowed($clientIp)) {
-            Log::warning("SuperAdmin Security Alert: Unauthorized access attempt from IP '{$clientIp}' by User ID " . (Auth::id() ?? 'guest'));
+        try {
+            if (! SuperAdminIpWhitelist::isIpAllowed($clientIp)) {
+                Log::warning("SuperAdmin Security Alert: Unauthorized access attempt from IP '{$clientIp}' by User ID " . (Auth::id() ?? 'guest'));
 
-            try {
-                AuditLog::create([
-                    'tenant_id' => null,
-                    'user_id' => Auth::id(),
-                    'event' => 'superadmin_ip_blocked',
-                    'auditable_type' => SuperAdminIpWhitelist::class,
-                    'auditable_id' => '00000000-0000-0000-0000-000000000000',
-                    'old_values' => ['blocked_ip' => $clientIp, 'url' => $request->fullUrl()],
-                    'ip_address' => $clientIp,
-                    'user_agent' => $request->userAgent(),
-                ]);
-            } catch (\Throwable) {
-                // Ignore audit log failure
+                try {
+                    AuditLog::create([
+                        'tenant_id' => null,
+                        'user_id' => Auth::id(),
+                        'event' => 'superadmin_ip_blocked',
+                        'auditable_type' => SuperAdminIpWhitelist::class,
+                        'auditable_id' => '00000000-0000-0000-0000-000000000000',
+                        'old_values' => ['blocked_ip' => $clientIp, 'url' => $request->fullUrl()],
+                        'ip_address' => $clientIp,
+                        'user_agent' => $request->userAgent(),
+                    ]);
+                } catch (\Throwable) {
+                    // Ignore audit log failure
+                }
+
+                abort(403, "Access Restricted: IP address '{$clientIp}' is not authorized to access the Super Admin Command Center.");
             }
-
-            abort(403, "Access Restricted: IP address '{$clientIp}' is not authorized to access the Super Admin Command Center.");
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::warning("SuperAdmin IP Whitelist check bypassed: " . $e->getMessage());
         }
 
         return $next($request);

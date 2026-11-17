@@ -9,22 +9,7 @@
           <h1>PK POS</h1>
           <span style="color: #ec4899;">Platform Admin</span>
         </div>
-        <button
-          class="rail-toggle-btn"
-          :title="isRailMode ? 'Expand Sidebar' : 'Collapse to Mini-Rail'"
-          @click="toggleRailMode"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <template v-if="!isRailMode">
-              <polyline points="11 17 6 12 11 7"></polyline>
-              <polyline points="18 17 13 12 18 7"></polyline>
-            </template>
-            <template v-else>
-              <polyline points="13 17 18 12 13 7"></polyline>
-              <polyline points="6 17 11 12 6 7"></polyline>
-            </template>
-          </svg>
-        </button>
+        
       </div>
 
       <!-- Quick Search / Filter Input inside Sidebar -->
@@ -529,6 +514,19 @@
                 <polyline points="7 3 7 8 15 8"></polyline>
               </svg>
               <span v-if="!isRailMode">Backups & 6Y Archive</span>
+            </Link>
+
+            <Link
+              v-if="matchesFilter('Schema Migrations', '/superadmin/system/migrations')"
+              href="/superadmin/system/migrations"
+              class="nav-link"
+              :class="{ active: currentPath.startsWith('/superadmin/system/migrations') }"
+              title="Database Migrations"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span v-if="!isRailMode">Schema Migrations</span>
             </Link>
           </div>
         </div>

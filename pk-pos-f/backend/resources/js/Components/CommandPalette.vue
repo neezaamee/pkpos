@@ -121,6 +121,7 @@ const items = computed(() => [
   { category: 'Communication', title: 'Broadcast Announcements & Alerts', description: 'Global system banners & critical POS alert dispatch', href: '/superadmin/broadcasts' },
 
   // System & Telemetry
+  { category: 'System & Telemetry', title: 'Database Migrations & Schema', description: 'Run pending migrations, schema versioning and optimize cache', href: '/superadmin/system/migrations' },
   { category: 'System & Telemetry', title: 'System Health & Metrics', description: 'PostgreSQL connection pools, CPU, RAM and disk usage', href: '/superadmin/system/health' },
   { category: 'System & Telemetry', title: 'Queue Workers & Horizon', description: 'Background queue monitoring and retry failed jobs', href: '/superadmin/system/jobs', badge: props.badges?.failed_jobs ? `${props.badges.failed_jobs} Failed` : null, badgeColor: '#ef4444' },
   { category: 'System & Telemetry', title: 'Backups & 6-Year Fiscal Archive', description: 'Automated database snapshots and Section 22 retention', href: '/superadmin/backups' },

@@ -57,8 +57,43 @@ foreach ($writableDirs as $dir) {
     }
 }
 
+// Bootstrap Laravel and execute automated database migrations
+$migrationOutput = "SKIPPED";
+try {
+    if (file_exists(__DIR__ . '/vendor/autoload.php') && file_exists(__DIR__ . '/bootstrap/app.php')) {
+        require_once __DIR__ . '/vendor/autoload.php';
+
+        if (file_exists(__DIR__ . '/.env')) {
+            $lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line && !str_starts_with($line, '#') && str_contains($line, '=')) {
+                    putenv($line);
+                    [$k, $v] = explode('=', $line, 2);
+                    $v = trim($v, "\"'");
+                    $_ENV[trim($k)] = $v;
+                    $_SERVER[trim($k)] = $v;
+                }
+            }
+        }
+
+        $app = require_once __DIR__ . '/bootstrap/app.php';
+        $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+        $kernel->bootstrap();
+
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $migrationOutput = trim(\Illuminate\Support\Facades\Artisan::output());
+        if (empty($migrationOutput)) {
+            $migrationOutput = "Database is already up to date (no pending migrations).";
+        }
+    }
+} catch (\Throwable $e) {
+    $migrationOutput = "MIGRATION_FAILED: " . $e->getMessage();
+}
+
 @unlink($zipPath);
 @unlink($tokenFile);
 @unlink(__FILE__);
 
 echo "SUCCESS: Payload extracted and cleaned up.\n";
+echo "MIGRATION_LOG:\n" . $migrationOutput . "\n";

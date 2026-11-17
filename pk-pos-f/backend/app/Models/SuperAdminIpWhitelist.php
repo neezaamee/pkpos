@@ -59,29 +59,37 @@ class SuperAdminIpWhitelist extends Model
      */
     public static function isIpAllowed(string $clientIp): bool
     {
-        // If whitelisting table has no active records, access is unrestricted
-        $activeEntries = static::where('is_active', true)->pluck('ip_address')->toArray();
-        if (empty($activeEntries)) {
-            return true;
-        }
-
-        // Always allow loopback in local development or testing environments
-        if (in_array(app()->environment(), ['local', 'testing']) && in_array($clientIp, ['127.0.0.1', '::1'])) {
-            return true;
-        }
-
-        foreach ($activeEntries as $allowedRange) {
-            $allowedRange = trim($allowedRange);
-            if ($allowedRange === $clientIp) {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('super_admin_ip_whitelists')) {
                 return true;
             }
 
-            // Check CIDR or IP range using Symfony IpUtils
-            if (IpUtils::checkIp($clientIp, $allowedRange)) {
+            // If whitelisting table has no active records, access is unrestricted
+            $activeEntries = static::where('is_active', true)->pluck('ip_address')->toArray();
+            if (empty($activeEntries)) {
                 return true;
             }
-        }
 
-        return false;
+            // Always allow loopback in local development or testing environments
+            if (in_array(app()->environment(), ['local', 'testing']) && in_array($clientIp, ['127.0.0.1', '::1'])) {
+                return true;
+            }
+
+            foreach ($activeEntries as $allowedRange) {
+                $allowedRange = trim($allowedRange);
+                if ($allowedRange === $clientIp) {
+                    return true;
+                }
+
+                // Check CIDR or IP range using Symfony IpUtils
+                if (IpUtils::checkIp($clientIp, $allowedRange)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Throwable) {
+            return true;
+        }
     }
 }

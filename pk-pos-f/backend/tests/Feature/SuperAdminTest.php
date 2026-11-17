@@ -231,3 +231,37 @@ test('tenant creation creates tenant + location + owner in one transaction and q
             $mail->owner->id === $owner->id;
     });
 });
+
+test('a super admin can access /superadmin/system/migrations and trigger migrations', function () {
+    $response = $this->actingAs($this->superAdmin)
+        ->get('/superadmin/system/migrations');
+
+    $response->assertStatus(200)
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/System/Migrations')
+            ->has('database')
+            ->has('stats')
+            ->has('pending_migrations')
+            ->has('ran_migrations')
+        );
+
+    $runResponse = $this->actingAs($this->superAdmin)
+        ->post('/superadmin/system/migrations/run');
+
+    $runResponse->assertRedirect();
+    $runResponse->assertSessionHas('success');
+});
+
+test('a tenant owner cannot access system migrations', function () {
+    $this->actingAs($this->ownerA)
+        ->get('/superadmin/system/migrations')
+        ->assertStatus(403);
+});
+
+test('emergency migration endpoint runs successfully with super admin authentication', function () {
+    $response = $this->actingAs($this->superAdmin)
+        ->get('/superadmin/emergency-migrate');
+
+    $response->assertStatus(200);
+    expect($response->getContent())->toContain('PK-POS Emergency Migration Output');
+});
