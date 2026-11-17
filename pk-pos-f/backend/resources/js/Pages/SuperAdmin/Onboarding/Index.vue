@@ -4,10 +4,10 @@
       <!-- Page Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Merchant Self-Registration & Onboarding Queue
           </h1>
-          <p style="color: #94a3b8; font-size: 0.875rem;">
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
             Review incoming retailer applications, verify NTN filer status against FBR Active Taxpayer List (ATL), and 1-click provision multi-tenant environments.
           </p>
         </div>
@@ -86,14 +86,14 @@
         <div class="card" style="padding: 1.25rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em;">
                 Total Applications
               </div>
-              <div style="font-size: 1.75rem; font-weight: 700; color: #f8fafc; margin-top: 0.25rem;">
+              <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">
                 {{ metrics.total_applications }}
               </div>
             </div>
-            <div style="padding: 0.5rem; background: rgba(148, 163, 184, 0.15); border-radius: 8px; color: #cbd5e1;">
+            <div style="padding: 0.5rem; background: rgba(148, 163, 184, 0.15); border-radius: 8px; color: #818cf8;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                 <polyline points="14 2 14 8 20 8"></polyline>
@@ -196,30 +196,30 @@
               >
                 <!-- Application # -->
                 <td style="padding: 1rem;">
-                  <div style="font-weight: 700; color: #f8fafc; font-family: monospace;">
+                  <div style="font-weight: 700; color: var(--text-primary); font-family: monospace;">
                     {{ app.application_number }}
                   </div>
-                  <div style="font-size: 0.75rem; color: #64748b;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">
                     {{ formatDate(app.created_at) }}
                   </div>
                 </td>
 
                 <!-- Business & Sector -->
                 <td style="padding: 1rem;">
-                  <div style="font-weight: 600; color: #f8fafc; font-size: 0.9375rem;">
+                  <div style="font-weight: 600; color: var(--text-primary); font-size: 0.9375rem;">
                     {{ app.business_name }}
                   </div>
-                  <div style="font-size: 0.75rem; color: #94a3b8; text-transform: capitalize;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: capitalize;">
                     {{ app.sector.replace('_', ' ') }} • NTN: {{ app.ntn || 'Not Provided' }}
                   </div>
                 </td>
 
                 <!-- Contact & Location -->
                 <td style="padding: 1rem;">
-                  <div style="font-size: 0.875rem; color: #e2e8f0;">
+                  <div style="font-size: 0.875rem; color: var(--text-primary);">
                     {{ app.contact_name }}
                   </div>
-                  <div style="font-size: 0.75rem; color: #64748b;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">
                     {{ app.city }}, {{ app.province.toUpperCase() }} • {{ app.contact_phone }}
                   </div>
                 </td>
@@ -234,17 +234,17 @@
                     <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f87171;"></span>
                     <span style="color: #f87171; font-weight: 600; font-size: 0.8125rem;">Inactive / Non-Filer</span>
                   </div>
-                  <div v-if="app.atl_checked_at" style="font-size: 0.7rem; color: #64748b; margin-top: 0.2rem;">
+                  <div v-if="app.atl_checked_at" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">
                     Checked {{ formatDate(app.atl_checked_at) }}
                   </div>
                 </td>
 
                 <!-- Plan & Terminals -->
                 <td style="padding: 1rem; font-size: 0.8125rem;">
-                  <div style="color: #e2e8f0; font-weight: 500;">
+                  <div style="color: var(--text-primary); font-weight: 500;">
                     {{ app.requested_plan?.name || 'Standard Tier' }}
                   </div>
-                  <div style="color: #64748b; font-size: 0.75rem;">
+                  <div style="color: var(--text-muted); font-size: 0.75rem;">
                     {{ app.pos_terminal_count }} POS Terminal(s)
                   </div>
                 </td>

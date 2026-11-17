@@ -4,10 +4,10 @@
       <!-- Page Header & Create Action -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Tenant Organizations & Retail Fleet
           </h1>
-          <p style="color: #94a3b8; font-size: 0.875rem;">
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
             Directory of registered multi-store tenants, SaaS plan quotas, POS terminal fleets, and store context switching.
           </p>
         </div>
@@ -30,10 +30,10 @@
         <div class="card" style="padding: 1.25rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em;">
                 Total Organizations
               </div>
-              <div style="font-size: 1.75rem; font-weight: 700; color: #f8fafc; margin-top: 0.25rem;">
+              <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">
                 {{ metrics.total_tenants }}
               </div>
             </div>
@@ -190,14 +190,14 @@
       <!-- Tenants Data Table -->
       <div class="card" style="overflow: hidden;">
         <!-- Table Header Info Bar -->
-        <div style="padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.01); flex-wrap: wrap; gap: 0.5rem;">
-          <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">
+        <div style="padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.01); flex-wrap: wrap; gap: 0.5rem;">
+          <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">
             Stores Directory
-            <span style="font-weight: 400; color: #94a3b8; font-size: 0.85rem; margin-left: 0.35rem;">
+            <span style="font-weight: 400; color: var(--text-muted); font-size: 0.85rem; margin-left: 0.35rem;">
               ({{ tenants.total }} total organizations)
             </span>
           </div>
-          <div style="font-size: 0.8rem; color: #64748b;">
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
             Showing {{ tenants.from || 0 }} to {{ tenants.to || 0 }} of {{ tenants.total }}
           </div>
         </div>
@@ -205,22 +205,22 @@
         <div style="overflow-x: auto;">
           <table class="table" style="width: 100%; text-align: left; border-collapse: collapse;">
             <thead>
-              <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Store & Organization</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Fiscal IDs (NTN)</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Province</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Plan & Quotas</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Owner & Contact</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Registered</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Status</th>
-                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: right;">Actions</th>
+              <tr style="border-bottom: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.02);">
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Store & Organization</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Fiscal IDs (NTN)</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Province</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Plan & Quotas</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Owner & Contact</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Registered</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Status</th>
+                <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); text-align: right;">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr
                 v-for="tenant in tenants.data"
                 :key="tenant.id"
-                style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background-color 0.15s;"
+                style="border-bottom: 1px solid var(--border-color); transition: background-color 0.15s;"
               >
                 <!-- Store & Organization -->
                 <td style="padding: 0.875rem 1rem;">
@@ -234,12 +234,12 @@
                     <div>
                       <Link
                         :href="`/superadmin/tenants/${tenant.id}`"
-                        style="color: #f8fafc; text-decoration: none; font-weight: 700; font-size: 0.9rem; display: block;"
+                        style="color: var(--text-primary); text-decoration: none; font-weight: 700; font-size: 0.9rem; display: block;"
                       >
                         {{ tenant.name }}
                       </Link>
                       <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem;">
-                        <span style="font-size: 0.725rem; color: #94a3b8; display: inline-flex; align-items: center; gap: 0.2rem;">
+                        <span style="font-size: 0.725rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.2rem;">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                             <circle cx="12" cy="10" r="3"></circle>
@@ -256,7 +256,7 @@
                   <div style="font-family: monospace; font-size: 0.85rem; font-weight: 600; color: #38bdf8;">
                     NTN: {{ tenant.ntn || 'Not Registered' }}
                   </div>
-                  <div v-if="tenant.strn" style="font-family: monospace; font-size: 0.725rem; color: #94a3b8; margin-top: 0.15rem;">
+                  <div v-if="tenant.strn" style="font-family: monospace; font-size: 0.725rem; color: var(--text-muted); margin-top: 0.15rem;">
                     STRN: {{ tenant.strn }}
                   </div>
                 </td>
@@ -277,11 +277,11 @@
                   <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                     <span
                       class="badge"
-                      style="background: rgba(99, 102, 241, 0.18); color: #a5b4fc; font-weight: 600; width: fit-content; font-size: 0.725rem; border: 1px solid rgba(99, 102, 241, 0.3);"
+                      style="background: rgba(99, 102, 241, 0.18); color: #818cf8; font-weight: 600; width: fit-content; font-size: 0.725rem; border: 1px solid rgba(99, 102, 241, 0.3);"
                     >
                       {{ tenant.plan_name || 'Free Tier' }}
                     </span>
-                    <span style="font-size: 0.725rem; color: #94a3b8; display: inline-flex; align-items: center; gap: 0.25rem;">
+                    <span style="font-size: 0.725rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem;">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                         <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -294,10 +294,10 @@
 
                 <!-- Owner & Contact -->
                 <td style="padding: 0.875rem 1rem;">
-                  <div style="font-size: 0.85rem; font-weight: 600; color: #f8fafc;">
+                  <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">
                     {{ tenant.owner_name }}
                   </div>
-                  <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.15rem;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
                     <a :href="`mailto:${tenant.owner_email}`" style="color: inherit; text-decoration: none;">
                       {{ tenant.owner_email }}
                     </a>
@@ -306,10 +306,10 @@
 
                 <!-- Registered Date -->
                 <td style="padding: 0.875rem 1rem;">
-                  <div style="font-size: 0.85rem; color: #cbd5e1;" :title="tenant.created_at">
+                  <div style="font-size: 0.85rem; color: var(--text-secondary);" :title="tenant.created_at">
                     {{ tenant.created_at_human || tenant.created_at }}
                   </div>
-                  <div style="font-size: 0.725rem; color: #64748b; margin-top: 0.15rem;">
+                  <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.15rem;">
                     {{ tenant.created_at }}
                   </div>
                 </td>

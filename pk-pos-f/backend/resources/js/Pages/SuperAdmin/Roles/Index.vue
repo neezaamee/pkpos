@@ -3,7 +3,7 @@
     <!-- Header with Action -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h1 style="font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem;">
+        <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
           Dynamic Roles & Granular Permissions Engine
         </h1>
         <p style="color: var(--text-muted); font-size: 0.875rem;">
@@ -29,7 +29,7 @@
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
       <div class="metric-card">
         <div class="metric-label">Total Defined Roles</div>
-        <div class="metric-value" style="color: #fff;">{{ metrics.total_roles }}</div>
+        <div class="metric-value" style="color: var(--text-primary);">{{ metrics.total_roles }}</div>
         <div class="metric-caption">Active operational roles</div>
       </div>
 
@@ -54,7 +54,7 @@
 
     <!-- Defined Roles Grid -->
     <div style="margin-bottom: 2rem;">
-      <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">
         Operational Roles Directory
       </h3>
 
@@ -69,7 +69,7 @@
           <div>
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
               <div>
-                <h4 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
                   {{ role.name }}
                   <span v-if="role.is_system" class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted); font-size: 0.65rem;">
                     System Core
@@ -92,7 +92,7 @@
 
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.775rem;">
               <span style="color: var(--text-muted);">Capabilities:</span>
-              <strong style="color: #fff;">
+              <strong style="color: var(--text-primary);">
                 {{ role.slug === 'super_admin' ? 'All Permissions (Unrestricted)' : `${role.permissions_count} / ${metrics.total_permissions} Active` }}
               </strong>
             </div>
@@ -126,7 +126,7 @@
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <div>
-          <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">
             Platform Capability Matrix
           </h3>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
@@ -139,12 +139,12 @@
         <div
           v-for="(perms, moduleName) in permissions_by_module"
           :key="moduleName"
-          style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 1.25rem;"
+          style="background: var(--bg-hover, rgba(0, 0, 0, 0.02)); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;"
         >
           <!-- Module Header -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-weight: 700; color: #fff; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.05em;">
+              <span style="font-weight: 700; color: var(--text-primary); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.05em;">
                 {{ formatModuleName(moduleName) }}
               </span>
               <span class="badge badge-neutral" style="font-size: 0.65rem;">
@@ -158,9 +158,9 @@
             <div
               v-for="perm in perms"
               :key="perm.id"
-              style="padding: 0.75rem; border-radius: 6px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.05);"
+              style="padding: 0.75rem; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border-color);"
             >
-              <div style="font-weight: 600; color: #e2e8f0; font-size: 0.85rem; margin-bottom: 0.2rem;">
+              <div style="font-weight: 600; color: var(--text-primary); font-size: 0.85rem; margin-bottom: 0.2rem;">
                 {{ perm.name }}
               </div>
               <div style="font-family: monospace; font-size: 0.7rem; color: #38bdf8; margin-bottom: 0.35rem;">
@@ -241,10 +241,10 @@
                 </div>
               </div>
 
-              <div style="display: flex; flex-direction: column; gap: 1rem; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem; max-height: 340px; overflow-y: auto;">
+              <div style="display: flex; flex-direction: column; gap: 1rem; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; max-height: 340px; overflow-y: auto;">
                 <div v-for="(perms, mod) in permissions_by_module" :key="mod">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="font-size: 0.75rem; font-weight: 700; color: #38bdf8; text-transform: uppercase;">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">
                       {{ formatModuleName(mod) }}
                     </span>
                     <button
@@ -261,7 +261,7 @@
                     <label
                       v-for="p in perms"
                       :key="p.id"
-                      style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8rem; color: #e2e8f0; cursor: pointer; padding: 0.35rem; border-radius: 4px; background: rgba(255, 255, 255, 0.02);"
+                      style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8rem; color: var(--text-primary); cursor: pointer; padding: 0.35rem; border-radius: 4px; background: var(--bg-hover, rgba(0, 0, 0, 0.02));"
                     >
                       <input
                         type="checkbox"
@@ -370,11 +370,11 @@
 
               <div
                 v-else
-                style="display: flex; flex-direction: column; gap: 1rem; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem; max-height: 340px; overflow-y: auto;"
+                style="display: flex; flex-direction: column; gap: 1rem; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; max-height: 340px; overflow-y: auto;"
               >
                 <div v-for="(perms, mod) in permissions_by_module" :key="mod">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="font-size: 0.75rem; font-weight: 700; color: #38bdf8; text-transform: uppercase;">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">
                       {{ formatModuleName(mod) }}
                     </span>
                     <button
@@ -391,7 +391,7 @@
                     <label
                       v-for="p in perms"
                       :key="p.id"
-                      style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8rem; color: #e2e8f0; cursor: pointer; padding: 0.35rem; border-radius: 4px; background: rgba(255, 255, 255, 0.02);"
+                      style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8rem; color: var(--text-primary); cursor: pointer; padding: 0.35rem; border-radius: 4px; background: var(--bg-hover, rgba(0, 0, 0, 0.02));"
                     >
                       <input
                         type="checkbox"

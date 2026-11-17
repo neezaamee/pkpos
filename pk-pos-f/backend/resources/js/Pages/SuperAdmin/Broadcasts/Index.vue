@@ -4,10 +4,10 @@
       <!-- Top Action & Overview Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Emergency Banners & Platform Broadcasts
           </h1>
-          <p style="color: #94a3b8; font-size: 0.875rem;">
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
             Dispatch real-time emergency advisories, scheduled FBR maintenance banners, and critical POS firmware notifications to merchants across Pakistan.
           </p>
         </div>
@@ -30,10 +30,10 @@
         <div class="card" style="padding: 1.25rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em;">
                 Total Broadcasts
               </div>
-              <div style="font-size: 1.75rem; font-weight: 700; color: #f8fafc; margin-top: 0.25rem;">
+              <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">
                 {{ metrics.total_broadcasts }}
               </div>
             </div>
@@ -204,10 +204,10 @@
                       {{ formatLevel(b.level) }}
                     </span>
                     <div>
-                      <div style="font-weight: 600; color: #f8fafc; font-size: 0.9375rem;">
+                      <div style="font-weight: 600; color: var(--text-primary); font-size: 0.9375rem;">
                         {{ b.title }}
                       </div>
-                      <div style="color: #94a3b8; font-size: 0.8125rem; margin-top: 0.25rem; max-width: 480px; white-space: pre-line;">
+                      <div style="color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.25rem; max-width: 480px; white-space: pre-line;">
                         {{ truncateText(b.message, 120) }}
                       </div>
                     </div>
@@ -217,7 +217,7 @@
                 <!-- Target Audience -->
                 <td style="padding: 1rem;">
                   <div v-if="b.target_audience === 'all'">
-                    <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1;">
+                    <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-secondary);">
                       All Merchants & Terminals
                     </span>
                   </div>
@@ -371,9 +371,9 @@
 
       <!-- Create / Edit Announcement Modal -->
       <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
-        <div class="card" style="width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 1.5rem; border-color: rgba(255, 255, 255, 0.15);">
+        <div class="card" style="width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 1.5rem; border-color: var(--border-color);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">
               {{ isEditing ? 'Edit Broadcast Announcement' : 'Publish Platform Broadcast' }}
             </h2>
             <button @click="closeModal" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 1rem;">
@@ -383,7 +383,7 @@
 
           <form @submit.prevent="submitModal" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Announcement Title *
               </label>
               <input
@@ -398,7 +398,7 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Urgency Severity *
                 </label>
                 <select v-model="modalForm.level" class="form-control" style="width: 100%;" required>
@@ -409,7 +409,7 @@
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Target Audience *
                 </label>
                 <select v-model="modalForm.target_audience" class="form-control" style="width: 100%;" required>
@@ -423,7 +423,7 @@
 
             <!-- Province Dropdown if audience == province -->
             <div v-if="modalForm.target_audience === 'province'">
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Select Target Province *
               </label>
               <select v-model="modalForm.target_province" class="form-control" style="width: 100%;" required>
@@ -438,7 +438,7 @@
 
             <!-- Tenant Dropdown if audience == tenant -->
             <div v-if="modalForm.target_audience === 'tenant'">
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Select Merchant Tenant *
               </label>
               <select v-model="modalForm.target_tenant_id" class="form-control" style="width: 100%;" required>
@@ -450,7 +450,7 @@
             </div>
 
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Advisory Message Details *
               </label>
               <textarea
@@ -465,7 +465,7 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Scheduled Start Time
                 </label>
                 <input
@@ -477,7 +477,7 @@
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Expiration Time
                 </label>
                 <input
@@ -490,12 +490,12 @@
             </div>
 
             <div style="display: flex; gap: 1.5rem; align-items: center; padding: 0.5rem 0;">
-              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: #cbd5e1;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: var(--text-secondary);">
                 <input type="checkbox" v-model="modalForm.dismissible" />
                 <span>Allow Merchants to Dismiss</span>
               </label>
 
-              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: #cbd5e1;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: var(--text-secondary);">
                 <input type="checkbox" v-model="modalForm.is_active" />
                 <span>Active Broadcast</span>
               </label>

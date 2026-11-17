@@ -4,10 +4,10 @@
       <!-- Page Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Pakistan SaaS Invoicing & 1Bill Billing Gateway
           </h1>
-          <p style="color: #94a3b8; font-size: 0.875rem;">
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
             Manage B2B subscription billing, generate 1Link 1Bill & Kuickpay consumer numbers, and verify bank wire IBFT transfer slips.
           </p>
         </div>
@@ -199,46 +199,46 @@
           <div style="overflow-x: auto;">
             <table class="table" style="width: 100%; text-align: left; border-collapse: collapse;">
               <thead>
-                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Invoice & Cycle</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Merchant & NTN</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Plan</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Subtotal + Tax</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Total (PKR)</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">1Bill / Kuickpay</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Status</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: right;">Actions</th>
+                <tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-hover, rgba(0, 0, 0, 0.02));">
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Invoice & Cycle</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Merchant & NTN</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Plan</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Subtotal + Tax</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Total (PKR)</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">1Bill / Kuickpay</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Status</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); text-align: right;">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
                   v-for="inv in invoices.data"
                   :key="inv.id"
-                  style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background-color 0.15s;"
+                  style="border-bottom: 1px solid var(--border-color); transition: background-color 0.15s;"
                 >
                   <!-- Invoice # -->
                   <td style="padding: 1rem;">
-                    <div style="font-weight: 700; color: #f8fafc; font-family: monospace;">
+                    <div style="font-weight: 700; color: var(--text-primary); font-family: monospace;">
                       {{ inv.invoice_number }}
                     </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8; text-transform: capitalize;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: capitalize;">
                       {{ inv.billing_cycle }} • Due {{ inv.due_date }}
                     </div>
                   </td>
 
                   <!-- Merchant -->
                   <td style="padding: 1rem;">
-                    <div style="font-weight: 600; color: #e2e8f0; font-size: 0.875rem;">
+                    <div style="font-weight: 600; color: var(--text-primary); font-size: 0.875rem;">
                       {{ inv.tenant?.name || 'Unknown Merchant' }}
                     </div>
-                    <div style="font-size: 0.75rem; color: #64748b;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
                       NTN: {{ inv.tenant?.ntn || 'N/A' }} • {{ inv.tenant?.province || 'National' }}
                     </div>
                   </td>
 
                   <!-- Plan -->
                   <td style="padding: 1rem;">
-                    <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1;">
+                    <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-secondary);">
                       {{ inv.plan?.name || 'Custom Plan' }}
                     </span>
                   </td>
@@ -319,10 +319,10 @@
       <!-- TAB 2: PENDING BANK WIRE QUEUE -->
       <div v-else-if="activeTab === 'wires'" style="display: flex; flex-direction: column; gap: 1rem;">
         <div class="card" style="padding: 1.25rem;">
-          <h3 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Interbank Wire & IBFT Verification Queue
           </h3>
-          <p style="color: #94a3b8; font-size: 0.8125rem;">
+          <p style="color: var(--text-muted); font-size: 0.8125rem;">
             When merchants settle subscriptions via direct bank transfer, Meezan Bank, HBL, or Raast, review the deposit slip and reference ID below to unlock their account.
           </p>
         </div>
@@ -331,43 +331,43 @@
           <div style="overflow-x: auto;">
             <table class="table" style="width: 100%; text-align: left; border-collapse: collapse;">
               <thead>
-                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Merchant & NTN</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Invoice #</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Amount (PKR)</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Bank / Gateway</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Reference / Slip</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: right;">Review Action</th>
+                <tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-hover, rgba(0, 0, 0, 0.02));">
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Merchant & NTN</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Invoice #</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Amount (PKR)</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Bank / Gateway</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Reference / Slip</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); text-align: right;">Review Action</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
                   v-for="wire in pendingWires"
                   :key="wire.id"
-                  style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
+                  style="border-bottom: 1px solid var(--border-color);"
                 >
                   <td style="padding: 1rem;">
-                    <div style="font-weight: 600; color: #f8fafc;">
+                    <div style="font-weight: 600; color: var(--text-primary);">
                       {{ wire.tenant?.name }}
                     </div>
-                    <div style="font-size: 0.75rem; color: #64748b;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
                       NTN: {{ wire.tenant?.ntn || 'N/A' }} • {{ wire.tenant?.province }}
                     </div>
                   </td>
 
-                  <td style="padding: 1rem; font-family: monospace; font-size: 0.875rem; color: #60a5fa;">
+                  <td style="padding: 1rem; font-family: monospace; font-size: 0.875rem; color: #0284c7;">
                     {{ wire.invoice_number }}
                   </td>
 
-                  <td style="padding: 1rem; font-weight: 700; color: #34d399; font-size: 1rem;">
+                  <td style="padding: 1rem; font-weight: 700; color: #10b981; font-size: 1rem;">
                     PKR {{ formatMoney(wire.amount_rs) }}
                   </td>
 
                   <td style="padding: 1rem;">
-                    <div style="font-weight: 600; color: #e2e8f0; font-size: 0.875rem;">
+                    <div style="font-weight: 600; color: var(--text-primary); font-size: 0.875rem;">
                       {{ wire.bank_name }}
                     </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
                       {{ wire.gateway.replace('_', ' ') }}
                     </div>
                   </td>
@@ -428,7 +428,7 @@
       <div v-if="showInvoiceModal" class="modal-backdrop" @click.self="showInvoiceModal = false">
         <div class="card" style="width: 100%; max-width: 580px; padding: 1.5rem; max-height: 90vh; overflow-y: auto;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">
               Issue B2B SaaS Invoice
             </h2>
             <button @click="showInvoiceModal = false" class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">✕</button>
@@ -436,7 +436,7 @@
 
           <form @submit.prevent="submitInvoiceModal" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Merchant Tenant *
               </label>
               <select v-model="invoiceForm.tenant_id" @change="onTenantChange" class="form-control" style="width: 100%;" required>
@@ -449,7 +449,7 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Plan Tier
                 </label>
                 <select v-model="invoiceForm.plan_id" @change="onPlanChange" class="form-control" style="width: 100%;">
@@ -461,7 +461,7 @@
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Billing Cycle *
                 </label>
                 <select v-model="invoiceForm.billing_cycle" class="form-control" style="width: 100%;" required>
@@ -474,7 +474,7 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Subtotal (PKR) *
                 </label>
                 <input
@@ -489,7 +489,7 @@
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Tax Authority & Rate *
                 </label>
                 <select v-model="invoiceForm.tax_authority" @change="onTaxAuthorityChange" class="form-control" style="width: 100%;" required>
@@ -504,7 +504,7 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Tax Rate (%) *
                 </label>
                 <input
@@ -518,7 +518,7 @@
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Payment Due Date *
                 </label>
                 <input
@@ -532,16 +532,16 @@
             </div>
 
             <!-- Calculated Summary Box -->
-            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1rem;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem; color: #94a3b8; margin-bottom: 0.25rem;">
+            <div style="background: var(--bg-hover, rgba(0, 0, 0, 0.03)); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 0.25rem;">
                 <span>Subtotal:</span>
                 <span>PKR {{ formatMoney(invoiceForm.subtotal_rs || 0) }}</span>
               </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem; color: #94a3b8; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 0.5rem;">
                 <span>Sales Tax ({{ invoiceForm.tax_authority }} {{ invoiceForm.tax_rate }}%):</span>
                 <span>PKR {{ formatMoney(calculatedTax) }}</span>
               </div>
-              <div style="display: flex; justify-content: space-between; font-weight: 700; color: #34d399; font-size: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; font-weight: 700; color: #10b981; font-size: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
                 <span>Total Invoice Due:</span>
                 <span>PKR {{ formatMoney(calculatedTotal) }}</span>
               </div>
@@ -562,16 +562,16 @@
       <!-- MODAL: LOG BANK WIRE DEPOSIT -->
       <div v-if="showLogWireModal" class="modal-backdrop" @click.self="showLogWireModal = false">
         <div class="card" style="width: 100%; max-width: 500px; padding: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
             Log Bank Wire Payment
           </h2>
-          <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
             Record direct bank wire / IBFT transfer for invoice <strong>{{ selectedInvoice?.invoice_number }}</strong>.
           </p>
 
           <form @submit.prevent="submitLogWire" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Bank Name *
               </label>
               <input
@@ -585,7 +585,7 @@
             </div>
 
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Bank Transaction Reference / RRN *
               </label>
               <input
@@ -599,7 +599,7 @@
             </div>
 
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Deposit Slip URL / Image Link
               </label>
               <input
@@ -626,16 +626,16 @@
       <!-- MODAL: REJECT PAYMENT -->
       <div v-if="showRejectModal" class="modal-backdrop" @click.self="showRejectModal = false">
         <div class="card" style="width: 100%; max-width: 480px; padding: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: #dc2626; margin-bottom: 0.5rem;">
             Reject Bank Wire Payment
           </h2>
-          <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
             Provide a clear rejection reason for transaction <strong>{{ selectedWire?.transaction_reference }}</strong>.
           </p>
 
           <form @submit.prevent="submitReject" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Rejection Reason *
               </label>
               <textarea

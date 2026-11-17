@@ -403,7 +403,7 @@ function getEventBadgeStyle(event) {
 }
 
 .modal-close:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -413,7 +413,7 @@ function getEventBadgeStyle(event) {
 .modal-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border-color);
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;

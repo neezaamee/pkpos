@@ -3,7 +3,7 @@
     <!-- Header with Action -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h1 style="font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem;">Platform Staff & Role-Based Access Control</h1>
+        <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Platform Staff & Role-Based Access Control</h1>
         <p style="color: var(--text-muted); font-size: 0.875rem;">Manage internal team members, assign operational roles, and enforce security policies.</p>
       </div>
       <div>
@@ -25,7 +25,7 @@
     <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
       <div class="metric-card">
         <div class="metric-label">Total Platform Staff</div>
-        <div class="metric-value" style="color: #fff;">{{ metrics.total_staff }}</div>
+        <div class="metric-value" style="color: var(--text-primary);">{{ metrics.total_staff }}</div>
         <div class="metric-caption">Active accounts across all roles</div>
       </div>
 
@@ -49,8 +49,8 @@
     </div>
 
     <!-- Role Permissions Quick Reference Card -->
-    <div class="card" style="margin-bottom: 1.5rem; background: rgba(30, 41, 59, 0.4); border-color: rgba(255, 255, 255, 0.08);">
-      <div style="font-size: 0.85rem; font-weight: 600; color: #e2e8f0; margin-bottom: 0.75rem;">
+    <div class="card" style="margin-bottom: 1.5rem; background: var(--bg-card); border-color: var(--border-color);">
+      <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem;">
         Internal Staff Roles & Access Matrix
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; font-size: 0.8rem;">
@@ -158,9 +158,9 @@
                     {{ member.name.charAt(0).toUpperCase() }}
                   </div>
                   <div>
-                    <div style="font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
                       {{ member.name }}
-                      <span v-if="member.is_current_user" class="badge" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; font-size: 0.65rem;">
+                      <span v-if="member.is_current_user" class="badge" style="background: rgba(236, 72, 153, 0.2); color: #ec4899; font-size: 0.65rem;">
                         You
                       </span>
                     </div>
@@ -393,7 +393,7 @@
                 type="checkbox"
                 style="width: 18px; height: 18px;"
               />
-              <label for="edit-is-active" style="font-size: 0.85rem; color: #fff; cursor: pointer;">
+              <label for="edit-is-active" style="font-size: 0.85rem; color: var(--text-primary); cursor: pointer;">
                 Account Active (uncheck to deactivate access immediately)
               </label>
             </div>
@@ -425,7 +425,7 @@
         <form @submit.prevent="submitResetPassword">
           <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
             <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
-              Resetting password for <strong style="color: #fff;">{{ resettingMember?.name }}</strong> ({{ resettingMember?.email }}).
+              Resetting password for <strong style="color: var(--text-primary);">{{ resettingMember?.name }}</strong> ({{ resettingMember?.email }}).
             </p>
 
             <div>

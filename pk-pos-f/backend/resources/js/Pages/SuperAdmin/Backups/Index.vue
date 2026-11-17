@@ -4,10 +4,10 @@
       <!-- Page Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Automated Backups & Fiscal Data Archiving
           </h1>
-          <p style="color: #94a3b8; font-size: 0.875rem;">
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
             PostgreSQL snapshot management and 6-year statutory fiscal audit retention complying with Pakistan Sales Tax Act 1990 (Sec 22).
           </p>
         </div>
@@ -43,10 +43,10 @@
         <div class="card" style="padding: 1.25rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em;">
                 Database Snapshots
               </div>
-              <div style="font-size: 1.75rem; font-weight: 700; color: #f8fafc; margin-top: 0.25rem;">
+              <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">
                 {{ metrics.total_backups_count }}
               </div>
             </div>
@@ -172,21 +172,21 @@
                 style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
               >
                 <td style="padding: 1rem;">
-                  <div style="font-weight: 700; color: #f8fafc; font-family: monospace;">
+                  <div style="font-weight: 700; color: var(--text-primary); font-family: monospace;">
                     {{ b.filename }}
                   </div>
-                  <div style="font-size: 0.75rem; color: #64748b;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">
                     {{ formatDate(b.created_at) }} • {{ b.notes || 'Full DB Dump' }}
                   </div>
                 </td>
 
                 <td style="padding: 1rem;">
-                  <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; text-transform: capitalize;">
+                  <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #0284c7; text-transform: capitalize;">
                     {{ b.backup_type.replace('_', ' ') }}
                   </span>
                 </td>
 
-                <td style="padding: 1rem; font-weight: 600; color: #cbd5e1;">
+                <td style="padding: 1rem; font-weight: 600; color: var(--text-secondary);">
                   {{ b.file_size_mb }} MB
                 </td>
 
@@ -228,10 +228,10 @@
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
             </svg>
             <div>
-              <div style="font-weight: 700; color: #34d399; font-size: 0.9375rem;">
+              <div style="font-weight: 700; color: #10b981; font-size: 0.9375rem;">
                 Statutory Fiscal Compliance Mandate (Pakistan Sales Tax Act 1990 - Section 22)
               </div>
-              <p style="font-size: 0.8125rem; color: #cbd5e1; margin-top: 0.25rem; line-height: 1.4;">
+              <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.25rem; line-height: 1.4;">
                 All Tier-1 Retailers integrated with FBR are legally obligated to retain electronic point-of-sale sales registers, buyer NTN tax invoices, and fiscal transmission logs for a minimum duration of <strong>6 years</strong>. These archives are cryptographically signed with SHA-256 and locked against deletion.
               </p>
             </div>
@@ -242,46 +242,46 @@
           <div style="overflow-x: auto;">
             <table class="table" style="width: 100%; text-align: left; border-collapse: collapse;">
               <thead>
-                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Archive Code</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Merchant Organization</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Financial Year</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Invoices & Logs</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">6-Year Statutory Retention</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: right;">Action</th>
+                <tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-hover, rgba(0, 0, 0, 0.02));">
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Archive Code</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Merchant Organization</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Financial Year</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Invoices & Logs</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">6-Year Statutory Retention</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); text-align: right;">Action</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
                   v-for="arc in fiscalArchives.data"
                   :key="arc.id"
-                  style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
+                  style="border-bottom: 1px solid var(--border-color);"
                 >
                   <td style="padding: 1rem;">
-                    <div style="font-weight: 700; color: #f8fafc; font-family: monospace;">
+                    <div style="font-weight: 700; color: var(--text-primary); font-family: monospace;">
                       {{ arc.archive_code }}
                     </div>
-                    <div style="font-size: 0.75rem; color: #64748b;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
                       Compiled {{ formatDate(arc.created_at) }}
                     </div>
                   </td>
 
                   <td style="padding: 1rem;">
-                    <div style="font-weight: 600; color: #e2e8f0; font-size: 0.875rem;">
+                    <div style="font-weight: 600; color: var(--text-primary); font-size: 0.875rem;">
                       {{ arc.tenant?.name || 'Platform Consolidated' }}
                     </div>
-                    <div style="font-size: 0.75rem; color: #64748b;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
                       NTN: {{ arc.tenant?.ntn || 'All Merchants' }}
                     </div>
                   </td>
 
-                  <td style="padding: 1rem; font-weight: 700; color: #60a5fa;">
+                  <td style="padding: 1rem; font-weight: 700; color: #0284c7;">
                     FY {{ arc.financial_year }}
                   </td>
 
                   <td style="padding: 1rem; font-size: 0.875rem;">
-                    <div style="color: #f8fafc; font-weight: 600;">{{ arc.record_count.toLocaleString() }} Invoices</div>
-                    <div style="font-size: 0.75rem; color: #94a3b8;">{{ arc.file_size_mb }} MB Compressed</div>
+                    <div style="color: var(--text-primary); font-weight: 600;">{{ arc.record_count.toLocaleString() }} Invoices</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ arc.file_size_mb }} MB Compressed</div>
                   </td>
 
                   <td style="padding: 1rem;">
@@ -326,16 +326,16 @@
       <!-- MODAL: SNAPSHOT -->
       <div v-if="showSnapshotModal" class="modal-backdrop" @click.self="showSnapshotModal = false">
         <div class="card" style="width: 100%; max-width: 480px; padding: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
             Trigger Database Snapshot
           </h2>
-          <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
             Generates a compressed `.sql.gz` PostgreSQL dump of all platform schemas, tables, and tenant partitions.
           </p>
 
           <form @submit.prevent="submitSnapshot" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Snapshot Notes
               </label>
               <input
@@ -362,16 +362,16 @@
       <!-- MODAL: FISCAL ARCHIVE -->
       <div v-if="showFiscalModal" class="modal-backdrop" @click.self="showFiscalModal = false">
         <div class="card" style="width: 100%; max-width: 500px; padding: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
             Compile 6-Year Fiscal Retention Archive
           </h2>
-          <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
             Package all fiscal sales invoices, HS codes, provincial taxes, and FBR IRIS verification receipts under Section 22.
           </p>
 
           <form @submit.prevent="submitFiscal" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Financial Year *
               </label>
               <input
@@ -385,7 +385,7 @@
             </div>
 
             <div>
-              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+              <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                 Scope (Merchant Tenant)
               </label>
               <select v-model="fiscalForm.tenant_id" class="form-control" style="width: 100%;">

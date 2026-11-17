@@ -4,10 +4,10 @@
       <!-- Emergency Security Command Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
             Security Hardening & Session Killswitch Terminal
           </h1>
-          <p style="color: #94a3b8; font-size: 0.875rem;">
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
             Inspect live administrative sessions, enforce TOTP two-factor authentication, and execute platform-wide authentication killswitches.
           </p>
         </div>
@@ -174,7 +174,7 @@
                 <!-- User -->
                 <td style="padding: 1rem;">
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <div style="font-weight: 600; color: #f8fafc;">
+                    <div style="font-weight: 600; color: var(--text-primary);">
                       {{ s.user?.name || 'Guest / Unauthenticated' }}
                     </div>
                     <span
@@ -185,7 +185,7 @@
                       THIS DEVICE
                     </span>
                   </div>
-                  <div style="font-size: 0.75rem; color: #64748b; font-family: monospace;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
                     {{ s.user?.email || s.id.slice(0, 16) + '...' }}
                   </div>
                 </td>
@@ -201,8 +201,8 @@
                   </span>
                   <span
                     v-else
-                    class="badge"
-                    style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; font-size: 0.7rem; text-transform: capitalize;"
+                    class="badge badge-neutral"
+                    style="font-size: 0.7rem; text-transform: capitalize;"
                   >
                     {{ s.user?.role || 'Guest' }}
                   </span>
@@ -214,14 +214,14 @@
                 </td>
 
                 <!-- Device / Browser -->
-                <td style="padding: 1rem; font-size: 0.8125rem; color: #cbd5e1;">
+                <td style="padding: 1rem; font-size: 0.8125rem; color: var(--text-secondary);">
                   {{ s.browser }}
                 </td>
 
                 <!-- Last Activity -->
                 <td style="padding: 1rem; font-size: 0.8125rem;">
-                  <div style="color: #f8fafc; font-weight: 500;">{{ s.last_activity_human }}</div>
-                  <div style="font-size: 0.7rem; color: #64748b;">{{ formatDate(s.last_activity_at) }}</div>
+                  <div style="color: var(--text-primary); font-weight: 500;">{{ s.last_activity_human }}</div>
+                  <div style="font-size: 0.7rem; color: var(--text-muted);">{{ formatDate(s.last_activity_at) }}</div>
                 </td>
 
                 <!-- Action -->
@@ -248,10 +248,10 @@
       <div v-else-if="activeTab === '2fa'" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: flex-start;">
         <!-- Left: Current User 2FA Manager -->
         <div class="card" style="padding: 1.5rem;">
-          <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.5rem;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
             Two-Factor Authentication (TOTP)
           </h3>
-          <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
             Protect your staff account using Google Authenticator, Microsoft Authenticator, or 1Password.
           </p>
 
@@ -265,26 +265,26 @@
               </div>
               <div>
                 <div style="font-weight: 700; color: #34d399; font-size: 0.9375rem;">Two-Factor Authentication is ACTIVE</div>
-                <div style="font-size: 0.75rem; color: #94a3b8;">Confirmed on {{ formatDate(user2fa.confirmed_at) }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Confirmed on {{ formatDate(user2fa.confirmed_at) }}</div>
               </div>
             </div>
 
             <!-- Recovery Codes List -->
-            <div v-if="user2fa.recovery_codes && user2fa.recovery_codes.length > 0" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1rem;">
-              <div style="font-size: 0.8125rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.5rem;">
+            <div v-if="user2fa.recovery_codes && user2fa.recovery_codes.length > 0" style="background: var(--bg-hover, rgba(0, 0, 0, 0.05)); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+              <div style="font-size: 0.8125rem; font-weight: 700; color: #d97706; margin-bottom: 0.5rem;">
                 Emergency Backup Recovery Codes
               </div>
-              <p style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.75rem;">
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
                 Store these recovery codes in a secure location. Each code can be used once if you lose device access.
               </p>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; font-family: monospace; font-size: 0.8125rem; color: #f8fafc;">
-                <div v-for="rc in user2fa.recovery_codes" :key="rc" style="background: rgba(255, 255, 255, 0.05); padding: 0.25rem 0.5rem; border-radius: 4px; text-align: center;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; font-family: monospace; font-size: 0.8125rem; color: var(--text-primary);">
+                <div v-for="rc in user2fa.recovery_codes" :key="rc" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 0.25rem 0.5rem; border-radius: 4px; text-align: center;">
                   {{ rc }}
                 </div>
               </div>
             </div>
 
-            <div style="margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem;">
+            <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
               <button
                 @click="disable2fa"
                 class="btn btn-danger"
@@ -298,7 +298,7 @@
           <!-- If 2FA not enabled -->
           <div v-else style="display: flex; flex-direction: column; gap: 1rem;">
             <div v-if="!user2fa.secret">
-              <p style="font-size: 0.875rem; color: #cbd5e1; margin-bottom: 1rem;">
+              <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">
                 When two-factor authentication is enabled, you will be prompted for a secure 6-digit pin during login.
               </p>
               <button
@@ -314,10 +314,10 @@
             <!-- Setup in progress (Secret generated) -->
             <div v-else style="display: flex; flex-direction: column; gap: 1rem;">
               <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; border-radius: 8px; padding: 1rem;">
-                <div style="font-weight: 700; color: #60a5fa; font-size: 0.875rem; margin-bottom: 0.35rem;">
+                <div style="font-weight: 700; color: #2563eb; font-size: 0.875rem; margin-bottom: 0.35rem;">
                   Step 1: Enter Secret Key in Authenticator
                 </div>
-                <div style="font-size: 0.8125rem; color: #cbd5e1; margin-bottom: 0.75rem;">
+                <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
                   Open your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password) and add account manually with this secret:
                 </div>
                 <div style="background: #0f172a; padding: 0.6rem 0.85rem; border-radius: 6px; font-family: monospace; font-size: 1.1rem; color: #38bdf8; letter-spacing: 0.1em; text-align: center; border: 1px dashed #38bdf8;">
@@ -325,8 +325,8 @@
                 </div>
               </div>
 
-              <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1rem;">
-                <div style="font-weight: 700; color: #f8fafc; font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <div style="background: var(--bg-hover, rgba(0, 0, 0, 0.03)); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                <div style="font-weight: 700; color: var(--text-primary); font-size: 0.875rem; margin-bottom: 0.5rem;">
                   Step 2: Confirm 6-Digit Code
                 </div>
                 <form @submit.prevent="confirm2fa" style="display: flex; gap: 0.5rem;">
@@ -354,32 +354,32 @@
 
         <!-- Right: Platform Policy Guidelines -->
         <div class="card" style="padding: 1.5rem;">
-          <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.5rem;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
             Security & Compliance Best Practices
           </h3>
-          <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
             Standard Operating Procedures (SOPs) for PK-POS Super Admin operations.
           </p>
 
-          <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.8125rem; color: #cbd5e1;">
+          <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.8125rem; color: var(--text-secondary);">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
               <span style="color: #10b981; font-weight: 700;">✓</span>
               <div>
-                <strong style="color: #f8fafc;">Mandatory 2FA Policy:</strong> When enforced, all internal staff accounts are prevented from accessing fiscal endpoints and terminal killswitches without an active TOTP device.
+                <strong style="color: var(--text-primary);">Mandatory 2FA Policy:</strong> When enforced, all internal staff accounts are prevented from accessing fiscal endpoints and terminal killswitches without an active TOTP device.
               </div>
             </div>
 
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
               <span style="color: #38bdf8; font-weight: 700;">✓</span>
               <div>
-                <strong style="color: #f8fafc;">Session Killswitch:</strong> Used during active incident response or credential leak. Revoking a session destroys the PostgreSQL token, invalidating all subsequent API queries.
+                <strong style="color: var(--text-primary);">Session Killswitch:</strong> Used during active incident response or credential leak. Revoking a session destroys the PostgreSQL token, invalidating all subsequent API queries.
               </div>
             </div>
 
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
               <span style="color: #a78bfa; font-weight: 700;">✓</span>
               <div>
-                <strong style="color: #f8fafc;">Full Audit Logging:</strong> Every session kill, 2FA toggle, and emergency evacuation writes immutable security logs to the platform audit trail.
+                <strong style="color: var(--text-primary);">Full Audit Logging:</strong> Every session kill, 2FA toggle, and emergency evacuation writes immutable security logs to the platform audit trail.
               </div>
             </div>
           </div>
@@ -389,25 +389,25 @@
       <!-- TAB 3: IP WHITELIST ACCESS CONTROL -->
       <div v-if="activeTab === 'ip_whitelist'" style="display: flex; flex-direction: column; gap: 1.5rem;">
         <!-- Status & Policy Banner -->
-        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-              <span style="font-weight: 700; color: #fff; font-size: 1rem;">Super Admin Perimeter Enforcement</span>
+              <span style="font-weight: 700; color: var(--text-primary); font-size: 1rem;">Super Admin Perimeter Enforcement</span>
               <span
                 class="badge"
-                :style="activeWhitelistCount > 0 ? 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);' : 'background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);'"
+                :style="activeWhitelistCount > 0 ? 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);' : 'background: rgba(245, 158, 11, 0.15); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3);'"
               >
                 {{ activeWhitelistCount > 0 ? `RESTRICTED (${activeWhitelistCount} Active Rules)` : 'OPEN MODE (Unrestricted)' }}
               </span>
             </div>
-            <p style="font-size: 0.825rem; color: #94a3b8; margin: 0; line-height: 1.4;">
+            <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
               {{ activeWhitelistCount > 0 ? 'All connections from non-whitelisted IP addresses are automatically blocked with HTTP 403 Forbidden.' : 'No active IP rules configured. Super Admin portal is accessible from any network.' }}
             </p>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(15, 23, 42, 0.6); padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
-            <div style="font-size: 0.8rem; color: #94a3b8;">
-              Your Detected IP: <strong style="color: #38bdf8; font-family: monospace;">{{ current_ip || '127.0.0.1' }}</strong>
+          <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--bg-hover, rgba(0, 0, 0, 0.05)); padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              Your Detected IP: <strong style="color: var(--accent-primary, #6366f1); font-family: monospace;">{{ current_ip || '127.0.0.1' }}</strong>
             </div>
             <button
               v-if="isSuperAdmin && !isCurrentIpWhitelisted"
@@ -423,12 +423,12 @@
 
         <!-- Add Rule Form -->
         <div v-if="isSuperAdmin" class="card" style="padding: 1.25rem;">
-          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0 0 1rem 0;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem 0;">
             Authorize New IP Address or CIDR Subnet
           </h3>
           <form @submit.prevent="submitAddIp" style="display: grid; grid-template-columns: 2fr 2fr 3fr auto; gap: 0.75rem; align-items: flex-end;">
             <div>
-              <label class="form-label" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">IP Address or CIDR *</label>
+              <label class="form-label" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">IP Address or CIDR *</label>
               <input
                 type="text"
                 v-model="addIpForm.ip_address"
@@ -440,7 +440,7 @@
             </div>
 
             <div>
-              <label class="form-label" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Office / Location Label *</label>
+              <label class="form-label" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Office / Location Label *</label>
               <input
                 type="text"
                 v-model="addIpForm.label"
@@ -452,7 +452,7 @@
             </div>
 
             <div>
-              <label class="form-label" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Internal Notes (Optional)</label>
+              <label class="form-label" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Internal Notes (Optional)</label>
               <input
                 type="text"
                 v-model="addIpForm.notes"
@@ -478,49 +478,49 @@
           <div style="overflow-x: auto;">
             <table class="table" style="width: 100%; text-align: left; border-collapse: collapse;">
               <thead>
-                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);">
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">IP / CIDR Range</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Label</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Status</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Created By</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8;">Added At</th>
-                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: right;">Action</th>
+                <tr style="border-bottom: 1px solid var(--border-color); background: var(--bg-hover, rgba(0, 0, 0, 0.02));">
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">IP / CIDR Range</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Label</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Status</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Created By</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Added At</th>
+                  <th style="padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); text-align: right;">Action</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="!ip_whitelists.length">
-                  <td colspan="6" style="text-align: center; color: #64748b; padding: 2.5rem;">
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
                     No IP whitelist rules configured. Super Admin portal access is currently unrestricted.
                   </td>
                 </tr>
                 <tr
                   v-for="rule in ip_whitelists"
                   :key="rule.id"
-                  style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
+                  style="border-bottom: 1px solid var(--border-color);"
                 >
                   <td style="padding: 0.875rem 1rem;">
-                    <div style="font-family: monospace; font-size: 0.9rem; font-weight: 700; color: #38bdf8;">
+                    <div style="font-family: monospace; font-size: 0.9rem; font-weight: 700; color: #0284c7;">
                       {{ rule.ip_address }}
                     </div>
-                    <div v-if="rule.notes" style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">
+                    <div v-if="rule.notes" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
                       {{ rule.notes }}
                     </div>
                   </td>
-                  <td style="padding: 0.875rem 1rem; font-weight: 600; color: #f8fafc; font-size: 0.85rem;">
+                  <td style="padding: 0.875rem 1rem; font-weight: 600; color: var(--text-primary); font-size: 0.85rem;">
                     {{ rule.label }}
                   </td>
                   <td style="padding: 0.875rem 1rem;">
                     <span
                       class="badge"
-                      :style="rule.is_active ? 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);' : 'background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3);'"
+                      :style="rule.is_active ? 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);' : 'background: rgba(100, 116, 139, 0.2); color: var(--text-muted); border: 1px solid rgba(100, 116, 139, 0.3);'"
                     >
                       {{ rule.is_active ? 'Active' : 'Disabled' }}
                     </span>
                   </td>
-                  <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: #cbd5e1;">
+                  <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: var(--text-secondary);">
                     {{ rule.created_by_name }}
                   </td>
-                  <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: #64748b;">
+                  <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: var(--text-muted);">
                     {{ rule.created_at }}
                   </td>
                   <td style="padding: 0.875rem 1rem; text-align: right;">
@@ -537,7 +537,7 @@
                         v-if="isSuperAdmin"
                         @click="deleteIpRule(rule)"
                         class="btn btn-danger"
-                        style="padding: 0.25rem 0.55rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);"
+                        style="padding: 0.25rem 0.55rem; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #dc2626; border-color: rgba(239, 68, 68, 0.3);"
                       >
                         Delete
                       </button>

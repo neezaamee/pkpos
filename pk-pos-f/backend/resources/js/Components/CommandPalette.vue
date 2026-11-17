@@ -409,5 +409,56 @@ kbd {
   font-size: 0.7rem;
   font-family: inherit;
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] .palette-modal {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .palette-search-header {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .palette-input {
+  color: #0f172a;
+}
+
+[data-theme="light"] .esc-badge {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+[data-theme="light"] .esc-badge:hover {
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+[data-theme="light"] .palette-item.selected {
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .item-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .item-desc {
+  color: #64748b;
+}
+
+[data-theme="light"] .palette-footer {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+  color: #64748b;
+}
+
+[data-theme="light"] kbd {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
 </style>
 

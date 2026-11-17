@@ -756,7 +756,7 @@
             <!-- Alerts Dropdown Menu -->
             <div v-if="isAlertsOpen" class="topbar-menu-dropdown alerts-dropdown-menu">
               <div class="dropdown-header">
-                <span style="font-weight: 700; color: #fff; font-size: 0.85rem;">Platform Alerts</span>
+                <span style="font-weight: 700; color: var(--text-primary); font-size: 0.85rem;">Platform Alerts</span>
                 <span
                   class="badge"
                   :style="totalAlerts > 0 ? 'background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);' : 'background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);'"
@@ -782,10 +782,10 @@
                     </svg>
                   </div>
                   <div style="flex: 1;">
-                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-primary);">
                       {{ badges.pending_onboarding }} Merchant Onboarding Pending
                     </div>
-                    <div style="font-size: 0.725rem; color: #94a3b8;">Review applications & verify FBR ATL status</div>
+                    <div style="font-size: 0.725rem; color: var(--text-muted);">Review applications & verify FBR ATL status</div>
                   </div>
                 </Link>
 
@@ -804,10 +804,10 @@
                     </svg>
                   </div>
                   <div style="flex: 1;">
-                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-primary);">
                       {{ badges.dlq_count }} Dead-Letter Queue Invoices
                     </div>
-                    <div style="font-size: 0.725rem; color: #94a3b8;">FBR invoices requiring retry or inspection</div>
+                    <div style="font-size: 0.725rem; color: var(--text-muted);">FBR invoices requiring retry or inspection</div>
                   </div>
                 </Link>
 
@@ -824,10 +824,10 @@
                     </svg>
                   </div>
                   <div style="flex: 1;">
-                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-primary);">
                       {{ badges.open_tickets }} Unresolved Support Tickets
                     </div>
-                    <div style="font-size: 0.725rem; color: #94a3b8;">Merchant inquiries awaiting agent reply</div>
+                    <div style="font-size: 0.725rem; color: var(--text-muted);">Merchant inquiries awaiting agent reply</div>
                   </div>
                 </Link>
 
@@ -845,10 +845,10 @@
                     </svg>
                   </div>
                   <div style="flex: 1;">
-                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-primary);">
                       {{ badges.failed_jobs }} Failed Queue Jobs
                     </div>
-                    <div style="font-size: 0.725rem; color: #94a3b8;">Database queue exception retry queue</div>
+                    <div style="font-size: 0.725rem; color: var(--text-muted);">Database queue exception retry queue</div>
                   </div>
                 </Link>
 
@@ -867,20 +867,20 @@
                     </svg>
                   </div>
                   <div style="flex: 1;">
-                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-primary);">
                       {{ badges.offline_terminals }} Offline POS Terminals
                     </div>
-                    <div style="font-size: 0.725rem; color: #94a3b8;">Terminals without heartbeat for >15 mins</div>
+                    <div style="font-size: 0.725rem; color: var(--text-muted);">Terminals without heartbeat for >15 mins</div>
                   </div>
                 </Link>
 
                 <!-- Empty state when 0 alerts -->
-                <div v-if="totalAlerts === 0" style="padding: 1.5rem 1rem; text-align: center; color: #64748b;">
+                <div v-if="totalAlerts === 0" style="padding: 1.5rem 1rem; text-align: center; color: var(--text-muted);">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" style="margin: 0 auto 0.5rem; display: block;">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                   </svg>
-                  <div style="font-weight: 600; color: #f8fafc; font-size: 0.85rem;">All Systems Operational</div>
+                  <div style="font-weight: 600; color: var(--text-primary); font-size: 0.85rem;">All Systems Operational</div>
                   <div style="font-size: 0.75rem; margin-top: 0.25rem;">No active queues, failed invoices, or urgent alerts.</div>
                 </div>
               </div>
@@ -935,8 +935,8 @@
             <!-- User Dropdown Menu -->
             <div v-if="isUserMenuOpen" class="topbar-menu-dropdown user-dropdown-menu">
               <div class="dropdown-header">
-                <div style="font-weight: 700; color: #fff; font-size: 0.9rem;">{{ user?.name }}</div>
-                <div style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;">{{ user?.email }}</div>
+                <div style="font-weight: 700; color: var(--text-primary); font-size: 0.9rem;">{{ user?.name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">{{ user?.email }}</div>
                 <div style="margin-top: 0.4rem;">
                   <span class="badge" :style="topbarBadgeStyle" style="font-size: 0.7rem; padding: 0.15rem 0.5rem;">
                     {{ roleLabel }}

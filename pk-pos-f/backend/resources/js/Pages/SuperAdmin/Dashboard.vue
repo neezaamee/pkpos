@@ -3,7 +3,7 @@
     <!-- Executive Command Center Header -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h1 style="font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem;">
+        <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
           PK-POS Enterprise Intelligence & Executive Command
         </h1>
         <p style="color: var(--text-muted); font-size: 0.875rem;">
@@ -54,11 +54,11 @@
     </div>
 
     <!-- SaaS Recurring Revenue & Churn Performance Banner -->
-    <div v-if="saas_metrics" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.75rem;">
+    <div v-if="saas_metrics" class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <div style="width: 10px; height: 10px; border-radius: 50%; background: #818cf8; box-shadow: 0 0 8px #6366f1;"></div>
-          <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">SaaS Commercial Engine (MRR & ARR)</span>
+          <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">SaaS Commercial Engine (MRR & ARR)</span>
         </div>
         <Link href="/superadmin/plans" style="font-size: 0.8rem; color: #818cf8; text-decoration: none; font-weight: 600;">
           Manage Subscription Tiers &rarr;
@@ -205,7 +205,7 @@
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <div>
-            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">
               14-Day Platform GMV Trajectory
             </h3>
             <p style="font-size: 0.775rem; color: var(--text-muted); margin: 0;">Daily gross sales volume across all merchants</p>
@@ -216,7 +216,7 @@
         </div>
 
         <!-- Custom SVG Bar Chart -->
-        <div style="height: 180px; display: flex; align-items: flex-end; gap: 8px; padding-top: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+        <div style="height: 180px; display: flex; align-items: flex-end; gap: 8px; padding-top: 1.5rem; border-bottom: 1px solid var(--border-color);">
           <div
             v-for="day in daily_gmv"
             :key="day.date"
@@ -241,7 +241,7 @@
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <div>
-            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">
               FBR Fiscal Compliance Health
             </h3>
             <p style="font-size: 0.775rem; color: var(--text-muted); margin: 0;">Platform-wide submission & dead-letter queue ratio</p>
@@ -276,25 +276,25 @@
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
           <div style="padding: 0.75rem; border-radius: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2);">
             <div style="font-size: 0.75rem; color: #34d399; font-weight: 600;">Verified Submissions</div>
-            <div style="font-size: 1.25rem; font-weight: 700; color: #fff;">{{ fbr_breakdown.submitted.toLocaleString() }}</div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{{ fbr_breakdown.submitted.toLocaleString() }}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted);">{{ fbr_breakdown.compliance_rate }}% clean compliance</div>
           </div>
 
           <div style="padding: 0.75rem; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2);">
             <div style="font-size: 0.75rem; color: #f87171; font-weight: 600;">Dead-Letter Invoices</div>
-            <div style="font-size: 1.25rem; font-weight: 700; color: #fff;">{{ fbr_breakdown.failed.toLocaleString() }}</div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{{ fbr_breakdown.failed.toLocaleString() }}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted);">Requires retry or token refresh</div>
           </div>
 
           <div style="padding: 0.75rem; border-radius: 8px; background: rgba(96, 165, 250, 0.08); border: 1px solid rgba(96, 165, 250, 0.2);">
             <div style="font-size: 0.75rem; color: #60a5fa; font-weight: 600;">Pending In Queue</div>
-            <div style="font-size: 1.25rem; font-weight: 700; color: #fff;">{{ fbr_breakdown.pending.toLocaleString() }}</div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{{ fbr_breakdown.pending.toLocaleString() }}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted);">Awaiting background dispatcher</div>
           </div>
 
           <div style="padding: 0.75rem; border-radius: 8px; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.2);">
             <div style="font-size: 0.75rem; color: #fbbf24; font-weight: 600;">24h Provisional Receipts</div>
-            <div style="font-size: 1.25rem; font-weight: 700; color: #fff;">{{ fbr_breakdown.provisional.toLocaleString() }}</div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{{ fbr_breakdown.provisional.toLocaleString() }}</div>
             <div style="font-size: 0.7rem; color: var(--text-muted);">Within offline emergency window</div>
           </div>
         </div>
@@ -306,7 +306,7 @@
       <!-- Province Distribution -->
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0;">
             Provincial Revenue & Store Distribution
           </h3>
           <Link href="/superadmin/master-data/tax-templates" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
@@ -336,7 +336,7 @@
                     {{ prov.province }}
                   </span>
                 </td>
-                <td style="color: #fff; font-weight: 600;">{{ prov.tenant_count }}</td>
+                <td style="color: var(--text-primary); font-weight: 600;">{{ prov.tenant_count }}</td>
                 <td style="font-size: 0.85rem; color: var(--text-muted);">{{ prov.sales_count.toLocaleString() }}</td>
                 <td style="text-align: right; font-weight: 600; color: #34d399;">
                   {{ formatRupees(prov.total_volume) }}
@@ -350,7 +350,7 @@
       <!-- Top Merchants Ranking -->
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0;">
             Top Merchants by Volume
           </h3>
           <Link href="/superadmin/tenants" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
@@ -379,7 +379,7 @@
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <span style="font-size: 0.75rem; font-weight: 700; width: 18px; color: var(--text-muted);">#{{ idx + 1 }}</span>
                     <div>
-                      <Link :href="`/superadmin/tenants/${merchant.id}`" style="font-weight: 600; color: #fff; text-decoration: none;">
+                      <Link :href="`/superadmin/tenants/${merchant.id}`" style="font-weight: 600; color: var(--text-primary); text-decoration: none;">
                         {{ merchant.name }}
                       </Link>
                       <div style="font-size: 0.7rem; color: var(--text-muted);">{{ merchant.total_sales }} orders</div>
@@ -408,7 +408,7 @@
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <div>
-          <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">
             Recently Onboarded Merchants
           </h3>
           <p style="font-size: 0.775rem; color: var(--text-muted); margin: 0;">Latest retail organizations joined to PK-POS</p>
@@ -437,7 +437,7 @@
               </td>
             </tr>
             <tr v-for="tenant in recent_tenants" :key="tenant.id">
-              <td style="font-weight: 600; color: #fff;">
+              <td style="font-weight: 600; color: var(--text-primary);">
                 {{ tenant.name }}
               </td>
               <td>

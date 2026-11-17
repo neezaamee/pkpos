@@ -7,8 +7,8 @@
           <Link href="/superadmin/onboarding" class="btn btn-secondary" style="padding: 0.35rem 0.6rem; font-size: 0.8125rem;">
             ← Back to Queue
           </Link>
-          <span style="color: #64748b;">/</span>
-          <span style="color: #f8fafc; font-weight: 700;">{{ application.application_number }}</span>
+          <span style="color: var(--text-muted);">/</span>
+          <span style="color: var(--text-primary); font-weight: 700;">{{ application.application_number }}</span>
           <span class="badge" :style="getStatusBadgeStyle(application.status)" style="text-transform: uppercase;">
             {{ application.status.replace('_', ' ') }}
           </span>
@@ -35,34 +35,34 @@
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <!-- Business Overview Card -->
           <div class="card" style="padding: 1.5rem;">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
               Applicant Organization Details
             </h3>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Legal Business Name</div>
-                <div style="font-size: 1rem; font-weight: 600; color: #f8fafc; margin-top: 0.25rem;">{{ application.business_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Legal Business Name</div>
+                <div style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">{{ application.business_name }}</div>
               </div>
 
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Trade / Brand Name</div>
-                <div style="font-size: 1rem; font-weight: 600; color: #f8fafc; margin-top: 0.25rem;">{{ application.trade_name || 'Same as Legal' }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Trade / Brand Name</div>
+                <div style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">{{ application.trade_name || 'Same as Legal' }}</div>
               </div>
 
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Retail Sector</div>
-                <div style="font-size: 0.9375rem; color: #cbd5e1; margin-top: 0.25rem; text-transform: capitalize;">{{ application.sector.replace('_', ' ') }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Retail Sector</div>
+                <div style="font-size: 0.9375rem; color: var(--text-secondary); margin-top: 0.25rem; text-transform: capitalize;">{{ application.sector.replace('_', ' ') }}</div>
               </div>
 
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Estimated POS Counters</div>
-                <div style="font-size: 0.9375rem; color: #cbd5e1; margin-top: 0.25rem;">{{ application.pos_terminal_count }} Terminal(s)</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Estimated POS Counters</div>
+                <div style="font-size: 0.9375rem; color: var(--text-secondary); margin-top: 0.25rem;">{{ application.pos_terminal_count }} Terminal(s)</div>
               </div>
 
               <div style="grid-column: 1 / -1;">
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Registered Store Location</div>
-                <div style="font-size: 0.9375rem; color: #cbd5e1; margin-top: 0.25rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Registered Store Location</div>
+                <div style="font-size: 0.9375rem; color: var(--text-secondary); margin-top: 0.25rem;">
                   {{ application.address || 'Address not specified' }}, {{ application.city }}, {{ application.province.toUpperCase() }}
                 </div>
               </div>
@@ -71,37 +71,37 @@
 
           <!-- Contact Person Card -->
           <div class="card" style="padding: 1.5rem;">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
               Primary Authorized Contact
             </h3>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Contact Person</div>
-                <div style="font-size: 0.9375rem; color: #f8fafc; font-weight: 600; margin-top: 0.25rem;">{{ application.contact_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Contact Person</div>
+                <div style="font-size: 0.9375rem; color: var(--text-primary); font-weight: 600; margin-top: 0.25rem;">{{ application.contact_name }}</div>
               </div>
 
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Phone Number</div>
-                <div style="font-size: 0.9375rem; color: #60a5fa; font-weight: 600; margin-top: 0.25rem; font-family: monospace;">{{ application.contact_phone }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Phone Number</div>
+                <div style="font-size: 0.9375rem; color: #0284c7; font-weight: 600; margin-top: 0.25rem; font-family: monospace;">{{ application.contact_phone }}</div>
               </div>
 
               <div style="grid-column: 1 / -1;">
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Email Address (Store Owner Login)</div>
-                <div style="font-size: 0.9375rem; color: #cbd5e1; margin-top: 0.25rem; font-family: monospace;">{{ application.contact_email }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Email Address (Store Owner Login)</div>
+                <div style="font-size: 0.9375rem; color: var(--text-secondary); margin-top: 0.25rem; font-family: monospace;">{{ application.contact_email }}</div>
               </div>
             </div>
           </div>
 
           <!-- FBR ATL Regulatory Compliance Dossier -->
           <div class="card" style="padding: 1.5rem; border-color: rgba(16, 185, 129, 0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.5rem;">
-              <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+              <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">
                 FBR Active Taxpayer List (ATL) Status
               </h3>
               <span
                 class="badge"
-                :style="application.is_atl_active ? 'background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #059669;' : 'background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626;'"
+                :style="application.is_atl_active ? 'background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #059669;' : 'background: rgba(239, 68, 68, 0.2); color: #dc2626; border: 1px solid #dc2626;'"
               >
                 {{ application.is_atl_active ? 'FBR ATL ACTIVE FILER' : 'INACTIVE / NON-FILER' }}
               </span>
@@ -109,25 +109,25 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">National Tax Number (NTN)</div>
-                <div style="font-size: 1.1rem; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 0.25rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">National Tax Number (NTN)</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: #0284c7; font-family: monospace; margin-top: 0.25rem;">
                   {{ application.ntn || 'Not Provided' }}
                 </div>
               </div>
 
               <div>
-                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Sales Tax Number (STRN)</div>
-                <div style="font-size: 1.1rem; font-weight: 700; color: #a78bfa; font-family: monospace; margin-top: 0.25rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Sales Tax Number (STRN)</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: #7c3aed; font-family: monospace; margin-top: 0.25rem;">
                   {{ application.strn || 'Not Provided' }}
                 </div>
               </div>
 
-              <div style="grid-column: 1 / -1; background: rgba(0, 0, 0, 0.2); padding: 0.75rem; border-radius: 6px;">
-                <div style="font-size: 0.75rem; color: #94a3b8;">FBR IRIS ATL Record Name:</div>
-                <div style="font-size: 0.9375rem; font-weight: 600; color: #34d399; margin-top: 0.2rem;">
+              <div style="grid-column: 1 / -1; background: var(--bg-hover, rgba(0, 0, 0, 0.05)); border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 6px;">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">FBR IRIS ATL Record Name:</div>
+                <div style="font-size: 0.9375rem; font-weight: 600; color: #10b981; margin-top: 0.2rem;">
                   {{ application.atl_taxpayer_name || 'No Taxpayer Record Match' }}
                 </div>
-                <div v-if="application.atl_checked_at" style="font-size: 0.72rem; color: #64748b; margin-top: 0.25rem;">
+                <div v-if="application.atl_checked_at" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
                   Verified at: {{ formatDate(application.atl_checked_at) }}
                 </div>
               </div>
@@ -177,16 +177,16 @@
 
           <!-- Pending Review: 1-Click Provisioning Engine -->
           <div v-else-if="application.status === 'pending_review' || application.status === 'under_investigation'" class="card" style="padding: 1.5rem;">
-            <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.5rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
               1-Click Provisioning Engine
             </h3>
-            <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1.25rem;">
+            <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem;">
               Approving automatically instantiates a new PostgreSQL tenant, provisions the store owner account, generates FBR credentials, and assigns the subscription tier.
             </p>
 
             <form @submit.prevent="submitProvision" style="display: flex; flex-direction: column; gap: 1rem;">
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Assign SaaS Subscription Plan *
                 </label>
                 <select v-model="provisionForm.plan_id" class="form-control" style="width: 100%;" required>
@@ -197,7 +197,7 @@
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Initial Store Owner Password
                 </label>
                 <input
@@ -206,13 +206,13 @@
                   class="form-control"
                   style="width: 100%; font-family: monospace;"
                 />
-                <div style="font-size: 0.72rem; color: #64748b; margin-top: 0.25rem;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
                   Sent to {{ application.contact_email }} to access the merchant web portal.
                 </div>
               </div>
 
               <div>
-                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: #cbd5e1;">
+                <label class="form-label" style="display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.8125rem; color: var(--text-secondary);">
                   Internal Adjudication Notes
                 </label>
                 <textarea
@@ -234,11 +234,11 @@
               </button>
             </form>
 
-            <div style="margin-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 1.5rem;">
-              <h4 style="font-size: 0.9375rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">
+            <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+              <h4 style="font-size: 0.9375rem; font-weight: 700; color: #dc2626; margin-bottom: 0.5rem;">
                 Reject Application
               </h4>
-              <p style="font-size: 0.8125rem; color: #94a3b8; margin-bottom: 1rem;">
+              <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1rem;">
                 Decline the application with a mandatory formal notice reason.
               </p>
 
@@ -266,10 +266,10 @@
 
           <!-- Rejected Banner -->
           <div v-else class="card" style="padding: 1.5rem; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.05);">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #dc2626; margin-bottom: 0.5rem;">
               Application Rejected
             </h3>
-            <p style="font-size: 0.875rem; color: #cbd5e1; margin-bottom: 0.5rem;">
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
               <strong>Reason:</strong> {{ application.rejection_reason }}
             </p>
             <div style="font-size: 0.75rem; color: #94a3b8;">

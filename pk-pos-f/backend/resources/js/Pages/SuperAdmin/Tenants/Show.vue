@@ -568,7 +568,7 @@
                 <div style="font-size: 0.75rem; color: var(--text-muted);">Cashier: {{ sale.cashier_name }}</div>
               </td>
               <td>
-                <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; text-transform: uppercase; font-size: 0.75rem;">
+                <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">
                   {{ sale.payment_method }}
                 </span>
               </td>
@@ -1877,7 +1877,7 @@ function getRoleBadgeStyle(role) {
 }
 
 .modal-close:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -1887,7 +1887,7 @@ function getRoleBadgeStyle(role) {
 .modal-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border-color);
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
