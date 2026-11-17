@@ -65,6 +65,16 @@ class SuperAdminMigrationController extends Controller
         // Determine pending migrations
         $pendingMigrations = array_values(array_diff($fileNames, $ranNames));
 
+        // Master data statistics
+        $masterStats = [
+            'plans' => Schema::hasTable('plans') ? \App\Models\Plan::count() : 0,
+            'roles' => Schema::hasTable('roles') ? \App\Models\Role::count() : 0,
+            'hs_codes' => Schema::hasTable('master_hs_codes') ? \App\Models\MasterHsCode::count() : 0,
+            'tax_templates' => Schema::hasTable('provincial_tax_templates') ? \App\Models\ProvincialTaxTemplate::count() : 0,
+            'articles' => Schema::hasTable('knowledge_base_articles') ? \App\Models\KnowledgeBaseArticle::count() : 0,
+            'settings' => Schema::hasTable('system_settings') ? \App\Models\SystemSetting::count() : 0,
+        ];
+
         return Inertia::render('SuperAdmin/System/Migrations', [
             'database' => [
                 'connection' => $connectionName,
@@ -80,10 +90,46 @@ class SuperAdminMigrationController extends Controller
                 'pending_count' => count($pendingMigrations),
                 'latest_batch' => count($ranMigrations) > 0 ? (int) $ranMigrations[0]['batch'] : 0,
             ],
+            'master_stats' => $masterStats,
             'pending_migrations' => $pendingMigrations,
             'ran_migrations' => array_slice($ranMigrations, 0, 100),
             'last_output' => $request->session()->get('migration_output'),
         ]);
+    }
+
+    /**
+     * Seed or re-synchronize production-safe platform master data.
+     */
+    public function seedMaster(Request $request): RedirectResponse
+    {
+        try {
+            $exitCode = Artisan::call('db:seed', [
+                '--class' => 'Database\\Seeders\\PlatformMasterSeeder',
+                '--force' => true,
+            ]);
+            $output = trim(Artisan::output());
+
+            try {
+                AuditLog::create([
+                    'tenant_id' => null,
+                    'user_id' => Auth::id(),
+                    'event' => 'platform_master_data_seeded',
+                    'auditable_type' => 'App\Models\PlatformMasterData',
+                    'auditable_id' => '00000000-0000-0000-0000-000000000000',
+                    'new_values' => ['exit_code' => $exitCode, 'output' => substr($output, 0, 2000)],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            } catch (\Throwable) {}
+
+            return back()
+                ->with('success', 'Platform master data (Subscription Plans, Staff Roles, HS Codes, Tax Templates, System Settings) seeded successfully!')
+                ->with('migration_output', $output ?: 'Platform master data initialized successfully.');
+        } catch (\Throwable $e) {
+            return back()
+                ->with('error', 'Seeding failed: ' . $e->getMessage())
+                ->with('migration_output', "ERROR: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        }
     }
 
     /**

@@ -250,5 +250,22 @@ class SuperAdminPlanController extends Controller
 
         return back()->with('success', 'Subscription canceled successfully.');
     }
+
+    /**
+     * Seed baseline subscription pricing tiers (Starter, Growth, Enterprise Flagship).
+     */
+    public function seedDefaults(Request $request): RedirectResponse
+    {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                '--class' => 'Database\\Seeders\\PlanSeeder',
+                '--force' => true,
+            ]);
+
+            return back()->with('success', 'Default subscription pricing tiers (Starter, Growth, Enterprise) initialized successfully!');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to seed plans: ' . $e->getMessage());
+        }
+    }
 }
 

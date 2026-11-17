@@ -152,6 +152,7 @@ Route::middleware(['auth', 'superadmin', 'superadmin.ip_whitelist'])->prefix('su
         Route::get('/plans', [SuperAdminPlanController::class, 'index'])->name('plans.index');
         Route::post('/plans', [SuperAdminPlanController::class, 'store'])->name('plans.store');
         Route::put('/plans/{id}', [SuperAdminPlanController::class, 'update'])->name('plans.update');
+        Route::post('/plans/seed-defaults', [SuperAdminPlanController::class, 'seedDefaults'])->name('plans.seed-defaults');
         Route::post('/subscriptions/assign', [SuperAdminPlanController::class, 'assignSubscription'])->name('subscriptions.assign');
         Route::post('/subscriptions/{id}/cancel', [SuperAdminPlanController::class, 'cancelSubscription'])->name('subscriptions.cancel');
     });
@@ -188,6 +189,7 @@ Route::middleware(['auth', 'superadmin', 'superadmin.ip_whitelist'])->prefix('su
         // Database Schema & Migrations Manager
         Route::get('/system/migrations', [SuperAdminMigrationController::class, 'index'])->name('system.migrations.index');
         Route::post('/system/migrations/run', [SuperAdminMigrationController::class, 'run'])->name('system.migrations.run');
+        Route::post('/system/migrations/seed-master', [SuperAdminMigrationController::class, 'seedMaster'])->name('system.migrations.seed-master');
         Route::post('/system/migrations/rollback', [SuperAdminMigrationController::class, 'rollback'])->name('system.migrations.rollback');
         Route::post('/system/migrations/optimize-clear', [SuperAdminMigrationController::class, 'optimizeClear'])->name('system.migrations.optimize-clear');
     });
@@ -273,7 +275,7 @@ Route::middleware('auth')->group(function () {
         ->name('superadmin.impersonate.leave');
 });
 
-// Emergency direct migration route (accessible to authenticated super admin OR via valid APP_KEY / token)
+// Emergency direct migration & master data seed route (accessible to authenticated super admin OR via valid APP_KEY / token)
 Route::match(['get', 'post'], '/superadmin/emergency-migrate', function (\Illuminate\Http\Request $request) {
     $token = $request->input('token');
     $appKey = config('app.key');
@@ -286,13 +288,21 @@ Route::match(['get', 'post'], '/superadmin/emergency-migrate', function (\Illumi
     }
 
     \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-    $output = \Illuminate\Support\Facades\Artisan::output();
+    $migrateOutput = trim(\Illuminate\Support\Facades\Artisan::output());
+
+    \Illuminate\Support\Facades\Artisan::call('db:seed', [
+        '--class' => 'Database\\Seeders\\PlatformMasterSeeder',
+        '--force' => true,
+    ]);
+    $seedOutput = trim(\Illuminate\Support\Facades\Artisan::output());
+
+    $combinedOutput = "=== DATABASE MIGRATIONS ===\n" . ($migrateOutput ?: "Schema is up to date.") . "\n\n=== PLATFORM MASTER DATA SEEDING ===\n" . ($seedOutput ?: "Master data seeded successfully.");
 
     if ($request->wantsJson()) {
-        return response()->json(['status' => 'success', 'output' => $output]);
+        return response()->json(['status' => 'success', 'output' => $combinedOutput]);
     }
 
-    return response("<pre style='background:#0f172a;color:#10b981;padding:2rem;font-family:monospace;border-radius:8px;'><strong>PK-POS Emergency Migration Output:</strong>\n\n" . e($output ?: "Nothing to migrate. Schema is up to date.") . "\n\n<a href='/superadmin/system/migrations' style='color:#38bdf8;'>Go to Super Admin Migrations</a></pre>", 200, ['Content-Type' => 'text/html']);
+    return response("<pre style='background:#0f172a;color:#10b981;padding:2rem;font-family:monospace;border-radius:8px;'><strong>PK-POS Emergency Migration & Seeding Output:</strong>\n\n" . e($combinedOutput) . "\n\n<a href='/superadmin/system/migrations' style='color:#38bdf8;'>Go to Super Admin Migrations</a> | <a href='/superadmin/plans' style='color:#38bdf8;'>Go to Subscription Plans</a></pre>", 200, ['Content-Type' => 'text/html']);
 })->name('superadmin.emergency-migrate');
 
 // Protected tenant admin routes

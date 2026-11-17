@@ -21,6 +21,8 @@ class PlanSeeder extends Seeder
                 'billing_interval' => 'month',
                 'max_locations' => 1,
                 'max_terminals' => 1,
+                'max_staff' => 3,
+                'max_skus' => 500,
                 'features' => [
                     'fbr_integration',
                     'offline_sales',
@@ -37,6 +39,8 @@ class PlanSeeder extends Seeder
                 'billing_interval' => 'month',
                 'max_locations' => 3,
                 'max_terminals' => 5,
+                'max_staff' => 15,
+                'max_skus' => 5000,
                 'features' => [
                     'fbr_integration',
                     'offline_sales',
@@ -55,6 +59,8 @@ class PlanSeeder extends Seeder
                 'billing_interval' => 'month',
                 'max_locations' => null, // unlimited
                 'max_terminals' => null, // unlimited
+                'max_staff' => null, // unlimited
+                'max_skus' => null, // unlimited
                 'features' => [
                     'fbr_integration',
                     'offline_sales',
@@ -71,7 +77,7 @@ class PlanSeeder extends Seeder
         ];
 
         foreach ($plans as $plan) {
-            Plan::firstOrCreate(['code' => $plan['code']], $plan);
+            Plan::updateOrCreate(['code' => $plan['code']], $plan);
         }
     }
 }

@@ -263,5 +263,22 @@ test('emergency migration endpoint runs successfully with super admin authentica
         ->get('/superadmin/emergency-migrate');
 
     $response->assertStatus(200);
-    expect($response->getContent())->toContain('PK-POS Emergency Migration Output');
+    expect($response->getContent())->toContain('PK-POS Emergency Migration');
+    expect($response->getContent())->toContain('PLATFORM MASTER DATA SEEDING');
+});
+
+test('a super admin can seed platform master data and default subscription plans', function () {
+    $seedMasterResponse = $this->actingAs($this->superAdmin)
+        ->post('/superadmin/system/migrations/seed-master');
+
+    $seedMasterResponse->assertRedirect();
+    $seedMasterResponse->assertSessionHas('success');
+
+    $seedPlansResponse = $this->actingAs($this->superAdmin)
+        ->post('/superadmin/plans/seed-defaults');
+
+    $seedPlansResponse->assertRedirect();
+    $seedPlansResponse->assertSessionHas('success');
+
+    expect(\App\Models\Plan::count())->toBeGreaterThanOrEqual(3);
 });

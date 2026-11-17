@@ -8,7 +8,21 @@
           Configure pricing packages, track Monthly Recurring Revenue (MRR), and enforce branch & terminal hardware quotas.
         </p>
       </div>
-      <div style="display: flex; gap: 0.75rem; align-items: center;">
+      <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <button
+          @click="seedDefaultPlans"
+          class="btn btn-secondary"
+          :disabled="isSeedingPlans"
+          style="display: flex; align-items: center; gap: 0.4rem;"
+          title="Seed or update baseline pricing tiers (Starter, Growth, Enterprise)"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span>{{ isSeedingPlans ? 'Seeding...' : 'Seed Default Packages' }}</span>
+        </button>
         <button @click="openAssignModal(null)" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.4rem;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
@@ -101,9 +115,17 @@
                 <span style="color: var(--text-muted);">Max Branches:</span>
                 <strong style="color: #38bdf8;">{{ plan.max_locations === null ? 'Unlimited' : plan.max_locations + ' Location(s)' }}</strong>
               </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.4rem;">
                 <span style="color: var(--text-muted);">Max POS Registers:</span>
                 <strong style="color: #818cf8;">{{ plan.max_terminals === null ? 'Unlimited' : plan.max_terminals + ' Terminal(s)' }}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.4rem;">
+                <span style="color: var(--text-muted);">Staff Limit:</span>
+                <strong style="color: #34d399;">{{ plan.max_staff === null ? 'Unlimited' : plan.max_staff + ' Staff' }}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                <span style="color: var(--text-muted);">Catalog SKUs:</span>
+                <strong style="color: #fbbf24;">{{ plan.max_skus === null ? 'Unlimited' : plan.max_skus?.toLocaleString() + ' SKUs' }}</strong>
               </div>
             </div>
 
@@ -128,6 +150,32 @@
               Edit Tier
             </button>
           </div>
+        </div>
+
+        <!-- Empty State Prompt when no plans exist -->
+        <div v-if="plans.length === 0" class="card-table" style="grid-column: 1 / -1; padding: 3rem 1.5rem; text-align: center; border: 1px dashed var(--border-color); background: rgba(255, 255, 255, 0.01);">
+          <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(99, 102, 241, 0.12); color: #818cf8; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <h4 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.4rem;">No Pricing Plans Configured</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.5;">
+            Your database currently does not have any subscription packages. You can initialize the standard SaaS tiers (Starter PKR 3,500/mo, Growth PKR 8,500/mo, Enterprise PKR 25,000/mo) with complete hardware quotas in one click.
+          </p>
+          <button
+            @click="seedDefaultPlans"
+            class="btn btn-primary"
+            :disabled="isSeedingPlans"
+            style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem; font-weight: 600;"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            <span>{{ isSeedingPlans ? 'Initializing Plans...' : 'Seed Standard Packages Now' }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -401,6 +449,34 @@
               </div>
             </div>
 
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Max Staff Accounts</label>
+                <input
+                  v-model.number="planForm.max_staff"
+                  type="number"
+                  class="form-input"
+                  placeholder="Leave empty for unlimited"
+                />
+                <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; display: block;">
+                  Empty = Unlimited staff
+                </span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Max Catalog SKUs</label>
+                <input
+                  v-model.number="planForm.max_skus"
+                  type="number"
+                  class="form-input"
+                  placeholder="Leave empty for unlimited"
+                />
+                <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; display: block;">
+                  Empty = Unlimited product SKUs
+                </span>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">Description</label>
               <textarea
@@ -485,6 +561,21 @@ function cancelSubscription(item) {
 const showPlanModal = ref(false);
 const editingPlan = ref(null);
 const pricePkrInput = ref(3500);
+const isSeedingPlans = ref(false);
+
+function seedDefaultPlans() {
+  if (isSeedingPlans.value) return;
+  if (!confirm('This will seed the standard SaaS subscription tiers (Starter: PKR 3,500/mo, Growth: PKR 8,500/mo, Enterprise: PKR 25,000/mo). Existing plans with matching codes will be safely updated without affecting active subscribers. Proceed?')) {
+    return;
+  }
+  isSeedingPlans.value = true;
+  router.post('/superadmin/plans/seed-defaults', {}, {
+    preserveScroll: true,
+    onFinish: () => {
+      isSeedingPlans.value = false;
+    },
+  });
+}
 
 const planForm = useForm({
   code: '',
@@ -494,6 +585,8 @@ const planForm = useForm({
   billing_interval: 'month',
   max_locations: 1,
   max_terminals: 1,
+  max_staff: 3,
+  max_skus: 500,
   features: ['fbr_integration', 'offline_sales', 'thermal_receipts'],
   is_active: true,
 });
@@ -509,6 +602,8 @@ function openCreatePlanModal() {
   planForm.billing_interval = 'month';
   planForm.max_locations = 1;
   planForm.max_terminals = 1;
+  planForm.max_staff = 3;
+  planForm.max_skus = 500;
   planForm.is_active = true;
   showPlanModal.value = true;
 }
@@ -523,6 +618,8 @@ function openEditPlanModal(plan) {
   planForm.billing_interval = plan.billing_interval;
   planForm.max_locations = plan.max_locations;
   planForm.max_terminals = plan.max_terminals;
+  planForm.max_staff = plan.max_staff;
+  planForm.max_skus = plan.max_skus;
   planForm.is_active = plan.is_active;
   showPlanModal.value = true;
 }

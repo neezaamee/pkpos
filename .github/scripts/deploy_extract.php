@@ -82,10 +82,16 @@ try {
         $kernel->bootstrap();
 
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        $migrationOutput = trim(\Illuminate\Support\Facades\Artisan::output());
-        if (empty($migrationOutput)) {
-            $migrationOutput = "Database is already up to date (no pending migrations).";
-        }
+        $migrateLog = trim(\Illuminate\Support\Facades\Artisan::output());
+
+        // Automatically sync production-safe platform master data
+        \Illuminate\Support\Facades\Artisan::call('db:seed', [
+            '--class' => 'Database\\Seeders\\PlatformMasterSeeder',
+            '--force' => true,
+        ]);
+        $seedLog = trim(\Illuminate\Support\Facades\Artisan::output());
+
+        $migrationOutput = "=== MIGRATIONS ===\n" . ($migrateLog ?: "Schema is up to date.") . "\n\n=== MASTER SEEDING ===\n" . ($seedLog ?: "Platform master data synchronized.");
     }
 } catch (\Throwable $e) {
     $migrationOutput = "MIGRATION_FAILED: " . $e->getMessage();
