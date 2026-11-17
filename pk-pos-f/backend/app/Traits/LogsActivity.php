@@ -78,12 +78,14 @@ trait LogsActivity
      * Resolve the target tenant id for this model mutation.
      *
      * @param Model $model
+     * @param string $event
      * @return string|null
      */
-    protected static function resolveTenantId(Model $model): ?string
+    protected static function resolveTenantId(Model $model, string $event = ''): ?string
     {
         if ($model instanceof Tenant) {
-            return $model->id;
+            // When a tenant is deleted, its row no longer exists in `tenants`, so tenant_id foreign key would fail.
+            return $event === 'deleted' ? null : $model->id;
         }
 
         if (isset($model->tenant_id)) {
@@ -109,7 +111,7 @@ trait LogsActivity
     {
         try {
             AuditLog::create([
-                'tenant_id' => static::resolveTenantId($model),
+                'tenant_id' => static::resolveTenantId($model, $event),
                 'user_id' => Auth::id(),
                 'event' => $event,
                 'auditable_type' => get_class($model),

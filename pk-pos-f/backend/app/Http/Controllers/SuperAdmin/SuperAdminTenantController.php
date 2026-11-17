@@ -334,6 +334,8 @@ class SuperAdminTenantController extends Controller
             ->count();
 
         $locationsCount = $tenant->locations->count();
+        $activeStaffCount = $tenant->users->count();
+        $productsCount = $tenant->products()->withoutGlobalScopes()->count();
 
         $subscriptionData = [
             'id' => $currentSub?->id,
@@ -349,8 +351,12 @@ class SuperAdminTenantController extends Controller
             'is_active' => $currentSub ? $currentSub->isActive() : true,
             'max_terminals' => $currentPlan?->max_terminals,
             'max_locations' => $currentPlan?->max_locations,
+            'max_staff' => $currentPlan?->max_staff,
+            'max_skus' => $currentPlan?->max_skus,
             'active_terminals_count' => $activeTerminalsCount,
             'locations_count' => $locationsCount,
+            'active_staff_count' => $activeStaffCount,
+            'products_count' => $productsCount,
             'features' => $currentPlan?->features ?? ['standard_pos', 'fbr_sync', 'offline_wal'],
             'notes' => $currentSub?->notes ?? '',
         ];
@@ -364,6 +370,8 @@ class SuperAdminTenantController extends Controller
             'billing_interval' => $p->billing_interval,
             'max_locations' => $p->max_locations,
             'max_terminals' => $p->max_terminals,
+            'max_staff' => $p->max_staff,
+            'max_skus' => $p->max_skus,
             'features' => $p->features ?? [],
         ]);
 
@@ -794,6 +802,11 @@ class SuperAdminTenantController extends Controller
     {
         $tenant = Tenant::findOrFail($tenantId);
 
+        if (! $tenant->canAddStaff()) {
+            $limit = $tenant->currentPlan()?->max_staff ?? 1;
+            return back()->with('error', "Staff quota exceeded. The tenant's plan allows a maximum of {$limit} staff accounts.");
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
@@ -889,5 +902,70 @@ class SuperAdminTenantController extends Controller
         ]);
 
         return back()->with('success', "Branch location '{$location->name}' added successfully.");
+    }
+
+    /**
+     * Permanently delete / purge a tenant organization and associated child records.
+     */
+    public function destroy(Request $request, string $id): RedirectResponse
+    {
+        $tenant = Tenant::findOrFail($id);
+
+        // Safeguard: Check if tenant has completed sales submitted to FBR
+        $hasFbrSales = Sale::withoutGlobalScope(TenantScope::class)
+            ->where('tenant_id', $tenant->id)
+            ->where('fbr_status', 'submitted')
+            ->exists();
+
+        if ($hasFbrSales && ! $request->boolean('force_purge_fiscal_archive')) {
+            return back()->with('error', "Cannot delete tenant '{$tenant->name}' because it contains official submitted FBR fiscal records. Use 'Suspend' instead to comply with statutory fiscal audit retention.");
+        }
+
+        $tenantName = $tenant->name;
+        $tenantId = $tenant->id;
+
+        DB::transaction(function () use ($tenant) {
+            // Cascade cleanup child records
+            PosTerminal::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+            Location::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+            Subscription::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+            SaasInvoice::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+
+            // Products, stock movements, and sales
+            DB::table('stock_movements')->where('tenant_id', $tenant->id)->delete();
+            DB::table('stock_levels')->where('tenant_id', $tenant->id)->delete();
+            DB::table('sale_items')->whereIn('sale_id', function ($q) use ($tenant) {
+                $q->select('id')->from('sales')->where('tenant_id', $tenant->id);
+            })->delete();
+            Sale::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenant->id)->delete();
+            DB::table('product_variants')->whereIn('product_id', function ($q) use ($tenant) {
+                $q->select('id')->from('products')->where('tenant_id', $tenant->id);
+            })->delete();
+            DB::table('products')->where('tenant_id', $tenant->id)->delete();
+            DB::table('tax_rules')->where('tenant_id', $tenant->id)->delete();
+            DB::table('fbr_credentials')->where('tenant_id', $tenant->id)->delete();
+            DB::table('support_tickets')->where('tenant_id', $tenant->id)->delete();
+
+            // Staff users
+            User::withoutGlobalScope(TenantScope::class)->where('tenant_id', $tenant->id)->delete();
+
+            // Delete tenant record
+            $tenant->delete();
+        });
+
+        AuditLog::create([
+            'tenant_id' => null,
+            'user_id' => Auth::id(),
+            'event' => 'tenant_purged',
+            'auditable_type' => Tenant::class,
+            'auditable_id' => $tenantId,
+            'old_values' => ['name' => $tenantName, 'id' => $tenantId],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()
+            ->route('superadmin.tenants.index')
+            ->with('success', "Tenant '{$tenantName}' and all associated records have been permanently purged.");
     }
 }

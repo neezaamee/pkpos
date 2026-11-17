@@ -147,6 +147,34 @@ class Tenant extends Model
     }
 
     /**
+     * Check if the tenant can add an additional staff member under their plan quota.
+     */
+    public function canAddStaff(): bool
+    {
+        $plan = $this->currentPlan();
+        if (! $plan || $plan->max_staff === null) {
+            return true;
+        }
+
+        $currentCount = $this->users()->withoutGlobalScopes()->count();
+        return $currentCount < $plan->max_staff;
+    }
+
+    /**
+     * Check if the tenant can add an additional product SKU under their plan quota.
+     */
+    public function canAddProduct(): bool
+    {
+        $plan = $this->currentPlan();
+        if (! $plan || $plan->max_skus === null) {
+            return true;
+        }
+
+        $currentCount = $this->products()->withoutGlobalScopes()->count();
+        return $currentCount < $plan->max_skus;
+    }
+
+    /**
      * Get the sales for the tenant.
      */
     public function sales(): HasMany

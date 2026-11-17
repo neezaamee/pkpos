@@ -58,6 +58,14 @@ class ProductController extends Controller
     {
         $this->authorizeAccess($request);
 
+        $tenant = $request->user()->tenant;
+        if ($tenant && ! $tenant->canAddProduct()) {
+            $limit = $tenant->currentPlan()?->max_skus ?? 1;
+            return response()->json([
+                'message' => "Product catalog quota exceeded. Your plan allows a maximum of {$limit} SKUs.",
+            ], 422);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'sku' => ['nullable', 'string', 'max:50'],

@@ -32,6 +32,8 @@ class SuperAdminPlanController extends Controller
             'billing_interval' => $p->billing_interval,
             'max_locations' => $p->max_locations,
             'max_terminals' => $p->max_terminals,
+            'max_staff' => $p->max_staff,
+            'max_skus' => $p->max_skus,
             'features' => $p->features ?? [],
             'is_active' => (bool) $p->is_active,
             'active_subscribers_count' => $p->subscriptions_count,
@@ -123,6 +125,8 @@ class SuperAdminPlanController extends Controller
             'billing_interval' => ['required', 'string', 'in:month,year'],
             'max_locations' => ['nullable', 'integer', 'min:1'],
             'max_terminals' => ['nullable', 'integer', 'min:1'],
+            'max_staff' => ['nullable', 'integer', 'min:1'],
+            'max_skus' => ['nullable', 'integer', 'min:1'],
             'features' => ['nullable', 'array'],
             'is_active' => ['boolean'],
         ]);
@@ -162,6 +166,8 @@ class SuperAdminPlanController extends Controller
             'billing_interval' => ['required', 'string', 'in:month,year'],
             'max_locations' => ['nullable', 'integer', 'min:1'],
             'max_terminals' => ['nullable', 'integer', 'min:1'],
+            'max_staff' => ['nullable', 'integer', 'min:1'],
+            'max_skus' => ['nullable', 'integer', 'min:1'],
             'features' => ['nullable', 'array'],
             'is_active' => ['boolean'],
         ]);

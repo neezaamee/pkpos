@@ -32,6 +32,8 @@ class Plan extends Model
         'billing_interval',
         'max_locations',
         'max_terminals',
+        'max_staff',
+        'max_skus',
         'features',
         'is_active',
     ];
@@ -47,6 +49,8 @@ class Plan extends Model
             'price_minor' => 'integer',
             'max_locations' => 'integer',
             'max_terminals' => 'integer',
+            'max_staff' => 'integer',
+            'max_skus' => 'integer',
             'features' => 'array',
             'is_active' => 'boolean',
         ];

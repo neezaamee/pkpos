@@ -407,4 +407,164 @@ test('super admin can revoke and reactivate terminal from tenant page', function
     expect($terminal->revocation_reason)->toBeNull();
 });
 
+test('super admin cannot add staff beyond plan max_staff quota', function () {
+    $plan = \App\Models\Plan::create([
+        'name' => 'Single User Micro Plan',
+        'code' => 'micro-plan',
+        'price_monthly' => 100000,
+        'price_yearly' => 1000000,
+        'max_locations' => 1,
+        'max_terminals' => 1,
+        'max_staff' => 1, // Only 1 staff allowed, and $this->owner already exists
+        'max_skus' => 10,
+        'is_active' => true,
+    ]);
+
+    \App\Models\Subscription::create([
+        'tenant_id' => $this->tenant->id,
+        'plan_id' => $plan->id,
+        'status' => 'active',
+        'starts_at' => now(),
+    ]);
+
+    $response = $this->actingAs($this->superAdmin)
+        ->post("/superadmin/tenants/{$this->tenant->id}/users", [
+            'name' => 'Second Cashier',
+            'email' => 'second@apex.test',
+            'password' => 'secret12345',
+            'role' => 'cashier',
+        ]);
+
+    $response->assertSessionHas('error');
+    expect(\App\Models\User::where('tenant_id', $this->tenant->id)->count())->toBe(1);
+});
+
+test('tenant cannot add product beyond plan max_skus quota', function () {
+    $plan = \App\Models\Plan::create([
+        'name' => 'Micro SKU Plan',
+        'code' => 'sku-micro-plan',
+        'price_monthly' => 100000,
+        'price_yearly' => 1000000,
+        'max_locations' => 1,
+        'max_terminals' => 1,
+        'max_staff' => 5,
+        'max_skus' => 1, // Only 1 SKU allowed
+        'is_active' => true,
+    ]);
+
+    \App\Models\Subscription::create([
+        'tenant_id' => $this->tenant->id,
+        'plan_id' => $plan->id,
+        'status' => 'active',
+        'starts_at' => now(),
+    ]);
+
+    // Create 1 product (allowed)
+    \App\Models\Product::create([
+        'tenant_id' => $this->tenant->id,
+        'name' => 'First Product',
+        'sku' => 'SKU-001',
+        'hs_code' => '12345678',
+        'unit' => 'piece',
+        'price_minor' => 5000,
+        'cost_minor' => 3000,
+        'tax_category' => 'standard',
+        'is_active' => true,
+    ]);
+
+    // Try to add 2nd product via web
+    $webResponse = $this->actingAs($this->owner)
+        ->post('/products', [
+            'name' => 'Second Product',
+            'sku' => 'SKU-002',
+            'hs_code' => '87654321',
+            'unit' => 'piece',
+            'price_minor' => 6000,
+            'cost_minor' => 4000,
+            'tax_category' => 'standard',
+        ]);
+
+    $webResponse->assertSessionHas('error');
+
+    // Try to add 2nd product via API
+    $token = $this->owner->createToken('test-token')->plainTextToken;
+    $apiResponse = $this->withHeader('Authorization', "Bearer {$token}")
+        ->postJson('/api/v1/products', [
+            'name' => 'Second Product API',
+            'sku' => 'SKU-002-API',
+            'hs_code' => '87654321',
+            'unit' => 'piece',
+            'price_minor' => 6000,
+            'cost_minor' => 4000,
+            'tax_category' => 'standard',
+        ]);
+
+    $apiResponse->assertStatus(422);
+    expect(\App\Models\Product::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->count())->toBe(1);
+});
+
+test('super admin can safely purge test tenant', function () {
+    $testTenant = Tenant::factory()->create([
+        'name' => 'Temporary Test Shop',
+        'ntn' => '9999999-9',
+        'province' => 'punjab',
+    ]);
+
+    Location::factory()->create(['tenant_id' => $testTenant->id]);
+
+    $response = $this->actingAs($this->superAdmin)
+        ->delete("/superadmin/tenants/{$testTenant->id}");
+
+    $response->assertRedirect('/superadmin/tenants');
+    $response->assertSessionHas('success');
+
+    expect(Tenant::find($testTenant->id))->toBeNull();
+});
+
+test('super admin cannot purge tenant with submitted FBR sales unless force_purge_fiscal_archive is true', function () {
+    $fbrTenant = Tenant::factory()->create([
+        'name' => 'FBR Live Shop',
+        'ntn' => '8888888-8',
+        'province' => 'punjab',
+    ]);
+
+    $loc = Location::factory()->create(['tenant_id' => $fbrTenant->id]);
+    $fbrCashier = User::factory()->create([
+        'tenant_id' => $fbrTenant->id,
+        'role' => 'cashier',
+    ]);
+
+    \App\Models\Sale::withoutGlobalScopes()->create([
+        'tenant_id' => $fbrTenant->id,
+        'location_id' => $loc->id,
+        'user_id' => $fbrCashier->id,
+        'sale_number' => 'SALE-FBR-TEST-001',
+        'fbr_usin' => 'FBR-USIN-999999',
+        'fbr_status' => 'submitted',
+        'subtotal_minor' => 100000,
+        'tax_minor' => 18000,
+        'total_minor' => 118000,
+        'payment_method' => 'cash',
+        'status' => 'completed',
+    ]);
+
+    // Attempt standard delete without override -> blocked
+    $blockedResponse = $this->actingAs($this->superAdmin)
+        ->delete("/superadmin/tenants/{$fbrTenant->id}");
+
+    $blockedResponse->assertSessionHas('error');
+    expect(Tenant::find($fbrTenant->id))->not->toBeNull();
+
+    // Attempt delete with force_purge_fiscal_archive -> succeeds
+    $forcedResponse = $this->actingAs($this->superAdmin)
+        ->delete("/superadmin/tenants/{$fbrTenant->id}", [
+            'force_purge_fiscal_archive' => true,
+        ]);
+
+    $forcedResponse->assertRedirect('/superadmin/tenants');
+    $forcedResponse->assertSessionHas('success');
+    expect(Tenant::find($fbrTenant->id))->toBeNull();
+});
+
+
 

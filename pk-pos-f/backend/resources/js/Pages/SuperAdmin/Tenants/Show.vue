@@ -58,6 +58,20 @@
           {{ tenant.is_suspended ? 'Reactivate Tenant' : 'Suspend Tenant' }}
         </button>
 
+        <!-- Purge / Delete Tenant Button -->
+        <button
+          @click="openDeleteModal"
+          class="btn btn-secondary"
+          style="color: #fb7185; border-color: rgba(244, 63, 94, 0.4);"
+          title="Permanently delete test tenant"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          Purge Tenant
+        </button>
+
         <!-- Quick Impersonate Owner Button -->
         <button
           v-if="primaryOwner && !tenant.is_suspended"
@@ -289,6 +303,34 @@
                 :style="{
                   width: subscription.max_locations ? Math.min(100, Math.round((subscription.locations_count / subscription.max_locations) * 100)) + '%' : '30%',
                   background: '#10b981'
+                }"
+              ></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; margin-top: 0.75rem;">
+              <span>Staff Accounts:</span>
+              <span>{{ subscription.active_staff_count }} / {{ subscription.max_staff ?? '∞' }}</span>
+            </div>
+            <div class="progress-bar-bg" style="margin-top: 0.4rem;">
+              <div
+                class="progress-bar-fill"
+                :style="{
+                  width: subscription.max_staff ? Math.min(100, Math.round((subscription.active_staff_count / subscription.max_staff) * 100)) + '%' : '20%',
+                  background: (subscription.max_staff && subscription.active_staff_count >= subscription.max_staff) ? '#f43f5e' : '#f59e0b'
+                }"
+              ></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; margin-top: 0.75rem;">
+              <span>Catalog SKUs:</span>
+              <span>{{ subscription.products_count }} / {{ subscription.max_skus ?? '∞' }}</span>
+            </div>
+            <div class="progress-bar-bg" style="margin-top: 0.4rem;">
+              <div
+                class="progress-bar-fill"
+                :style="{
+                  width: subscription.max_skus ? Math.min(100, Math.round((subscription.products_count / subscription.max_skus) * 100)) + '%' : '15%',
+                  background: (subscription.max_skus && subscription.products_count >= subscription.max_skus) ? '#f43f5e' : '#06b6d4'
                 }"
               ></div>
             </div>
@@ -1286,6 +1328,52 @@
         </form>
       </div>
     </div>
+
+    <!-- MODAL: PURGE / DELETE TENANT -->
+    <div v-if="showDeleteModal" class="modal-backdrop">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 style="color: #fb7185;">Purge Tenant Organization</h3>
+          <button @click="showDeleteModal = false" class="modal-close">&times;</button>
+        </div>
+        <form @submit.prevent="submitPurgeTenant">
+          <div class="modal-body">
+            <div style="background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.35); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+              <p style="font-size: 0.88rem; color: #fecdd3; margin: 0; line-height: 1.5;">
+                <strong>Warning:</strong> You are about to permanently purge <strong>{{ tenant.name }}</strong> (NTN: {{ tenant.ntn }}). All terminals, products, stock levels, staff users, and branch locations will be permanently deleted.
+              </p>
+            </div>
+            <div v-if="fbr_submitted_count > 0" class="form-group" style="margin-bottom: 1rem;">
+              <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: #fbbf24; cursor: pointer;">
+                <input v-model="deleteForm.force_purge_fiscal_archive" type="checkbox" style="margin-top: 0.2rem;" />
+                <span>Override FBR statutory compliance guard: This tenant contains {{ fbr_submitted_count }} official FBR invoices. Force deletion anyway.</span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type tenant name to confirm: <code>{{ tenant.name }}</code></label>
+              <input
+                v-model="deleteConfirmName"
+                type="text"
+                class="form-input"
+                :placeholder="tenant.name"
+                required
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" @click="showDeleteModal = false" class="btn btn-secondary">Cancel</button>
+            <button
+              type="submit"
+              class="btn"
+              style="background: #e11d48; color: #fff;"
+              :disabled="deleteConfirmName !== tenant.name || deleteForm.processing"
+            >
+              {{ deleteForm.processing ? 'Purging...' : 'Permanently Delete Tenant' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </SuperAdminLayout>
 </template>
 
@@ -1549,6 +1637,27 @@ function submitSuspendToggle() {
     preserveScroll: true,
     onSuccess: () => {
       showSuspendModal.value = false;
+    },
+  });
+}
+
+// Purge / Delete Tenant
+const showDeleteModal = ref(false);
+const deleteConfirmName = ref('');
+const deleteForm = useForm({
+  force_purge_fiscal_archive: false,
+});
+
+function openDeleteModal() {
+  deleteConfirmName.value = '';
+  deleteForm.force_purge_fiscal_archive = false;
+  showDeleteModal.value = true;
+}
+
+function submitPurgeTenant() {
+  deleteForm.delete(`/superadmin/tenants/${props.tenant.id}`, {
+    onSuccess: () => {
+      showDeleteModal.value = false;
     },
   });
 }

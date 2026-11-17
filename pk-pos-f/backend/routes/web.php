@@ -67,6 +67,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
         Route::post('/tenants/{id}/terminals/pairing-code', [SuperAdminTenantController::class, 'generatePairingCode'])->name('tenants.terminals.pairing-code')->whereUuid('id');
         Route::post('/tenants/{id}/terminals/{terminalId}/revoke', [SuperAdminTenantController::class, 'revokeTerminal'])->name('tenants.terminals.revoke')->whereUuid(['id', 'terminalId']);
         Route::post('/tenants/{id}/terminals/{terminalId}/reactivate', [SuperAdminTenantController::class, 'reactivateTerminal'])->name('tenants.terminals.reactivate')->whereUuid(['id', 'terminalId']);
+        Route::delete('/tenants/{id}', [SuperAdminTenantController::class, 'destroy'])->name('tenants.destroy')->whereUuid('id');
     });
 
     // Tenant Directory & Details (Accessible to all internal staff)
