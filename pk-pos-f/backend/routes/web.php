@@ -22,6 +22,7 @@ use App\Http\Controllers\SuperAdmin\SuperAdminPlanController;
 use App\Http\Controllers\SuperAdmin\SuperAdminReleaseController;
 use App\Http\Controllers\SuperAdmin\SuperAdminRoleController;
 use App\Http\Controllers\SuperAdmin\SuperAdminSecurityController;
+use App\Http\Controllers\SuperAdmin\SuperAdminSettingsController;
 use App\Http\Controllers\SuperAdmin\SuperAdminStaffController;
 use App\Http\Controllers\SuperAdmin\SuperAdminSupportController;
 use App\Http\Controllers\SuperAdmin\SuperAdminSystemController;
@@ -245,6 +246,11 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
         Route::post('/security/sessions/{id}/kill', [SuperAdminSecurityController::class, 'killSession'])->name('security.sessions.kill');
         Route::post('/security/sessions/kill-all', [SuperAdminSecurityController::class, 'killAllSessions'])->name('security.sessions.kill-all');
         Route::post('/security/enforce-2fa', [SuperAdminSecurityController::class, 'toggleEnforceStaff2fa'])->name('security.enforce-2fa');
+
+        // Platform Global Settings & Payment Gateways
+        Route::get('/settings', [SuperAdminSettingsController::class, 'index'])->name('settings.index');
+        Route::post('/settings', [SuperAdminSettingsController::class, 'update'])->name('settings.update');
+        Route::post('/settings/test-gateway', [SuperAdminSettingsController::class, 'testGateway'])->name('settings.test-gateway');
     });
 });
 
