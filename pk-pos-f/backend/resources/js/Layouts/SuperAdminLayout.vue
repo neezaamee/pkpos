@@ -686,44 +686,298 @@
 
       <!-- Topbar Header -->
       <header class="topbar">
+        <!-- Left: Sidebar Toggle + Breadcrumb + Page Title -->
         <div class="topbar-left">
-          <h2 class="page-title">{{ title }}</h2>
+          <button
+            class="topbar-sidebar-toggle"
+            :title="isRailMode ? 'Expand Sidebar' : 'Collapse Sidebar to Mini-Rail'"
+            @click="toggleRailMode"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+
+          <div class="page-title-group">
+            <div class="topbar-breadcrumb">
+              <span class="breadcrumb-root">Super Admin</span>
+              <span class="breadcrumb-sep">/</span>
+              <span class="breadcrumb-current">{{ currentSectionName }}</span>
+            </div>
+            <h2 class="page-title">{{ title }}</h2>
+          </div>
         </div>
 
-        <!-- Global Search / Command Palette Button -->
+        <!-- Center: Quick Command Palette Trigger (Ctrl K) -->
         <div class="topbar-center">
-          <button class="command-palette-trigger" @click="isPaletteOpen = true">
+          <button class="command-palette-trigger" @click="isPaletteOpen = true" title="Quick Search or Jump to Module (Ctrl K)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <span class="trigger-label">Quick search or jump to...</span>
+            <span class="trigger-label">Search modules, stores, routes...</span>
             <span class="trigger-kbd">Ctrl K</span>
           </button>
         </div>
 
+        <!-- Right: Actions, Alerts, Gateways, Theme, User Profile -->
         <div class="topbar-actions">
+          <!-- FBR Live Gateway Status Link -->
+          <Link
+            href="/superadmin/compliance/fbr"
+            class="fbr-gateway-pill"
+            :class="isFbrSandbox ? 'sandbox' : 'live'"
+            title="Inspect FBR IRIS Fiscal Gateway"
+          >
+            <span class="pulse-dot"></span>
+            <span class="fbr-text">{{ isFbrSandbox ? 'FBR Sandbox' : 'FBR Live' }}</span>
+          </Link>
+
+          <!-- Notification / Alerts Dropdown -->
+          <div class="topbar-dropdown-container">
+            <button
+              class="topbar-icon-btn"
+              @click.stop="isAlertsOpen = !isAlertsOpen; isUserMenuOpen = false;"
+              :class="{ active: isAlertsOpen }"
+              title="Platform Alerts & Operational Queue"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span v-if="totalAlerts > 0" class="topbar-badge-pill">
+                {{ totalAlerts > 99 ? '99+' : totalAlerts }}
+              </span>
+            </button>
+
+            <!-- Alerts Dropdown Menu -->
+            <div v-if="isAlertsOpen" class="topbar-menu-dropdown alerts-dropdown-menu">
+              <div class="dropdown-header">
+                <span style="font-weight: 700; color: #fff; font-size: 0.85rem;">Platform Alerts</span>
+                <span
+                  class="badge"
+                  :style="totalAlerts > 0 ? 'background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);' : 'background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);'"
+                  style="font-size: 0.7rem; padding: 0.15rem 0.5rem;"
+                >
+                  {{ totalAlerts > 0 ? `${totalAlerts} Pending` : 'All Clear' }}
+                </span>
+              </div>
+
+              <div class="dropdown-body">
+                <!-- Pending Onboarding -->
+                <Link
+                  v-if="(badges?.pending_onboarding || 0) > 0"
+                  href="/superadmin/onboarding"
+                  class="alert-dropdown-item"
+                  @click="isAlertsOpen = false"
+                >
+                  <div class="alert-icon-wrap" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                      {{ badges.pending_onboarding }} Merchant Onboarding Pending
+                    </div>
+                    <div style="font-size: 0.725rem; color: #94a3b8;">Review applications & verify FBR ATL status</div>
+                  </div>
+                </Link>
+
+                <!-- DLQ Failed FBR Invoices -->
+                <Link
+                  v-if="(badges?.dlq_count || 0) > 0"
+                  href="/superadmin/compliance/fbr/failed"
+                  class="alert-dropdown-item"
+                  @click="isAlertsOpen = false"
+                >
+                  <div class="alert-icon-wrap" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                      {{ badges.dlq_count }} Dead-Letter Queue Invoices
+                    </div>
+                    <div style="font-size: 0.725rem; color: #94a3b8;">FBR invoices requiring retry or inspection</div>
+                  </div>
+                </Link>
+
+                <!-- Open Support Tickets -->
+                <Link
+                  v-if="(badges?.open_tickets || 0) > 0"
+                  href="/superadmin/support/tickets"
+                  class="alert-dropdown-item"
+                  @click="isAlertsOpen = false"
+                >
+                  <div class="alert-icon-wrap" style="background: rgba(96, 165, 250, 0.15); color: #60a5fa;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                      {{ badges.open_tickets }} Unresolved Support Tickets
+                    </div>
+                    <div style="font-size: 0.725rem; color: #94a3b8;">Merchant inquiries awaiting agent reply</div>
+                  </div>
+                </Link>
+
+                <!-- Failed Queue Jobs -->
+                <Link
+                  v-if="(badges?.failed_jobs || 0) > 0"
+                  href="/superadmin/system/jobs"
+                  class="alert-dropdown-item"
+                  @click="isAlertsOpen = false"
+                >
+                  <div class="alert-icon-wrap" style="background: rgba(244, 63, 94, 0.15); color: #fb7185;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                      {{ badges.failed_jobs }} Failed Queue Jobs
+                    </div>
+                    <div style="font-size: 0.725rem; color: #94a3b8;">Database queue exception retry queue</div>
+                  </div>
+                </Link>
+
+                <!-- Offline Terminals -->
+                <Link
+                  v-if="(badges?.offline_terminals || 0) > 0"
+                  href="/superadmin/fleet/terminals"
+                  class="alert-dropdown-item"
+                  @click="isAlertsOpen = false"
+                >
+                  <div class="alert-icon-wrap" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                      <line x1="8" y1="21" x2="16" y2="21"></line>
+                      <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.825rem; font-weight: 600; color: #f8fafc;">
+                      {{ badges.offline_terminals }} Offline POS Terminals
+                    </div>
+                    <div style="font-size: 0.725rem; color: #94a3b8;">Terminals without heartbeat for >15 mins</div>
+                  </div>
+                </Link>
+
+                <!-- Empty state when 0 alerts -->
+                <div v-if="totalAlerts === 0" style="padding: 1.5rem 1rem; text-align: center; color: #64748b;">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" style="margin: 0 auto 0.5rem; display: block;">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  <div style="font-weight: 600; color: #f8fafc; font-size: 0.85rem;">All Systems Operational</div>
+                  <div style="font-size: 0.75rem; margin-top: 0.25rem;">No active queues, failed invoices, or urgent alerts.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Theme Toggle Button -->
           <button
-            class="theme-toggle-btn"
+            class="topbar-icon-btn"
             :title="currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
             @click="toggleTheme"
           >
-            <span v-if="currentTheme === 'dark'">☀️</span>
-            <span v-else>🌙</span>
+            <svg v-if="currentTheme === 'dark'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
           </button>
 
-          <!-- FBR Live Gateway Status Pill -->
-          <div class="fbr-gateway-pill" :class="isFbrSandbox ? 'sandbox' : 'live'">
-            <span class="pulse-dot"></span>
-            <span class="fbr-text">{{ isFbrSandbox ? 'FBR IRIS Sandbox' : 'FBR IRIS Live' }}</span>
-          </div>
+          <!-- Topbar Vertical Separator -->
+          <div class="topbar-sep"></div>
 
-          <!-- Staff Role Badge -->
-          <span class="badge" :style="topbarBadgeStyle">
-            <span class="badge-dot" :style="{ backgroundColor: roleColor }"></span>
-            {{ roleLabel }}
-          </span>
+          <!-- Staff User Profile Dropdown -->
+          <div class="topbar-dropdown-container">
+            <button
+              class="user-profile-trigger"
+              @click.stop="isUserMenuOpen = !isUserMenuOpen; isAlertsOpen = false;"
+              :class="{ active: isUserMenuOpen }"
+              title="Staff Profile & Settings"
+            >
+              <div class="user-avatar-sm" :style="avatarStyle">
+                {{ user?.name ? user.name.charAt(0).toUpperCase() : 'S' }}
+              </div>
+              <div class="user-details-compact">
+                <span class="user-display-name">{{ user?.name || 'Staff' }}</span>
+                <span class="user-role-chip" :style="{ color: roleColor }">{{ roleLabel }}</span>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chevron-icon" :class="{ open: isUserMenuOpen }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            <!-- User Dropdown Menu -->
+            <div v-if="isUserMenuOpen" class="topbar-menu-dropdown user-dropdown-menu">
+              <div class="dropdown-header">
+                <div style="font-weight: 700; color: #fff; font-size: 0.9rem;">{{ user?.name }}</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;">{{ user?.email }}</div>
+                <div style="margin-top: 0.4rem;">
+                  <span class="badge" :style="topbarBadgeStyle" style="font-size: 0.7rem; padding: 0.15rem 0.5rem;">
+                    {{ roleLabel }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="dropdown-body">
+                <Link href="/superadmin/security" class="dropdown-item" @click="isUserMenuOpen = false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>
+                  <span>Security & 2FA</span>
+                </Link>
+
+                <Link v-if="isSuperAdmin" href="/superadmin/settings" class="dropdown-item" @click="isUserMenuOpen = false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  <span>Platform Settings</span>
+                </Link>
+
+                <Link href="/superadmin/system/health" class="dropdown-item" @click="isUserMenuOpen = false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                  </svg>
+                  <span>System Diagnostics</span>
+                </Link>
+              </div>
+
+              <div class="dropdown-footer">
+                <Link href="/logout" method="post" as="button" class="dropdown-item-danger">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  <span>Sign Out</span>
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -934,6 +1188,35 @@ function handleGlobalKey(e) {
   }
 }
 
+const isAlertsOpen = ref(false);
+const isUserMenuOpen = ref(false);
+
+const totalAlerts = computed(() => {
+  const b = badges.value || {};
+  return (b.pending_onboarding || 0) + (b.open_tickets || 0) + (b.dlq_count || 0) + (b.failed_jobs || 0) + (b.offline_terminals || 0);
+});
+
+const currentSectionName = computed(() => {
+  const p = currentPath.value || '';
+  if (p.includes('/superadmin/tenants')) return 'Tenants & Stores';
+  if (p.includes('/superadmin/onboarding')) return 'Merchant Onboarding';
+  if (p.includes('/superadmin/billing') || p.includes('/superadmin/plans')) return 'SaaS & Subscriptions';
+  if (p.includes('/superadmin/fleet') || p.includes('/superadmin/releases')) return 'Terminal Fleet';
+  if (p.includes('/superadmin/compliance')) return 'Fiscal & Compliance';
+  if (p.includes('/superadmin/master-data')) return 'Master Data Catalog';
+  if (p.includes('/superadmin/support') || p.includes('/superadmin/broadcasts')) return 'Support & Comms';
+  if (p.includes('/superadmin/system') || p.includes('/superadmin/backups')) return 'System Diagnostics';
+  if (p.includes('/superadmin/staff') || p.includes('/superadmin/roles') || p.includes('/superadmin/security') || p.includes('/superadmin/audit')) return 'Security & Access';
+  return 'Command Center';
+});
+
+function handleOutsideClick(e) {
+  if (!e.target.closest('.topbar-dropdown-container')) {
+    isAlertsOpen.value = false;
+    isUserMenuOpen.value = false;
+  }
+}
+
 // Theme management
 const currentTheme = ref('dark');
 
@@ -959,11 +1242,13 @@ onMounted(() => {
   updateClock();
   clockTimer = setInterval(updateClock, 1000);
   window.addEventListener('keydown', handleGlobalKey);
+  window.addEventListener('click', handleOutsideClick);
 });
 
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer);
   window.removeEventListener('keydown', handleGlobalKey);
+  window.removeEventListener('click', handleOutsideClick);
 });
 </script>
 
@@ -1164,42 +1449,348 @@ onUnmounted(() => {
 /* Topbar Center Command Palette */
 .topbar-center {
   flex: 1;
-  max-width: 420px;
-  margin: 0 1.5rem;
+  max-width: 380px;
+  min-width: 180px;
 }
 
 .command-palette-trigger {
   width: 100%;
-  background: var(--bg-primary);
+  background: rgba(19, 27, 46, 0.6);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 0.45rem 0.75rem;
+  padding: 0.45rem 0.85rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
+  height: 38px;
+}
+
+[data-theme="light"] .command-palette-trigger {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .command-palette-trigger:hover {
-  border-color: var(--text-secondary);
+  border-color: var(--accent-primary);
   color: var(--text-primary);
+  background: rgba(99, 102, 241, 0.05);
 }
 
 .trigger-label {
   flex: 1;
   text-align: left;
-  font-size: 0.85rem;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .trigger-kbd {
   font-size: 0.7rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  padding: 0.15rem 0.45rem;
+  padding: 0.1rem 0.45rem;
   border-radius: 4px;
   color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+/* Topbar Left & Breadcrumbs */
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.topbar-sidebar-toggle {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.topbar-sidebar-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.page-title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.1;
+  margin-bottom: 0.15rem;
+}
+
+.breadcrumb-root {
+  font-weight: 500;
+}
+
+.breadcrumb-sep {
+  color: var(--border-color);
+}
+
+.breadcrumb-current {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.page-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Topbar Right Actions */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.topbar-icon-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.topbar-icon-btn:hover,
+.topbar-icon-btn.active {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+  background: var(--bg-card-hover);
+}
+
+.topbar-badge-pill {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 9999px;
+  line-height: 1;
+  border: 2px solid var(--bg-primary);
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+}
+
+.user-profile-trigger {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.3rem 0.65rem 0.3rem 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  height: 38px;
+}
+
+.user-profile-trigger:hover,
+.user-profile-trigger.active {
+  border-color: var(--accent-primary);
+  background: var(--bg-card-hover);
+}
+
+.user-avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.user-details-compact {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.1;
+}
+
+.user-display-name {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role-chip {
+  font-size: 0.675rem;
+  font-weight: 600;
+}
+
+.chevron-icon {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.chevron-icon.open {
+  transform: rotate(180deg);
+}
+
+.topbar-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #131b2e;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 1px 1px var(--border-color);
+  z-index: 50;
+  animation: fadeIn 0.15s ease;
+}
+
+[data-theme="light"] .topbar-menu-dropdown {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.user-dropdown-menu {
+  width: 240px;
+}
+
+.alerts-dropdown-menu {
+  width: 320px;
+}
+
+.dropdown-header {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dropdown-body {
+  padding: 0.4rem 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .dropdown-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.alert-dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.alert-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="light"] .alert-dropdown-item:hover {
+  background: #f8fafc;
+}
+
+.alert-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.dropdown-footer {
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.dropdown-item-danger {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 1rem;
+  color: #fb7185;
+  font-size: 0.825rem;
+  font-weight: 600;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.dropdown-item-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
 }
 
 /* FBR Gateway Pill */
@@ -1211,6 +1802,12 @@ onUnmounted(() => {
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.fbr-gateway-pill:hover {
+  filter: brightness(1.1);
 }
 
 .fbr-gateway-pill.live {
