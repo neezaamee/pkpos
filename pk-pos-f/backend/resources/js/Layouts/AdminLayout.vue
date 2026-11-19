@@ -64,6 +64,21 @@
         </Link>
 
         <Link
+          href="/shifts"
+          class="nav-link"
+          :class="{ active: currentPath.startsWith('/shifts') }"
+          :title="isRailMode ? 'Register Shifts (Z-Reports)' : ''"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+            <line x1="2" y1="10" x2="22" y2="10"></line>
+            <line x1="7" y1="15" x2="7.01" y2="15"></line>
+            <line x1="11" y1="15" x2="13" y2="15"></line>
+          </svg>
+          <span v-if="!isRailMode">Register Shifts (Z-Reports)</span>
+        </Link>
+
+        <Link
           v-if="user?.role === 'owner'"
           href="/fbr-credentials"
           class="nav-link"

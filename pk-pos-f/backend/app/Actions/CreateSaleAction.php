@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Models\RegisterSession;
 use App\Models\Sale;
 use Illuminate\Support\Facades\DB;
 
@@ -25,6 +26,17 @@ class CreateSaleAction
 
             foreach ($items as $item) {
                 $sale->items()->create($item);
+            }
+
+            // Record sale in active register session if one exists
+            $activeSession = RegisterSession::where('tenant_id', $sale->tenant_id)
+                ->where('location_id', $sale->location_id)
+                ->where('status', 'open')
+                ->latest('opened_at')
+                ->first();
+
+            if ($activeSession) {
+                $activeSession->recordSale($sale);
             }
 
             return $sale->load('items');

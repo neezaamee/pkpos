@@ -732,3 +732,231 @@ export async function sendHeartbeat(): Promise<{ status: string; is_active: bool
   }
   return null;
 }
+
+// -------------------------------------------------------------
+// Cashier PIN Authentication & Shift Management API Operations
+// -------------------------------------------------------------
+
+let currentCashierCache: any = null;
+
+export function getActiveCashier(): any {
+  if (currentCashierCache) return currentCashierCache;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = localStorage.getItem('pk_pos_active_cashier');
+      if (stored) {
+        currentCashierCache = JSON.parse(stored);
+        return currentCashierCache;
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+export function setActiveCashier(cashier: any): void {
+  currentCashierCache = cashier;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (cashier) {
+      localStorage.setItem('pk_pos_active_cashier', JSON.stringify(cashier));
+    } else {
+      localStorage.removeItem('pk_pos_active_cashier');
+    }
+  }
+}
+
+export async function authenticateCashierPin(pin: string): Promise<{ user: any; message: string }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/auth/pin`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ pin }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Invalid PIN.' }));
+    throw new Error(err.message || 'Invalid cashier PIN.');
+  }
+
+  const data = await res.json();
+  setActiveCashier(data.user);
+  return data;
+}
+
+export async function supervisorOverride(pin: string, action: string): Promise<{ authorized: boolean; supervisor?: any; message: string }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/auth/supervisor-override`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ pin, action }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Authorization denied.' }));
+    throw new Error(err.message || 'Authorization denied.');
+  }
+
+  return await res.json();
+}
+
+export async function getActiveShift(): Promise<{ active: boolean; session?: any; summary?: any }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+  if (settings.terminal_id) {
+    headers['X-Terminal-Id'] = settings.terminal_id;
+  }
+
+  try {
+    const res = await fetch(`${baseUrl}/pos/shifts/current`, { headers });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to query active shift', e);
+  }
+
+  return { active: false };
+}
+
+export async function openRegisterShift(locationId: string, openingFloatMinor: number, notes?: string): Promise<{ message: string; session: any }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/shifts/open`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      location_id: locationId,
+      terminal_id: settings.terminal_id || undefined,
+      opening_float_minor: openingFloatMinor,
+      notes,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to open shift.' }));
+    throw new Error(err.message || 'Failed to open shift.');
+  }
+
+  return await res.json();
+}
+
+export async function recordCashMovement(
+  sessionId: string,
+  type: 'cash_in' | 'cash_drop' | 'payout_expense',
+  amountMinor: number,
+  reason: string,
+  supervisorPin?: string
+): Promise<any> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/shifts/cash-movement`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      register_session_id: sessionId,
+      type,
+      amount_minor: amountMinor,
+      reason,
+      supervisor_pin: supervisorPin,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to record cash movement.' }));
+    throw new Error(err.message || 'Failed to record cash movement.');
+  }
+
+  return await res.json();
+}
+
+export async function getShiftXReport(sessionId: string): Promise<{ report: any }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/shifts/${sessionId}/x-report`, { headers });
+  if (!res.ok) {
+    throw new Error('Failed to fetch X-Report.');
+  }
+
+  return await res.json();
+}
+
+export async function closeRegisterShift(sessionId: string, closingCashMinor: number, notes?: string): Promise<{ message: string; z_report: any }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/shifts/${sessionId}/close`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      closing_cash_minor: closingCashMinor,
+      notes,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to close shift.' }));
+    throw new Error(err.message || 'Failed to close shift.');
+  }
+
+  return await res.json();
+}

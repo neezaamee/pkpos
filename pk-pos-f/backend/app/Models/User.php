@@ -28,6 +28,9 @@ class User extends Authenticatable
         'super_admin',
         'staff_role',
         'is_active',
+        'cashier_pin_hash',
+        'pos_permissions',
+        'max_discount_pct',
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
@@ -42,6 +45,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'cashier_pin_hash',
         'super_admin',
         'two_factor_secret',
         'two_factor_recovery_codes',
@@ -58,6 +62,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'super_admin' => 'boolean',
             'is_active' => 'boolean',
+            'pos_permissions' => 'array',
+            'max_discount_pct' => 'integer',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_enforced' => 'boolean',
             'two_factor_recovery_codes' => 'array',
@@ -214,5 +220,53 @@ class User extends Authenticatable
     public static function generateRecoveryCodes(int $count = 8): array
     {
         return app(\App\Services\Security\TotpService::class)->generateRecoveryCodes($count);
+    }
+
+    /**
+     * Set a new 4-6 digit numeric Cashier PIN.
+     */
+    public function setCashierPin(string $pin): self
+    {
+        $this->cashier_pin_hash = \Illuminate\Support\Facades\Hash::make($pin);
+        return $this;
+    }
+
+    /**
+     * Verify numeric cashier PIN for swift switch or supervisor override.
+     */
+    public function verifyPin(string $pin): bool
+    {
+        if (! $this->cashier_pin_hash) {
+            return false;
+        }
+
+        return \Illuminate\Support\Facades\Hash::check($pin, $this->cashier_pin_hash);
+    }
+
+    /**
+     * Check if user is authorized as a POS terminal supervisor/manager.
+     */
+    public function isPosSupervisor(): bool
+    {
+        return in_array($this->role, ['owner', 'admin', 'manager'], true)
+            || $this->hasPosPermission('supervisor_override');
+    }
+
+    /**
+     * Check if user has specific POS operation capability.
+     */
+    public function hasPosPermission(string $permission): bool
+    {
+        if ($this->role === 'owner' || $this->role === 'admin') {
+            return true;
+        }
+
+        $perms = $this->pos_permissions;
+        if (is_null($perms)) {
+            // Default cashier permissions
+            return in_array($permission, ['apply_discount', 'open_drawer', 'reprint_receipt'], true);
+        }
+
+        return in_array($permission, $perms, true);
     }
 }

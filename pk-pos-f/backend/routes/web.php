@@ -7,6 +7,7 @@ use App\Http\Controllers\FbrCredentialsController;
 use App\Http\Controllers\InventoryWebController;
 use App\Http\Controllers\ProductWebController;
 use App\Http\Controllers\SalesDashboardController;
+use App\Http\Controllers\ShiftWebController;
 use App\Http\Controllers\TaxRuleWebController;
 use App\Http\Controllers\TenantTerminalController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
@@ -338,4 +339,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/terminals/pairing-code', [TenantTerminalController::class, 'generatePairingCode'])->name('terminals.pairing-code');
     Route::post('/terminals/{id}/regenerate-code', [TenantTerminalController::class, 'regeneratePairingCode'])->name('terminals.regenerate-code');
     Route::delete('/terminals/{id}', [TenantTerminalController::class, 'destroy'])->name('terminals.destroy');
+
+    // Register Sessions, Cash Drawer & Z-Reports
+    Route::get('/shifts', [ShiftWebController::class, 'index'])->name('shifts.index');
+    Route::get('/shifts/{id}', [ShiftWebController::class, 'show'])->name('shifts.show')->whereUuid('id');
 });

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import ShiftModal from './ShiftModal.vue';
 import {
   getPendingOutboxCount,
   syncCatalog,
@@ -7,6 +8,8 @@ import {
   getSettings,
   sendHeartbeat,
   checkTerminalVersion,
+  getActiveCashier,
+  getActiveShift,
   APP_VERSION,
   type VersionStatus,
 } from '../services/posService';
@@ -25,6 +28,27 @@ const isOnline = ref<boolean>(navigator.onLine);
 const syncFeedback = ref<string | null>(null);
 const terminalCode = ref<string>('POS-001');
 const updateAvailable = ref<VersionStatus | null>(null);
+
+// Shift & Cashier State
+const isShiftModalOpen = ref<boolean>(false);
+const shiftModalMode = ref<'pin' | 'open' | 'movement' | 'x_report' | 'z_report'>('pin');
+const activeShift = ref<any>(null);
+const currentCashier = ref<any>(null);
+
+async function refreshShiftAndCashier() {
+  currentCashier.value = getActiveCashier();
+  try {
+    const res = await getActiveShift();
+    activeShift.value = res.active ? res.session : null;
+  } catch (e) {
+    activeShift.value = null;
+  }
+}
+
+function openShiftModal(mode: 'pin' | 'open' | 'movement' | 'x_report' | 'z_report') {
+  shiftModalMode.value = mode;
+  isShiftModalOpen.value = true;
+}
 
 // Theme management
 const currentTheme = ref<'dark' | 'light'>('dark');
@@ -169,6 +193,7 @@ onMounted(() => {
   loadTerminalInfo();
   triggerHeartbeat();
   checkAppVersion();
+  refreshShiftAndCashier();
   heartbeatTimer = window.setInterval(triggerHeartbeat, 25000);
   refreshPendingCount();
   pollTimer = window.setInterval(refreshPendingCount, 5000);
@@ -236,6 +261,27 @@ onUnmounted(() => {
     </nav>
 
     <div class="actions-section">
+      <!-- Cash Register Shift Status Pill & Ops -->
+      <button
+        class="shift-pill"
+        :class="activeShift ? 'active' : 'closed'"
+        @click="openShiftModal(activeShift ? 'movement' : 'open')"
+        :title="activeShift ? 'Register Shift Active: Click for Drawer In/Out or Z-Report' : 'Register is Closed: Click to Open Shift with Starting Float'"
+      >
+        <span class="shift-pulse-dot"></span>
+        <span class="shift-text">{{ activeShift ? 'Shift Active' : 'Register Closed' }}</span>
+      </button>
+
+      <!-- Cashier User Fast-Switch Pill -->
+      <button
+        class="cashier-pill"
+        @click="openShiftModal('pin')"
+        title="Click to Switch Cashier (PIN)"
+      >
+        <span class="cashier-icon">👤</span>
+        <span class="cashier-name">{{ currentCashier?.name || 'Cashier' }}</span>
+      </button>
+
       <!-- Update Notification Banner -->
       <a
         v-if="updateAvailable"
@@ -296,6 +342,14 @@ onUnmounted(() => {
   <div v-if="syncFeedback" class="sync-toast-floating">
     {{ syncFeedback }}
   </div>
+
+  <!-- Cashier Switch & Shift Operations Modal -->
+  <ShiftModal
+    :is-open="isShiftModalOpen"
+    :initial-mode="shiftModalMode"
+    @close="isShiftModalOpen = false"
+    @shift-updated="refreshShiftAndCashier"
+  />
 </template>
 
 <style scoped>
@@ -410,7 +464,72 @@ onUnmounted(() => {
 .actions-section {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+.shift-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.shift-pill.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.shift-pill.closed {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.shift-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.cashier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f3f4f6;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cashier-pill:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #6366f1;
+}
+
+.cashier-icon {
+  font-size: 0.85rem;
+}
+
+.cashier-name {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sync-toast {

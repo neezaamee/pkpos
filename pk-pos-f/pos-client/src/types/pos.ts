@@ -106,3 +106,71 @@ export function formatPKR(minorUnits: number): string {
   const rupees = minorUnits / 100;
   return 'Rs. ' + rupees.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+export interface CashierUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  max_discount_pct: number;
+  pos_permissions: string[];
+  is_supervisor: boolean;
+}
+
+export interface RegisterShift {
+  id: string;
+  tenant_id: string;
+  location_id: string;
+  terminal_id?: string;
+  user_id: string;
+  status: 'open' | 'closed';
+  opened_at: string;
+  closed_at?: string;
+  opening_float_minor: number;
+  cash_sales_minor: number;
+  expected_cash_minor: number;
+  closing_cash_minor?: number;
+  variance_minor?: number;
+  sales_count: number;
+  z_report_number?: string;
+  notes?: string;
+}
+
+export interface ShiftReportSummary {
+  report_type: 'X' | 'Z';
+  report_title: string;
+  session_id: string;
+  z_report_number: string;
+  status: string;
+  opened_at?: string;
+  closed_at?: string;
+  cashier_name: string;
+  closed_by_name?: string;
+  location_name: string;
+  terminal_code: string;
+  opening_float_minor: number;
+  gross_sales_minor: number;
+  net_sales_minor: number;
+  tax_collected_minor: number;
+  sales_count: number;
+  refunds_count: number;
+  payment_breakdown: {
+    cash_minor: number;
+    card_minor: number;
+    raast_minor: number;
+    wallet_minor: number;
+  };
+  cash_drawer_reconciliation: {
+    opening_float: number;
+    cash_sales: number;
+    cash_in: number;
+    cash_drops: number;
+    payout_expenses: number;
+    cash_refunds: number;
+    expected_cash: number;
+    counted_cash?: number;
+    variance?: number;
+    variance_status: 'exact' | 'overage' | 'shortage';
+  };
+  notes?: string;
+}

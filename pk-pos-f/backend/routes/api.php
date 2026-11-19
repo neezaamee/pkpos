@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
 use App\Http\Controllers\Api\V1\SaleController;
+use App\Http\Controllers\Api\V1\ShiftApiController;
 use App\Http\Controllers\Api\V1\SupportApiController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TaxRuleController;
@@ -98,6 +99,18 @@ Route::prefix('v1')->group(function () {
         // Customer Support Ticketing
         Route::post('/support/tickets', [SupportApiController::class, 'createTicket']);
         Route::get('/support/tickets', [SupportApiController::class, 'listTickets']);
+
+        // POS Cashier PIN Auth & Supervisor Overrides
+        Route::post('/pos/auth/pin', [ShiftApiController::class, 'authenticatePin']);
+        Route::post('/pos/auth/supervisor-override', [ShiftApiController::class, 'supervisorOverride']);
+
+        // Cash Drawer & Shift Management (X/Z-Reports)
+        Route::get('/pos/shifts/current', [ShiftApiController::class, 'currentShift']);
+        Route::post('/pos/shifts/open', [ShiftApiController::class, 'openShift']);
+        Route::post('/pos/shifts/cash-movement', [ShiftApiController::class, 'recordCashMovement']);
+        Route::get('/pos/shifts/{sessionId}/x-report', [ShiftApiController::class, 'generateXReport']);
+        Route::post('/pos/shifts/{sessionId}/close', [ShiftApiController::class, 'closeShift']);
+        Route::get('/pos/shifts/history', [ShiftApiController::class, 'history']);
 
         // Idempotent Sync routes
         Route::middleware('idempotent')->group(function () {
