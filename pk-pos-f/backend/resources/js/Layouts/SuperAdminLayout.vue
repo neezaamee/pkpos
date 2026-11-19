@@ -741,53 +741,47 @@
           </div>
         </div>
 
-        <!-- Center: Status Beacons + Quick Command Palette Trigger (Ctrl K) -->
-        <div class="topbar-center" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-          <!-- Maximalist Operational Status Beacons -->
-          <div class="topbar-beacons-group" style="display: flex; align-items: center; gap: 0.45rem;">
-            <Link
-              href="/superadmin/compliance/fbr"
-              class="topbar-beacon beacon-green"
-              title="Federal Board of Revenue Fiscal Gateway: Connected & Transmitting"
-              style="text-decoration: none;"
-            >
-              <span class="beacon-pulse-dot"></span>
-              <span>FBR Live: ONLINE</span>
-            </Link>
-
-            <div class="topbar-beacon beacon-cyan" title="API Gateway Uptime (30-day average: 99.99%)">
-              <span class="beacon-pulse-dot"></span>
-              <span>API: 99.99%</span>
-            </div>
-
-            <div class="topbar-beacon beacon-violet" title="PostgreSQL Multi-Tenant Cluster Status">
-              <span class="beacon-pulse-dot"></span>
-              <span>SYSTEM: OPERATIONAL</span>
-            </div>
-          </div>
-
-          <button class="command-palette-trigger" @click="isPaletteOpen = true" title="Quick Search or Jump to Module (Ctrl K)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Center: Quick Command Palette Trigger (Ctrl K) -->
+        <div class="topbar-center">
+          <button
+            class="command-palette-trigger"
+            @click="isPaletteOpen = true"
+            title="Quick Search or Jump to Module (Ctrl K)"
+          >
+            <svg class="trigger-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <span class="trigger-label">Search modules, stores, routes...</span>
-            <span class="trigger-kbd">Ctrl K</span>
+            <kbd class="trigger-kbd">Ctrl K</kbd>
           </button>
         </div>
 
-        <!-- Right: Actions, Alerts, Gateways, Theme, User Profile -->
+        <!-- Right: Actions, Operational Beacons, Alerts, Theme, User Profile -->
         <div class="topbar-actions">
-          <!-- FBR Live Gateway Status Link -->
-          <Link
-            href="/superadmin/compliance/fbr"
-            class="fbr-gateway-pill"
-            :class="isFbrSandbox ? 'sandbox' : 'live'"
-            title="Inspect FBR IRIS Fiscal Gateway"
-          >
-            <span class="pulse-dot"></span>
-            <span class="fbr-text">{{ isFbrSandbox ? 'FBR Sandbox' : 'FBR Live' }}</span>
-          </Link>
+          <!-- Cyber-Luxury Operational Status Beacons -->
+          <div class="topbar-telemetry-capsule">
+            <Link
+              href="/superadmin/compliance/fbr"
+              class="topbar-beacon"
+              :class="isFbrSandbox ? 'beacon-cyan' : 'beacon-green'"
+              :title="isFbrSandbox ? 'FBR IRIS Sandbox Mode (Test Environment)' : 'Federal Board of Revenue Fiscal Gateway: Live & Connected'"
+              style="text-decoration: none;"
+            >
+              <span class="beacon-pulse-dot"></span>
+              <span class="beacon-text">{{ isFbrSandbox ? 'FBR SANDBOX' : 'FBR LIVE: ONLINE' }}</span>
+            </Link>
+
+            <Link
+              href="/superadmin/system/health"
+              class="topbar-beacon beacon-violet hide-on-compact"
+              title="Multi-Tenant Cluster & API Gateway: 99.99% Operational"
+              style="text-decoration: none;"
+            >
+              <span class="beacon-pulse-dot"></span>
+              <span class="beacon-text">API: 99.99%</span>
+            </Link>
+          </div>
 
           <!-- Notification / Alerts Dropdown -->
           <div class="topbar-dropdown-container">
@@ -1513,34 +1507,53 @@ onUnmounted(() => {
 /* Topbar Center Command Palette */
 .topbar-center {
   flex: 1;
-  max-width: 380px;
-  min-width: 180px;
+  max-width: 440px;
+  min-width: 140px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
 }
 
 .command-palette-trigger {
   width: 100%;
-  background: rgba(19, 27, 46, 0.6);
+  background: rgba(19, 27, 46, 0.65);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.45rem 0.85rem;
+  border-radius: 9999px;
+  padding: 0.45rem 1rem;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   height: 38px;
+  backdrop-filter: blur(8px);
 }
 
 [data-theme="light"] .command-palette-trigger {
-  background: #f1f5f9;
+  background: #f8fafc;
   border-color: #cbd5e1;
+  color: #64748b;
 }
 
 .command-palette-trigger:hover {
   border-color: var(--accent-primary);
   color: var(--text-primary);
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.18);
+}
+
+[data-theme="light"] .command-palette-trigger:hover {
+  background: #f1f5f9;
+  border-color: #6366f1;
+  color: #0f172a;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.15);
+}
+
+.trigger-icon {
+  flex-shrink: 0;
+  color: var(--accent-primary);
 }
 
 .trigger-label {
@@ -1553,14 +1566,24 @@ onUnmounted(() => {
 }
 
 .trigger-kbd {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .trigger-kbd {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #334155;
 }
 
 /* Topbar Left & Breadcrumbs */
@@ -1569,6 +1592,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.85rem;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .topbar-sidebar-toggle {
@@ -1658,6 +1682,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   margin: 0;
   line-height: 1.2;
+  max-width: 260px;
 }
 
 /* Topbar Right Actions */
@@ -1666,6 +1691,80 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.65rem;
   flex-shrink: 0;
+}
+
+.topbar-telemetry-capsule {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.topbar-beacon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  user-select: none;
+  height: 30px;
+  white-space: nowrap;
+}
+
+.topbar-beacon.beacon-green {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.topbar-beacon.beacon-cyan {
+  background: rgba(6, 182, 212, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+}
+
+.topbar-beacon.beacon-violet {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+}
+
+[data-theme="light"] .topbar-beacon.beacon-green {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="light"] .topbar-beacon.beacon-cyan {
+  background: rgba(6, 182, 212, 0.1);
+  color: #0284c7;
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.15);
+}
+
+[data-theme="light"] .topbar-beacon.beacon-violet {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.15);
+}
+
+.beacon-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: pulse-glow 2s infinite ease-in-out;
 }
 
 .topbar-icon-btn {
@@ -1690,6 +1789,19 @@ onUnmounted(() => {
   background: var(--bg-card-hover);
 }
 
+[data-theme="light"] .topbar-icon-btn {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+[data-theme="light"] .topbar-icon-btn:hover,
+[data-theme="light"] .topbar-icon-btn.active {
+  background: #e2e8f0;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
 .topbar-badge-pill {
   position: absolute;
   top: -4px;
@@ -1710,11 +1822,15 @@ onUnmounted(() => {
   background: var(--border-color);
 }
 
+[data-theme="light"] .topbar-sep {
+  background: #cbd5e1;
+}
+
 .user-profile-trigger {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.3rem 0.65rem 0.3rem 0.4rem;
+  border-radius: 9999px;
+  padding: 0.3rem 0.75rem 0.3rem 0.4rem;
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -1729,38 +1845,54 @@ onUnmounted(() => {
   background: var(--bg-card-hover);
 }
 
+[data-theme="light"] .user-profile-trigger {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .user-profile-trigger:hover,
+[data-theme="light"] .user-profile-trigger.active {
+  background: #e2e8f0;
+  border-color: var(--accent-primary);
+}
+
 .user-avatar-sm {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
-  background: var(--bg-primary);
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: #ffffff;
   border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 .user-details-compact {
   display: flex;
   flex-direction: column;
   text-align: left;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .user-display-name {
-  font-size: 0.825rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
-  max-width: 120px;
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+[data-theme="light"] .user-display-name {
+  color: #0f172a;
+}
+
 .user-role-chip {
-  font-size: 0.675rem;
+  font-size: 0.65rem;
   font-weight: 600;
 }
 
@@ -1771,6 +1903,54 @@ onUnmounted(() => {
 
 .chevron-icon.open {
   transform: rotate(180deg);
+}
+
+/* Responsive Topbar Breakpoints */
+@media (max-width: 1280px) {
+  .hide-on-compact {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1080px) {
+  .topbar-center {
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 960px) {
+  .topbar-breadcrumb {
+    display: none !important;
+  }
+  .user-details-compact {
+    display: none !important;
+  }
+  .user-profile-trigger {
+    padding: 0.3rem;
+  }
+  .chevron-icon {
+    display: none !important;
+  }
+  .topbar-center {
+    max-width: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+  .topbar-telemetry-capsule {
+    display: none !important;
+  }
+  .trigger-label {
+    display: none !important;
+  }
+  .command-palette-trigger {
+    padding: 0.45rem 0.6rem;
+    width: auto;
+  }
 }
 
 .topbar-menu-dropdown {

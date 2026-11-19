@@ -492,15 +492,18 @@ body {
 
 .topbar {
   height: 64px;
-  padding: 0 2rem;
+  padding: 0 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
   border-bottom: 1px solid var(--border-color);
   background-color: rgba(19, 27, 46, 0.75);
   backdrop-filter: blur(12px);
   flex-shrink: 0;
-  z-index: 20;
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
 .topbar-sidebar-toggle {
