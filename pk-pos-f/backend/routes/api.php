@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BroadcastApiController;
+use App\Http\Controllers\Api\V1\CustomerApiController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
@@ -103,6 +104,13 @@ Route::prefix('v1')->group(function () {
         // POS Cashier PIN Auth & Supervisor Overrides
         Route::post('/pos/auth/pin', [ShiftApiController::class, 'authenticatePin']);
         Route::post('/pos/auth/supervisor-override', [ShiftApiController::class, 'supervisorOverride']);
+
+        // Customer CRM & Khata (Udhaar) Ledger
+        Route::get('/customers', [CustomerApiController::class, 'index']);
+        Route::post('/customers', [CustomerApiController::class, 'store']);
+        Route::get('/customers/{id}', [CustomerApiController::class, 'show']);
+        Route::get('/customers/{id}/ledger', [CustomerApiController::class, 'ledger']);
+        Route::post('/customers/{id}/payments', [CustomerApiController::class, 'recordPayment']);
 
         // Cash Drawer & Shift Management (X/Z-Reports)
         Route::get('/pos/shifts/current', [ShiftApiController::class, 'currentShift']);

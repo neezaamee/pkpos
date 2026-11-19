@@ -1,4 +1,31 @@
-export type PaymentMethod = 'cash' | 'card' | 'raast' | 'wallet';
+export type PaymentMethod = 'cash' | 'card' | 'raast' | 'wallet' | 'credit';
+
+export interface CustomerProfile {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  cnic?: string;
+  ntn?: string;
+  strn?: string;
+  address?: string;
+  city?: string;
+  credit_limit_minor: number;
+  current_balance_minor: number;
+  is_active: boolean;
+}
+
+export interface CustomerTransactionItem {
+  id: string;
+  customer_id: string;
+  type: 'credit_sale' | 'payment' | 'adjustment';
+  amount_minor: number;
+  balance_after_minor: number;
+  payment_method?: string;
+  receipt_number?: string;
+  notes?: string;
+  created_at: string;
+}
 
 export interface ProductVariantItem {
   id: string;

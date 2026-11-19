@@ -23,9 +23,10 @@ class StoreSaleRequest extends FormRequest
     {
         return [
             'id' => ['required', 'uuid'],
+            'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
             'location_id' => ['required', 'uuid', 'exists:locations,id'],
             'sale_number' => ['required', 'string', 'max:50'],
-            'payment_method' => ['required', 'string', 'in:cash,card,raast,wallet'],
+            'payment_method' => ['required', 'string', 'in:cash,card,raast,wallet,credit'],
             'currency' => ['nullable', 'string', 'size:3'],
             'subtotal_minor' => ['required', 'integer', 'min:0'],
             'tax_minor' => ['required', 'integer', 'min:0'],

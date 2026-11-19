@@ -39,6 +39,23 @@ class CreateSaleAction
                 $activeSession->recordSale($sale);
             }
 
+            // If credit sale or customer attached, handle Khata ledger
+            if (! empty($sale->customer_id) && $sale->payment_method === 'credit') {
+                $customer = \App\Models\Customer::where('tenant_id', $sale->tenant_id)
+                    ->where('id', $sale->customer_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if (! $customer->canAcceptCredit($sale->total_minor)) {
+                    $limitRs = number_format($customer->credit_limit_minor / 100);
+                    $balanceRs = number_format($customer->current_balance_minor / 100);
+                    throw new \DomainException("Credit limit exceeded. Customer balance is Rs. {$balanceRs}, limit is Rs. {$limitRs}.");
+                }
+
+                $user = \App\Models\User::find($userId);
+                $customer->chargeCreditSale($sale, $sale->total_minor, $user);
+            }
+
             return $sale->load('items');
         });
     }

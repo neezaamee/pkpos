@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { CachedProduct, CartItem, PaymentMethod, ProcessResult, ProductVariantItem } from '../types/pos';
+import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductVariantItem } from '../types/pos';
 import { formatPKR } from '../types/pos';
-import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer } from '../services/posService';
+import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer } from '../services/posService';
 
 interface HeldSale {
   id: string;
   heldAt: string;
   items: CartItem[];
   customer?: { name?: string; ntn?: string; cnic?: string };
+  selectedCustomer?: CustomerProfile | null;
   discountPercent?: number;
   totalMinor: number;
 }
@@ -33,12 +34,25 @@ function isTouchOrCompactViewport(): boolean {
 const showVariantModal = ref(false);
 const selectedProductForVariants = ref<CachedProduct | null>(null);
 
-// Customer Identification State (FBR B2B / High-Value Rs 100k+ Compliance)
+// Customer Identification & Khata (Udhaar) State
 const customerDetails = ref<{ name: string; ntn: string; cnic: string }>({
   name: '',
   ntn: '',
   cnic: '',
 });
+const selectedCustomer = ref<CustomerProfile | null>(null);
+const customerSearchResults = ref<CustomerProfile[]>([]);
+const customerLookupQuery = ref('');
+const isSearchingCustomer = ref(false);
+const customerModalTab = ref<'search' | 'create'>('search');
+const newCustomerForm = ref({
+  name: '',
+  phone: '',
+  cnic: '',
+  ntn: '',
+  credit_limit_pkr: 0,
+});
+const customerErrorMessage = ref<string | null>(null);
 const showCustomerModal = ref(false);
 
 // Discount State
@@ -142,12 +156,27 @@ const smartCashSuggestions = computed(() => {
   return Array.from(suggestions).sort((a, b) => a - b).slice(0, 5);
 });
 
+// Khata & Credit Computeds
+const customerAvailableCreditMinor = computed(() => {
+  if (!selectedCustomer.value || selectedCustomer.value.credit_limit_minor <= 0) return 0;
+  return Math.max(0, selectedCustomer.value.credit_limit_minor - (selectedCustomer.value.current_balance_minor || 0));
+});
+
+const creditExceeded = computed(() => {
+  if (selectedPayment.value !== 'credit') return false;
+  if (!selectedCustomer.value) return true;
+  return totalMinor.value > customerAvailableCreditMinor.value;
+});
+
 const canCompleteSale = computed(() => {
   if (cart.value.length === 0 || isProcessing.value) return false;
   if (selectedPayment.value === 'cash') {
     if (amountTendered.value === null) return false;
     const tenderedMinor = Math.round(amountTendered.value * 100);
     return tenderedMinor >= totalMinor.value;
+  }
+  if (selectedPayment.value === 'credit') {
+    return selectedCustomer.value !== null && !creditExceeded.value;
   }
   return nonCashConfirmed.value;
 });
@@ -267,8 +296,80 @@ function clearCart() {
   amountTendered.value = null;
   nonCashConfirmed.value = false;
   discountPercent.value = 0;
+  selectedCustomer.value = null;
   customerDetails.value = { name: '', ntn: '', cnic: '' };
+  if (selectedPayment.value === 'credit') {
+    selectedPayment.value = 'cash';
+  }
   focusSearch();
+}
+
+// Customer CRM & Khata Action Handlers
+async function onCustomerSearchInput() {
+  const q = customerLookupQuery.value.trim();
+  isSearchingCustomer.value = true;
+  customerErrorMessage.value = null;
+  try {
+    customerSearchResults.value = await searchCustomers(q);
+  } catch (err: any) {
+    customerErrorMessage.value = err?.message || 'Failed to search customers';
+  } finally {
+    isSearchingCustomer.value = false;
+  }
+}
+
+function selectCustomer(cust: CustomerProfile) {
+  selectedCustomer.value = cust;
+  customerDetails.value = {
+    name: cust.name,
+    ntn: cust.ntn || '',
+    cnic: cust.cnic || '',
+  };
+  showCustomerModal.value = false;
+  customerLookupQuery.value = '';
+  customerSearchResults.value = [];
+}
+
+function detachCustomer() {
+  selectedCustomer.value = null;
+  customerDetails.value = { name: '', ntn: '', cnic: '' };
+  if (selectedPayment.value === 'credit') {
+    selectedPayment.value = 'cash';
+  }
+}
+
+async function handleRegisterCustomer() {
+  if (!newCustomerForm.value.name || !newCustomerForm.value.phone) {
+    customerErrorMessage.value = 'Customer name and phone are required.';
+    return;
+  }
+  isSearchingCustomer.value = true;
+  customerErrorMessage.value = null;
+  try {
+    const created = await createCustomer({
+      name: newCustomerForm.value.name,
+      phone: newCustomerForm.value.phone,
+      cnic: newCustomerForm.value.cnic || undefined,
+      ntn: newCustomerForm.value.ntn || undefined,
+      credit_limit_minor: Math.round((newCustomerForm.value.credit_limit_pkr || 0) * 100),
+    });
+    selectCustomer(created);
+    customerModalTab.value = 'search';
+    newCustomerForm.value = { name: '', phone: '', cnic: '', ntn: '', credit_limit_pkr: 0 };
+  } catch (err: any) {
+    customerErrorMessage.value = err?.message || 'Failed to register customer';
+  } finally {
+    isSearchingCustomer.value = false;
+  }
+}
+
+function selectCreditPayment() {
+  if (!selectedCustomer.value) {
+    showCustomerModal.value = true;
+    return;
+  }
+  selectedPayment.value = 'credit';
+  nonCashConfirmed.value = false;
 }
 
 function setQuickTender(amount: number) {
@@ -293,6 +394,7 @@ function parkCurrentSale() {
     heldAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
     items: [...cart.value],
     customer: { ...customerDetails.value },
+    selectedCustomer: selectedCustomer.value ? { ...selectedCustomer.value } : null,
     discountPercent: discountPercent.value,
     totalMinor: totalMinor.value,
   };
@@ -310,6 +412,7 @@ function recallSale(held: HeldSale) {
     ntn: held.customer.ntn || '',
     cnic: held.customer.cnic || '',
   } : { name: '', ntn: '', cnic: '' };
+  selectedCustomer.value = held.selectedCustomer || null;
   discountPercent.value = held.discountPercent || 0;
   heldSales.value = heldSales.value.filter((s) => s.id !== held.id);
   saveHeldSalesToStorage();
@@ -427,7 +530,9 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
   }
   if (e.key === 'F12') {
     e.preventDefault();
-    const methods: PaymentMethod[] = ['cash', 'card', 'raast', 'wallet'];
+    const methods: PaymentMethod[] = selectedCustomer.value
+      ? ['cash', 'card', 'raast', 'wallet', 'credit']
+      : ['cash', 'card', 'raast', 'wallet'];
     const curIdx = methods.indexOf(selectedPayment.value);
     selectedPayment.value = methods[(curIdx + 1) % methods.length];
     nonCashConfirmed.value = false;
@@ -512,13 +617,20 @@ async function handleCompleteSale() {
       discount_minor: discountMinor.value,
       tax_minor: taxMinor.value,
       total_minor: totalMinor.value,
-      buyer_name: customerDetails.value.name || undefined,
-      buyer_ntn: customerDetails.value.ntn || undefined,
-      buyer_cnic: customerDetails.value.cnic || undefined,
+      customer_id: selectedCustomer.value?.id || undefined,
+      buyer_name: selectedCustomer.value?.name || customerDetails.value.name || undefined,
+      buyer_phone: selectedCustomer.value?.phone || undefined,
+      buyer_ntn: selectedCustomer.value?.ntn || customerDetails.value.ntn || undefined,
+      buyer_cnic: selectedCustomer.value?.cnic || customerDetails.value.cnic || undefined,
       items: itemsPayload,
     };
 
     const res = await processSale(JSON.stringify(salePayload));
+
+    if (selectedCustomer.value && selectedPayment.value === 'credit') {
+      selectedCustomer.value.current_balance_minor =
+        (selectedCustomer.value.current_balance_minor || 0) + totalMinor.value;
+    }
 
     if (selectedPayment.value === 'cash') {
       try {
@@ -577,8 +689,30 @@ onUnmounted(() => {
         <button class="s-pill" @click="showHelpModal = true" title="Shortcuts Sheet">
           <kbd>F1</kbd> Help
         </button>
-        <button class="s-pill" :class="{ active: customerDetails.name || customerDetails.ntn }" @click="showCustomerModal = true">
-          <kbd>F2</kbd> Customer <span v-if="customerDetails.name" class="pill-dot"></span>
+        <button
+          class="s-pill"
+          :class="{ active: selectedCustomer || customerDetails.name || customerDetails.ntn }"
+          @click="showCustomerModal = true"
+          :title="selectedCustomer ? `${selectedCustomer.name} (Khata: ${formatPKR(selectedCustomer.current_balance_minor)})` : 'Attach Customer (F2)'"
+        >
+          <kbd>F2</kbd>
+          <span v-if="selectedCustomer">
+            {{ selectedCustomer.name }} ({{ formatPKR(selectedCustomer.current_balance_minor) }})
+          </span>
+          <span v-else-if="customerDetails.name">
+            {{ customerDetails.name }}
+          </span>
+          <span v-else>Customer</span>
+          <span v-if="selectedCustomer || customerDetails.name" class="pill-dot"></span>
+        </button>
+        <button
+          v-if="selectedCustomer || customerDetails.name"
+          class="s-pill"
+          style="padding: 0.2rem 0.4rem; color: #ef4444;"
+          title="Detach Customer"
+          @click="detachCustomer"
+        >
+          &times;
         </button>
         <button class="s-pill" :class="{ active: discountPercent > 0 }" @click="openDiscountModal">
           <kbd>F3</kbd> Discount <span v-if="discountPercent > 0">({{ discountPercent }}%)</span>
@@ -790,6 +924,13 @@ onUnmounted(() => {
           >
             Wallet
           </button>
+          <button
+            class="pay-method-btn"
+            :class="{ active: selectedPayment === 'credit' }"
+            @click="selectCreditPayment"
+          >
+            Khata (Udhaar)
+          </button>
         </div>
 
         <!-- Cash Tender Workflow -->
@@ -822,6 +963,67 @@ onUnmounted(() => {
           <div class="change-display" :class="{ ready: changeDueMinor >= 0 && amountTendered !== null }">
             <span class="change-label">Change Due:</span>
             <span class="change-val">{{ formatPKR(changeDueMinor) }}</span>
+          </div>
+        </div>
+
+        <!-- Khata / Udhaar Credit Workflow -->
+        <div v-else-if="selectedPayment === 'credit'" class="khata-workflow" style="margin-top: 1rem; padding: 0.85rem; background: rgba(99, 102, 241, 0.08); border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.25);">
+          <div v-if="!selectedCustomer" style="text-align: center; padding: 0.5rem 0;">
+            <div style="font-size: 0.85rem; color: #f59e0b; font-weight: 600; margin-bottom: 0.5rem;">
+              No Customer Account Attached
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Attach an authorized customer account to charge this purchase to their Khata ledger.
+            </p>
+            <button
+              type="button"
+              class="confirm-pay-btn"
+              style="padding: 0.45rem 1rem; font-size: 0.825rem;"
+              @click="showCustomerModal = true"
+            >
+              Attach Customer Account (F2)
+            </button>
+          </div>
+
+          <div v-else>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.825rem; font-weight: 700; color: #818cf8;">
+                {{ selectedCustomer.name }}
+              </span>
+              <span style="font-size: 0.75rem; color: #94a3b8; font-family: var(--font-mono);">
+                {{ selectedCustomer.phone }}
+              </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.78rem; margin-bottom: 0.65rem;">
+              <div style="background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px;">
+                <div style="color: #94a3b8; font-size: 0.7rem;">Current Due</div>
+                <div style="font-weight: 700; color: #ef4444; font-family: var(--font-mono);">
+                  {{ formatPKR(selectedCustomer.current_balance_minor) }}
+                </div>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px;">
+                <div style="color: #94a3b8; font-size: 0.7rem;">Credit Headroom</div>
+                <div style="font-weight: 700; color: #10b981; font-family: var(--font-mono);">
+                  {{ formatPKR(customerAvailableCreditMinor) }}
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem;">
+              <span style="color: #94a3b8;">Balance After Sale:</span>
+              <span style="font-weight: 800; font-family: var(--font-mono); color: #f8fafc;">
+                {{ formatPKR((selectedCustomer.current_balance_minor || 0) + totalMinor) }}
+              </span>
+            </div>
+
+            <div v-if="creditExceeded" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 6px; color: #ef4444; font-size: 0.75rem;">
+              <strong>Credit Limit Exceeded:</strong> Sale of {{ formatPKR(totalMinor) }} exceeds remaining limit of {{ formatPKR(customerAvailableCreditMinor) }}.
+            </div>
+            <div v-else style="margin-top: 0.5rem; padding: 0.4rem; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; color: #34d399; font-size: 0.75rem; text-align: center;">
+              Authorized for Khata purchase
+            </div>
           </div>
         </div>
 
@@ -978,24 +1180,160 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 2. Customer NTN / CNIC Modal (F2) -->
+    <!-- 2. Customer CRM & Khata (Udhaar) Modal (F2) -->
     <div v-if="showCustomerModal" class="modal-overlay" @click.self="showCustomerModal = false">
-      <div class="modal-card">
-        <h3 class="modal-title">Customer Identification</h3>
-        <p class="modal-sub">Required for B2B or invoices &ge; Rs 100,000</p>
-        <div class="form-group-pos">
-          <label>Customer / Business Name</label>
-          <input v-model="customerDetails.name" class="pos-input" placeholder="e.g. Al-Madina Traders" />
+      <div class="modal-card" style="max-width: 540px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+          <h3 class="modal-title" style="margin: 0;">Customer CRM &amp; Khata</h3>
+          <button
+            type="button"
+            style="background: transparent; border: none; color: #94a3b8; font-size: 1.25rem; cursor: pointer;"
+            @click="showCustomerModal = false"
+          >
+            &times;
+          </button>
         </div>
-        <div class="form-group-pos">
-          <label>National Tax Number (NTN)</label>
-          <input v-model="customerDetails.ntn" class="pos-input" placeholder="7-digit NTN (e.g. 1234567)" />
+        <p class="modal-sub">Attach account for credit purchases (Udhaar), loyalty tracking, or FBR high-value compliance</p>
+
+        <!-- Tab Switcher -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem;">
+          <button
+            type="button"
+            class="s-pill"
+            :class="{ active: customerModalTab === 'search' }"
+            @click="customerModalTab = 'search'"
+          >
+            Search Customer
+          </button>
+          <button
+            type="button"
+            class="s-pill"
+            :class="{ active: customerModalTab === 'create' }"
+            @click="customerModalTab = 'create'"
+          >
+            + New Customer
+          </button>
         </div>
-        <div class="form-group-pos">
-          <label>Buyer CNIC (13-digit)</label>
-          <input v-model="customerDetails.cnic" class="pos-input" placeholder="e.g. 4210112345671" />
+
+        <!-- Current Attached Customer Banner (if selected) -->
+        <div v-if="selectedCustomer" style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 700; color: #818cf8; font-size: 0.9rem;">
+              {{ selectedCustomer.name }}
+            </div>
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.15rem;">
+              Phone: {{ selectedCustomer.phone }} &bull; Due: <strong style="color: #ef4444;">{{ formatPKR(selectedCustomer.current_balance_minor) }}</strong>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="chip-btn"
+            style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3);"
+            @click="detachCustomer"
+          >
+            Detach
+          </button>
         </div>
-        <button class="next-sale-btn" @click="showCustomerModal = false">Save & Continue (Enter)</button>
+
+        <!-- TAB 1: Search Existing Customer -->
+        <div v-if="customerModalTab === 'search'">
+          <div class="form-group-pos" style="margin-bottom: 0.75rem;">
+            <label>Search by Name, Phone, or CNIC</label>
+            <input
+              v-model="customerLookupQuery"
+              class="pos-input"
+              placeholder="e.g. 0300... or Tariq"
+              @input="onCustomerSearchInput"
+              @keydown.enter="onCustomerSearchInput"
+            />
+          </div>
+
+          <!-- Search Results List -->
+          <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem;">
+            <div
+              v-for="c in customerSearchResults"
+              :key="c.id"
+              style="padding: 0.6rem 0.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s;"
+              @click="selectCustomer(c)"
+            >
+              <div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;">
+                  {{ c.name }}
+                </div>
+                <div style="font-size: 0.72rem; color: #94a3b8; font-family: var(--font-mono);">
+                  {{ c.phone }} <span v-if="c.cnic">&bull; CNIC: {{ c.cnic }}</span>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.7rem; color: #94a3b8;">Khata Due</div>
+                <div style="font-size: 0.85rem; font-weight: 700; font-family: var(--font-mono);" :style="{ color: c.current_balance_minor > 0 ? '#ef4444' : '#10b981' }">
+                  {{ formatPKR(c.current_balance_minor) }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="customerLookupQuery && customerSearchResults.length === 0 && !isSearchingCustomer" style="text-align: center; padding: 1.5rem; color: #94a3b8; font-size: 0.8rem;">
+              No customers found. Switch to "+ New Customer" to register them.
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Register New Customer -->
+        <div v-else-if="customerModalTab === 'create'">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div class="form-group-pos" style="margin: 0;">
+              <label>Full Name *</label>
+              <input v-model="newCustomerForm.name" class="pos-input" placeholder="e.g. Tariq Traders" required />
+            </div>
+            <div class="form-group-pos" style="margin: 0;">
+              <label>Phone Number *</label>
+              <input v-model="newCustomerForm.phone" class="pos-input" placeholder="03001234567" required />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div class="form-group-pos" style="margin: 0;">
+              <label>CNIC (13 digits)</label>
+              <input v-model="newCustomerForm.cnic" class="pos-input" placeholder="42101-1234567-1" />
+            </div>
+            <div class="form-group-pos" style="margin: 0;">
+              <label>NTN</label>
+              <input v-model="newCustomerForm.ntn" class="pos-input" placeholder="Optional" />
+            </div>
+          </div>
+
+          <div class="form-group-pos" style="margin-bottom: 1rem;">
+            <label>Credit Limit (PKR) - 0 for Cash-Only</label>
+            <input v-model.number="newCustomerForm.credit_limit_pkr" type="number" min="0" step="1000" class="pos-input" placeholder="0" />
+          </div>
+
+          <button
+            type="button"
+            class="next-sale-btn"
+            style="background: #10b981; border-color: #10b981; margin-bottom: 0.5rem;"
+            :disabled="isSearchingCustomer || !newCustomerForm.name || !newCustomerForm.phone"
+            @click="handleRegisterCustomer"
+          >
+            {{ isSearchingCustomer ? 'Registering...' : 'Register & Attach to Sale' }}
+          </button>
+        </div>
+
+        <div v-if="customerErrorMessage" style="color: #ef4444; font-size: 0.75rem; margin-bottom: 0.75rem;">
+          {{ customerErrorMessage }}
+        </div>
+
+        <!-- FBR Walk-in manual override (always visible at bottom) -->
+        <div style="border-top: 1px solid #334155; padding-top: 0.75rem; margin-top: 0.5rem;">
+          <div style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.4rem;">
+            One-Off FBR Compliance Details (Without Registering)
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <input v-model="customerDetails.name" class="pos-input" style="font-size: 0.75rem; padding: 0.35rem 0.6rem;" placeholder="Buyer Name" />
+            <input v-model="customerDetails.cnic" class="pos-input" style="font-size: 0.75rem; padding: 0.35rem 0.6rem;" placeholder="CNIC (for > 100k)" />
+          </div>
+        </div>
+
+        <button class="next-sale-btn" style="margin-top: 1rem;" @click="showCustomerModal = false">Done (Esc)</button>
       </div>
     </div>
 

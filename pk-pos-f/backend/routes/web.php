@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CustomerWebController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublicOnboardingController;
 use App\Http\Controllers\FbrCredentialsController;
@@ -343,4 +344,11 @@ Route::middleware('auth')->group(function () {
     // Register Sessions, Cash Drawer & Z-Reports
     Route::get('/shifts', [ShiftWebController::class, 'index'])->name('shifts.index');
     Route::get('/shifts/{id}', [ShiftWebController::class, 'show'])->name('shifts.show')->whereUuid('id');
+
+    // Customer CRM & Khata / Udhaar Ledger
+    Route::get('/customers', [CustomerWebController::class, 'index'])->name('customers.index');
+    Route::get('/customers/create', [CustomerWebController::class, 'create'])->name('customers.create');
+    Route::post('/customers', [CustomerWebController::class, 'store'])->name('customers.store');
+    Route::get('/customers/{id}', [CustomerWebController::class, 'show'])->name('customers.show')->whereUuid('id');
+    Route::post('/customers/{id}/payments', [CustomerWebController::class, 'recordPayment'])->name('customers.payments')->whereUuid('id');
 });

@@ -24,6 +24,7 @@ class Sale extends Model
     protected $fillable = [
         'id',
         'tenant_id',
+        'customer_id',
         'location_id',
         'user_id',
         'sale_number',
@@ -82,6 +83,14 @@ class Sale extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class, 'sale_id');
+    }
+
+    /**
+     * Get the customer associated with this invoice (if credit or registered customer).
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
     }
 
     /**

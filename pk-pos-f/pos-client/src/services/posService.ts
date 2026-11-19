@@ -1,6 +1,8 @@
 import type {
   CachedProduct,
   CatalogSyncSummary,
+  CustomerProfile,
+  CustomerTransactionItem,
   LocalSaleSummary,
   LocalSaleWithItems,
   PosSettings,
@@ -208,6 +210,11 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
     subtotal_minor: parsed.subtotal_minor,
     tax_minor: parsed.tax_minor,
     total_minor: parsed.total_minor,
+    customer_id: parsed.customer_id || undefined,
+    buyer_name: parsed.buyer_name || undefined,
+    buyer_phone: parsed.buyer_phone || undefined,
+    buyer_cnic: parsed.buyer_cnic || undefined,
+    buyer_ntn: parsed.buyer_ntn || undefined,
     status: 'completed',
     fbr_status: 'submitted',
     fbr_usin: 'USIN-MOCK-' + Math.floor(100000 + Math.random() * 900000),
@@ -956,6 +963,150 @@ export async function closeRegisterShift(sessionId: string, closingCashMinor: nu
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Failed to close shift.' }));
     throw new Error(err.message || 'Failed to close shift.');
+  }
+
+  return await res.json();
+}
+
+// -------------------------------------------------------------
+// Customer CRM & Khata / Udhaar (Phase 2)
+// -------------------------------------------------------------
+
+export async function searchCustomers(query: string = ''): Promise<CustomerProfile[]> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  try {
+    const url = new URL(`${baseUrl}/pos/customers`);
+    if (query.trim()) {
+      url.searchParams.set('q', query.trim());
+    }
+    const res = await fetch(url.toString(), { headers });
+    if (res.ok) {
+      const data = await res.json();
+      return data.customers || [];
+    }
+  } catch (e) {
+    console.warn('Network error fetching customers from backend, checking local cache:', e);
+  }
+
+  // Local storage fallback for dev/offline mode
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const local = localStorage.getItem('pk_pos_customers');
+      if (local) {
+        const parsed: CustomerProfile[] = JSON.parse(local);
+        if (!query.trim()) return parsed;
+        const q = query.toLowerCase().trim();
+        return parsed.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.phone.includes(q) ||
+            (c.cnic && c.cnic.includes(q))
+        );
+      }
+    } catch (e) {}
+  }
+
+  return [];
+}
+
+export async function createCustomer(data: Partial<CustomerProfile>): Promise<CustomerProfile> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  try {
+    const res = await fetch(`${baseUrl}/pos/customers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      const result = await res.json();
+      return result.customer;
+    } else {
+      const err = await res.json().catch(() => ({ message: 'Failed to create customer.' }));
+      throw new Error(err.message || 'Failed to create customer.');
+    }
+  } catch (e: any) {
+    if (e.message && !e.message.includes('Failed to fetch')) {
+      throw e;
+    }
+  }
+
+  // Offline / mock fallback
+  const newCust: CustomerProfile = {
+    id: crypto.randomUUID(),
+    name: data.name || 'Walk-in Customer',
+    phone: data.phone || '03000000000',
+    email: data.email,
+    cnic: data.cnic,
+    ntn: data.ntn,
+    strn: data.strn,
+    address: data.address,
+    city: data.city,
+    credit_limit_minor: data.credit_limit_minor || 0,
+    current_balance_minor: 0,
+    is_active: true,
+  };
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const local = localStorage.getItem('pk_pos_customers');
+      const list: CustomerProfile[] = local ? JSON.parse(local) : [];
+      list.push(newCust);
+      localStorage.setItem('pk_pos_customers', JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  return newCust;
+}
+
+export async function recordCustomerPayment(
+  customerId: string,
+  amountMinor: number,
+  paymentMethod: string,
+  notes?: string
+): Promise<{ message: string; transaction: CustomerTransactionItem; customer: CustomerProfile }> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/customers/${customerId}/payments`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      amount_minor: amountMinor,
+      payment_method: paymentMethod,
+      notes,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to record payment.' }));
+    throw new Error(err.message || 'Failed to record payment.');
   }
 
   return await res.json();
