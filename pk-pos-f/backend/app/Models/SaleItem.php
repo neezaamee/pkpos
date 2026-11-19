@@ -23,11 +23,15 @@ class SaleItem extends Model
         'product_id',
         'product_name',
         'hs_code',
+        'unit_code',
+        'unit_conversion_factor',
         'quantity',
         'unit_price_minor',
         'tax_rate_basis_points',
         'tax_amount_minor',
         'line_total_minor',
+        'discount_type',
+        'discount_amount_minor',
     ];
 
     /**
@@ -38,12 +42,22 @@ class SaleItem extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'integer',
+            'quantity' => 'float',
+            'unit_conversion_factor' => 'float',
             'unit_price_minor' => 'integer',
             'tax_rate_basis_points' => 'integer',
             'tax_amount_minor' => 'integer',
             'line_total_minor' => 'integer',
+            'discount_amount_minor' => 'integer',
         ];
+    }
+
+    /**
+     * Compute actual base inventory units deducted by this line.
+     */
+    public function getBaseQuantityAttribute(): float
+    {
+        return (float) ($this->quantity * ($this->unit_conversion_factor ?: 1.0));
     }
 
     /**

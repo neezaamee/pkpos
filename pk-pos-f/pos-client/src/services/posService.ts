@@ -94,14 +94,34 @@ export async function getCachedProducts(query?: string): Promise<CachedProduct[]
   );
 }
 
-export async function getProductByBarcode(barcode: string): Promise<CachedProduct | null> {
+export interface BarcodeLookupResult {
+  product: CachedProduct;
+  packUom?: import('../types/pos').ProductUomConversion;
+}
+
+export async function getProductByBarcode(barcode: string): Promise<BarcodeLookupResult | null> {
+  const trimmed = barcode.trim();
+  if (!trimmed) return null;
+
   if (isTauri()) {
     const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke<CachedProduct | null>('get_product_by_barcode', { barcode });
+    const prod = await invoke<CachedProduct | null>('get_product_by_barcode', { barcode: trimmed });
+    return prod ? { product: prod } : null;
   }
 
   const all = await getCachedProducts();
-  return all.find((p) => p.barcode === barcode) || null;
+  for (const p of all) {
+    if (p.barcode === trimmed) {
+      return { product: p };
+    }
+    if (p.uom_conversions && p.uom_conversions.length > 0) {
+      const match = p.uom_conversions.find((u) => u.barcode === trimmed);
+      if (match) {
+        return { product: p, packUom: match };
+      }
+    }
+  }
+  return null;
 }
 
 export async function syncCatalog(): Promise<CatalogSyncSummary> {
@@ -140,6 +160,8 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
             barcode: item.barcode || '',
             tax_rate_basis_points: item.tax_rate_basis_points || 1800,
             variants: item.variants || [],
+            uom_conversions: item.uom_conversions || [],
+            allows_decimals: item.allows_decimals ?? (item.unit === 'kg' || item.unit === 'gram' || item.unit === 'litre' || item.unit === 'meter'),
             last_synced_at: item.updated_at || new Date().toISOString(),
           });
         }
@@ -224,6 +246,8 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
       product_id: item.product_id,
       product_name: item.product_name,
       hs_code: item.hs_code,
+      unit_code: item.unit_code || 'pcs',
+      unit_conversion_factor: item.unit_conversion_factor ?? 1,
       quantity: item.quantity,
       unit_price_minor: item.unit_price_minor,
       tax_rate_basis_points: item.tax_rate_basis_points,
@@ -231,6 +255,8 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
       tax_amount_minor: item.tax_amount_minor ?? item.tax_minor ?? 0,
       total_minor: item.total_minor ?? item.line_total_minor ?? 0,
       line_total_minor: item.line_total_minor ?? item.total_minor ?? 0,
+      discount_type: item.discount_type || 'none',
+      discount_amount_minor: item.discount_amount_minor || 0,
     })),
   };
 

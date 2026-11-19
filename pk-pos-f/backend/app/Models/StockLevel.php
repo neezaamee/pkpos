@@ -39,7 +39,7 @@ class StockLevel extends Model
     protected function casts(): array
     {
         return [
-            'quantity_on_hand' => 'integer',
+            'quantity_on_hand' => 'float',
             'updated_at' => 'datetime',
         ];
     }

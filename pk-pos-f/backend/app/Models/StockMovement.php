@@ -44,7 +44,7 @@ class StockMovement extends Model
     protected function casts(): array
     {
         return [
-            'quantity_delta' => 'integer',
+            'quantity_delta' => 'float',
             'created_at' => 'datetime',
         ];
     }
@@ -52,9 +52,9 @@ class StockMovement extends Model
     /**
      * Backward-compatible accessor for quantity attribute.
      */
-    public function getQuantityAttribute(): int
+    public function getQuantityAttribute(): float
     {
-        return $this->quantity_delta;
+        return (float) $this->quantity_delta;
     }
 
     /**

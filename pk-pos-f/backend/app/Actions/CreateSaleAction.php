@@ -24,8 +24,33 @@ class CreateSaleAction
             $data['user_id'] = $userId;
             $sale = Sale::create($data);
 
+            $tenant = \App\Models\Tenant::find($sale->tenant_id);
+            $stockService = app(\App\Services\Inventory\StockService::class);
+
             foreach ($items as $item) {
                 $sale->items()->create($item);
+
+                // Auto-deduct inventory in base units (taking conversion_factor into account)
+                if ($tenant && ! empty($item['product_id']) && ! empty($sale->location_id)) {
+                    $conversionFactor = (float) ($item['unit_conversion_factor'] ?? 1.0);
+                    $deductedQty = ((float) $item['quantity']) * ($conversionFactor ?: 1.0);
+
+                    try {
+                        $stockService->recordMovement(
+                            $tenant,
+                            $item['product_id'],
+                            $sale->location_id,
+                            'sale',
+                            -$deductedQty,
+                            'sale',
+                            $sale->id,
+                            "POS Sale #{$sale->sale_number}",
+                            $userId
+                        );
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::warning("Stock movement skipped for item {$item['product_id']}: " . $e->getMessage());
+                    }
+                }
             }
 
             // Record sale in active register session if one exists

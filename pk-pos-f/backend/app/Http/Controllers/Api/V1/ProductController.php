@@ -254,7 +254,7 @@ class ProductController extends Controller
         $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
 
         $query = Product::withoutGlobalScopes()
-            ->with('variants')
+            ->with(['variants', 'uomConversions'])
             ->where('is_active', true);
 
         if ($tenant) {
@@ -301,6 +301,14 @@ class ProductController extends Controller
                     'name' => $v->name,
                     'sku' => $v->sku,
                     'price_override_minor' => $v->price_override_minor,
+                ])->values(),
+                'uom_conversions' => $product->uomConversions->where('is_active', true)->map(fn ($u) => [
+                    'id' => $u->id,
+                    'unit_name' => $u->unit_name,
+                    'unit_code' => $u->unit_code,
+                    'barcode' => $u->barcode,
+                    'conversion_factor' => (float) $u->conversion_factor,
+                    'price_minor' => (int) $u->price_minor,
                 ])->values(),
                 'updated_at' => $product->updated_at->toIso8601String(),
             ];

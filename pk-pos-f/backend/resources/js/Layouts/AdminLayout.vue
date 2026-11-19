@@ -139,6 +139,31 @@
           <span v-if="!isRailMode">Tax Rules</span>
         </Link>
 
+        <Link
+          href="/uom"
+          class="nav-link"
+          :class="{ active: currentPath.startsWith('/uom') }"
+          :title="isRailMode ? 'Units & Packaging' : ''"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          <span v-if="!isRailMode">Units &amp; Packaging</span>
+        </Link>
+
+        <Link
+          href="/price-lists"
+          class="nav-link"
+          :class="{ active: currentPath.startsWith('/price-lists') }"
+          :title="isRailMode ? 'Tiered Price Lists' : ''"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <span v-if="!isRailMode">Tiered Price Lists</span>
+        </Link>
+
         <!-- Stock Section -->
         <template v-if="user?.role === 'owner' || user?.role === 'manager'">
           <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">

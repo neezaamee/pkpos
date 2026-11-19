@@ -24,6 +24,7 @@ class Customer extends Model
         'strn',
         'address',
         'city',
+        'price_list_id',
         'credit_limit_minor',
         'current_balance_minor',
         'loyalty_points',
@@ -44,6 +45,11 @@ class Customer extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(Sale::class, 'customer_id')->latest();
+    }
+
+    public function priceList(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(PriceList::class, 'price_list_id');
     }
 
     public function transactions(): HasMany

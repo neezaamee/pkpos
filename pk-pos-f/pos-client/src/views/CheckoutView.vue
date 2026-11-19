@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductVariantItem } from '../types/pos';
+import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem } from '../types/pos';
 import { formatPKR } from '../types/pos';
 import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer } from '../services/posService';
 
@@ -22,7 +22,8 @@ const searchInputRef = ref<HTMLInputElement | null>(null);
 const mobileSection = ref<'products' | 'cart' | 'pay'>('products');
 
 const cartUnitsCount = computed(() => {
-  return cart.value.reduce((acc, item) => acc + item.quantity, 0);
+  const sum = cart.value.reduce((acc, item) => acc + item.quantity, 0);
+  return Math.round(sum * 1000) / 1000;
 });
 
 function isTouchOrCompactViewport(): boolean {
@@ -222,30 +223,48 @@ function addVariantAndClose(product: CachedProduct, variant: ProductVariantItem)
   selectedProductForVariants.value = null;
 }
 
-// Add to cart with variant and quantity support
-function addToCart(product: CachedProduct, quantity: number = 1, variant?: ProductVariantItem) {
+// Add to cart with variant, UOM pack conversion, and fractional quantity support
+function addToCart(
+  product: CachedProduct,
+  quantity: number = 1,
+  variant?: ProductVariantItem,
+  packUom?: ProductUomConversion
+) {
   const existing = cart.value.find((item) => {
-    if (variant) {
-      return item.product.id === product.id && item.variant?.id === variant.id;
-    }
-    return item.product.id === product.id && !item.variant;
+    const sameProd = item.product.id === product.id;
+    const sameVar = variant ? item.variant?.id === variant.id : !item.variant;
+    const sameUom = packUom ? item.selected_uom?.id === packUom.id : !item.selected_uom;
+    return sameProd && sameVar && sameUom;
   });
 
   const rate = product.tax_rate_basis_points || 1800;
-  const unitPrice = variant?.price_override_minor ?? product.price_minor;
+  let unitPrice = variant?.price_override_minor ?? product.price_minor;
+  let unitCode = product.unit || 'pcs';
+  let conversionFactor = 1.0;
+
+  if (packUom) {
+    unitPrice = packUom.price_minor;
+    unitCode = packUom.unit_code;
+    conversionFactor = packUom.conversion_factor;
+  }
 
   if (existing) {
-    existing.quantity += quantity;
+    existing.quantity = Math.round((existing.quantity + quantity) * 1000) / 1000;
     updateItemTotals(existing);
   } else {
+    const lineSubtotal = quantity * unitPrice;
+    const lineTax = Math.round((lineSubtotal * rate) / 10000);
     const newItem: CartItem = {
       product,
       variant,
       quantity,
       unit_price_minor: unitPrice,
       tax_rate_basis_points: rate,
-      tax_minor: Math.round((unitPrice * rate * quantity) / 10000),
-      total_minor: unitPrice * quantity + Math.round((unitPrice * rate * quantity) / 10000),
+      tax_minor: lineTax,
+      total_minor: Math.round(lineSubtotal + lineTax),
+      selected_uom: packUom,
+      unit_code: unitCode,
+      unit_conversion_factor: conversionFactor,
     };
     cart.value.push(newItem);
   }
@@ -253,21 +272,36 @@ function addToCart(product: CachedProduct, quantity: number = 1, variant?: Produ
   focusSearch();
 }
 
+function switchItemUom(item: CartItem, packUom?: ProductUomConversion) {
+  if (packUom) {
+    item.selected_uom = packUom;
+    item.unit_code = packUom.unit_code;
+    item.unit_conversion_factor = packUom.conversion_factor;
+    item.unit_price_minor = packUom.price_minor;
+  } else {
+    item.selected_uom = undefined;
+    item.unit_code = item.product.unit || 'pcs';
+    item.unit_conversion_factor = 1.0;
+    item.unit_price_minor = item.variant?.price_override_minor ?? item.product.price_minor;
+  }
+  updateItemTotals(item);
+}
+
 function updateItemTotals(item: CartItem) {
   const rate = item.tax_rate_basis_points;
   const lineSubtotal = item.quantity * item.unit_price_minor;
   item.tax_minor = Math.round((lineSubtotal * rate) / 10000);
-  item.total_minor = lineSubtotal + item.tax_minor;
+  item.total_minor = Math.round(lineSubtotal + item.tax_minor);
 }
 
 function incrementQty(item: CartItem) {
-  item.quantity += 1;
+  item.quantity = Math.round((item.quantity + 1) * 1000) / 1000;
   updateItemTotals(item);
 }
 
 function decrementQty(item: CartItem) {
   if (item.quantity > 1) {
-    item.quantity -= 1;
+    item.quantity = Math.round((item.quantity - 1) * 1000) / 1000;
     updateItemTotals(item);
   } else {
     removeFromCart(item);
@@ -275,9 +309,9 @@ function decrementQty(item: CartItem) {
 }
 
 function handleQtyChange(item: CartItem, val: string) {
-  const parsed = parseInt(val, 10);
+  const parsed = parseFloat(val);
   if (!isNaN(parsed) && parsed > 0) {
-    item.quantity = parsed;
+    item.quantity = Math.round(parsed * 1000) / 1000;
     updateItemTotals(item);
   }
 }
@@ -287,7 +321,10 @@ function removeFromCart(item: CartItem) {
     if (item.variant) {
       return !(i.product.id === item.product.id && i.variant?.id === item.variant.id);
     }
-    return !(i.product.id === item.product.id && !i.variant);
+    if (item.selected_uom) {
+      return !(i.product.id === item.product.id && i.selected_uom?.id === item.selected_uom.id);
+    }
+    return !(i.product.id === item.product.id && !i.variant && !i.selected_uom);
   });
 }
 
@@ -551,9 +588,9 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
       const parts = searchQuery.value.split('*');
       const qty = parseInt(parts[0], 10) || 1;
       const targetQuery = parts[1].trim();
-      const product = await getProductByBarcode(targetQuery);
-      if (product) {
-        addToCart(product, qty);
+      const lookup = await getProductByBarcode(targetQuery);
+      if (lookup) {
+        addToCart(lookup.product, qty, undefined, lookup.packUom);
         return;
       }
       const list = await getCachedProducts(targetQuery);
@@ -568,9 +605,9 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
       e.preventDefault();
       const code = barcodeBuffer;
       barcodeBuffer = '';
-      const product = await getProductByBarcode(code);
-      if (product) {
-        addToCart(product, 1);
+      const lookup = await getProductByBarcode(code);
+      if (lookup) {
+        addToCart(lookup.product, 1, undefined, lookup.packUom);
       }
       return;
     }
@@ -598,8 +635,12 @@ async function handleCompleteSale() {
     const itemsPayload = cart.value.map((item) => ({
       id: crypto.randomUUID(),
       product_id: item.product.id,
-      product_name: item.variant ? `${item.product.name} (${item.variant.name})` : item.product.name,
+      product_name: item.variant
+        ? `${item.product.name} (${item.variant.name})`
+        : (item.selected_uom ? `${item.product.name} [${item.selected_uom.unit_name}]` : item.product.name),
       hs_code: item.product.hs_code,
+      unit_code: item.unit_code || item.product.unit || 'pcs',
+      unit_conversion_factor: item.unit_conversion_factor ?? 1.0,
       quantity: item.quantity,
       unit_price_minor: item.unit_price_minor,
       tax_rate_basis_points: item.tax_rate_basis_points,
@@ -607,6 +648,8 @@ async function handleCompleteSale() {
       tax_amount_minor: item.tax_minor,
       total_minor: item.total_minor,
       line_total_minor: item.total_minor,
+      discount_type: 'none',
+      discount_amount_minor: 0,
     }));
 
     const salePayload = {
@@ -831,15 +874,45 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <div v-for="item in cart" :key="item.variant ? item.product.id + '_' + item.variant.id : item.product.id" class="cart-item-row">
+          <div v-for="item in cart" :key="item.variant ? item.product.id + '_' + item.variant.id : (item.selected_uom ? item.product.id + '_' + item.selected_uom.id : item.product.id)" class="cart-item-row">
             <div class="item-info">
               <div class="item-name">
                 {{ item.product.name }}
                 <span v-if="item.variant" class="variant-tag">({{ item.variant.name }})</span>
+                <span v-if="item.selected_uom" class="variant-tag" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">
+                  [{{ item.selected_uom.unit_name }}]
+                </span>
               </div>
               <div class="item-sub">
-                <span class="item-unit-price">{{ formatPKR(item.unit_price_minor) }} / {{ item.product.unit }}</span>
+                <span class="item-unit-price">
+                  {{ formatPKR(item.unit_price_minor) }} / {{ item.unit_code || item.product.unit || 'pcs' }}
+                </span>
                 <span class="pct-code-small">PCT: {{ item.product.hs_code }}</span>
+              </div>
+              <!-- Multi-UOM Pack Selector (if conversions available) -->
+              <div v-if="item.product.uom_conversions && item.product.uom_conversions.length > 0" style="display: flex; gap: 0.35rem; margin-top: 0.35rem;">
+                <button
+                  type="button"
+                  class="s-pill"
+                  :class="{ active: !item.selected_uom }"
+                  style="font-size: 0.68rem; padding: 0.15rem 0.45rem;"
+                  title="Switch to Base Unit"
+                  @click="switchItemUom(item, undefined)"
+                >
+                  {{ item.product.unit || 'pcs' }}
+                </button>
+                <button
+                  v-for="u in item.product.uom_conversions"
+                  :key="u.id"
+                  type="button"
+                  class="s-pill"
+                  :class="{ active: item.selected_uom?.id === u.id }"
+                  style="font-size: 0.68rem; padding: 0.15rem 0.45rem;"
+                  :title="`1 ${u.unit_code} = ${Number(u.conversion_factor)} base units`"
+                  @click="switchItemUom(item, u)"
+                >
+                  {{ u.unit_code }} ({{ Number(u.conversion_factor) }})
+                </button>
               </div>
             </div>
 
@@ -849,7 +922,8 @@ onUnmounted(() => {
                 type="number"
                 class="qty-input"
                 :value="item.quantity"
-                min="1"
+                min="0.001"
+                step="any"
                 @change="handleQtyChange(item, ($event.target as HTMLInputElement).value)"
               />
               <button class="qty-btn" @click="incrementQty(item)">+</button>

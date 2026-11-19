@@ -33,13 +33,18 @@ class StoreSaleRequest extends FormRequest
             'total_minor' => ['required', 'integer', 'min:0'],
             'status' => ['required', 'string', 'in:completed,refunded,voided'],
             'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['nullable', 'uuid'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.hs_code' => ['required', 'string', 'max:50'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.unit_code' => ['nullable', 'string', 'max:20'],
+            'items.*.unit_conversion_factor' => ['nullable', 'numeric', 'gt:0'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
             'items.*.unit_price_minor' => ['required', 'integer', 'min:0'],
             'items.*.tax_rate_basis_points' => ['required', 'integer', 'min:0'],
             'items.*.tax_amount_minor' => ['required', 'integer', 'min:0'],
             'items.*.line_total_minor' => ['required', 'integer', 'min:0'],
+            'items.*.discount_type' => ['nullable', 'string', 'in:none,percentage,fixed'],
+            'items.*.discount_amount_minor' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

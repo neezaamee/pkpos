@@ -22,7 +22,7 @@ class StockService
         string $productId,
         string $locationId,
         string $movementType,
-        int $quantityDelta,
+        int|float $quantityDelta,
         ?string $referenceType = null,
         ?string $referenceId = null,
         ?string $note = null,

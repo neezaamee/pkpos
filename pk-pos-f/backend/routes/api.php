@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BroadcastApiController;
 use App\Http\Controllers\Api\V1\CustomerApiController;
 use App\Http\Controllers\Api\V1\InventoryController;
+use App\Http\Controllers\Api\V1\PriceListApiController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
 use App\Http\Controllers\Api\V1\SaleController;
@@ -111,6 +112,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/customers/{id}', [CustomerApiController::class, 'show']);
         Route::get('/customers/{id}/ledger', [CustomerApiController::class, 'ledger']);
         Route::post('/customers/{id}/payments', [CustomerApiController::class, 'recordPayment']);
+
+        // Tiered Price Lists & Dynamic Pricing
+        Route::get('/price-lists', [PriceListApiController::class, 'index']);
+        Route::post('/price-lists/resolve', [PriceListApiController::class, 'resolvePrice']);
 
         // Cash Drawer & Shift Management (X/Z-Reports)
         Route::get('/pos/shifts/current', [ShiftApiController::class, 'currentShift']);

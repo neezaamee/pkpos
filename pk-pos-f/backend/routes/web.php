@@ -6,11 +6,13 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublicOnboardingController;
 use App\Http\Controllers\FbrCredentialsController;
 use App\Http\Controllers\InventoryWebController;
+use App\Http\Controllers\PriceListWebController;
 use App\Http\Controllers\ProductWebController;
 use App\Http\Controllers\SalesDashboardController;
 use App\Http\Controllers\ShiftWebController;
 use App\Http\Controllers\TaxRuleWebController;
 use App\Http\Controllers\TenantTerminalController;
+use App\Http\Controllers\UomWebController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
 use App\Http\Controllers\SuperAdmin\SuperAdminAuditController;
 use App\Http\Controllers\SuperAdmin\SuperAdminBackupController;
@@ -328,6 +330,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/tax-rules/create', [TaxRuleWebController::class, 'create'])->name('tax-rules.create');
     Route::post('/tax-rules', [TaxRuleWebController::class, 'store'])->name('tax-rules.store');
     Route::put('/tax-rules/{id}', [TaxRuleWebController::class, 'update'])->name('tax-rules.update');
+
+    // Units of Measure (UOM) & Pack Conversions
+    Route::get('/uom', [UomWebController::class, 'index'])->name('uom.index');
+    Route::post('/uom', [UomWebController::class, 'store'])->name('uom.store');
+    Route::post('/uom/conversions', [UomWebController::class, 'storeConversion'])->name('uom.conversions.store');
+    Route::delete('/uom/conversions/{id}', [UomWebController::class, 'destroyConversion'])->name('uom.conversions.destroy')->whereUuid('id');
+
+    // Tiered Price Lists & Dynamic Pricing
+    Route::get('/price-lists', [PriceListWebController::class, 'index'])->name('price-lists.index');
+    Route::get('/price-lists/create', [PriceListWebController::class, 'create'])->name('price-lists.create');
+    Route::post('/price-lists', [PriceListWebController::class, 'store'])->name('price-lists.store');
+    Route::get('/price-lists/{id}', [PriceListWebController::class, 'show'])->name('price-lists.show')->whereUuid('id');
+    Route::post('/price-lists/{id}/items', [PriceListWebController::class, 'storeItem'])->name('price-lists.items.store')->whereUuid('id');
+    Route::delete('/price-lists/{id}/items/{itemId}', [PriceListWebController::class, 'destroyItem'])->name('price-lists.items.destroy')->whereUuid(['id', 'itemId']);
 
     // Inventory & Stock Management
     Route::get('/inventory/levels', [InventoryWebController::class, 'levels'])->name('inventory.levels');

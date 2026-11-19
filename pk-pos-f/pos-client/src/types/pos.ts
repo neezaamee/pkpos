@@ -12,6 +12,7 @@ export interface CustomerProfile {
   city?: string;
   credit_limit_minor: number;
   current_balance_minor: number;
+  price_list_id?: string;
   is_active: boolean;
 }
 
@@ -35,6 +36,15 @@ export interface ProductVariantItem {
   price_override_minor?: number;
 }
 
+export interface ProductUomConversion {
+  id: string;
+  unit_name: string;
+  unit_code: string;
+  barcode?: string;
+  conversion_factor: number;
+  price_minor: number;
+}
+
 export interface CachedProduct {
   id: string;
   name: string;
@@ -46,6 +56,8 @@ export interface CachedProduct {
   tax_rate_basis_points: number;
   last_synced_at?: string;
   variants?: ProductVariantItem[];
+  uom_conversions?: ProductUomConversion[];
+  allows_decimals?: boolean;
 }
 
 export interface CartItem {
@@ -56,6 +68,9 @@ export interface CartItem {
   tax_rate_basis_points: number;
   tax_minor: number;
   total_minor: number;
+  selected_uom?: ProductUomConversion;
+  unit_code?: string;
+  unit_conversion_factor?: number;
 }
 
 export type ProcessResult =
