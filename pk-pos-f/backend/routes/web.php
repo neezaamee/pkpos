@@ -3,6 +3,8 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CustomerWebController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PurchaseOrderWebController;
+use App\Http\Controllers\SupplierWebController;
 use App\Http\Controllers\PublicOnboardingController;
 use App\Http\Controllers\FbrCredentialsController;
 use App\Http\Controllers\InventoryWebController;
@@ -367,4 +369,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/customers', [CustomerWebController::class, 'store'])->name('customers.store');
     Route::get('/customers/{id}', [CustomerWebController::class, 'show'])->name('customers.show')->whereUuid('id');
     Route::post('/customers/{id}/payments', [CustomerWebController::class, 'recordPayment'])->name('customers.payments')->whereUuid('id');
+
+    // Supplier Management & Accounts Payable (Khata)
+    Route::get('/suppliers', [SupplierWebController::class, 'index'])->name('suppliers.index');
+    Route::get('/suppliers/create', [SupplierWebController::class, 'create'])->name('suppliers.create');
+    Route::post('/suppliers', [SupplierWebController::class, 'store'])->name('suppliers.store');
+    Route::get('/suppliers/{id}', [SupplierWebController::class, 'show'])->name('suppliers.show')->whereUuid('id');
+    Route::post('/suppliers/{id}/payments', [SupplierWebController::class, 'recordPayment'])->name('suppliers.payments')->whereUuid('id');
+
+    // Purchasing & Goods Received Notes (GRN)
+    Route::get('/purchases', [PurchaseOrderWebController::class, 'index'])->name('purchases.index');
+    Route::get('/purchases/create', [PurchaseOrderWebController::class, 'create'])->name('purchases.create');
+    Route::post('/purchases', [PurchaseOrderWebController::class, 'store'])->name('purchases.store');
+    Route::get('/purchases/{id}', [PurchaseOrderWebController::class, 'show'])->name('purchases.show')->whereUuid('id');
+    Route::post('/purchases/{id}/receive', [PurchaseOrderWebController::class, 'receive'])->name('purchases.receive')->whereUuid('id');
 });

@@ -17,7 +17,7 @@ class ShiftWebController extends Controller
         $tenantId = $request->user()->tenant_id;
 
         $shifts = RegisterSession::where('tenant_id', $tenantId)
-            ->with(['user:id,name', 'closedByUser:id,name', 'location:id,name', 'terminal:id,name,device_id'])
+            ->with(['user:id,name', 'closedByUser:id,name', 'location:id,name', 'terminal:id,name,terminal_code'])
             ->latest('opened_at')
             ->paginate(15);
 
@@ -45,7 +45,7 @@ class ShiftWebController extends Controller
                 'user:id,name,email',
                 'closedByUser:id,name',
                 'location:id,name,address',
-                'terminal:id,name,device_id',
+                'terminal:id,name,terminal_code',
                 'transactions.user:id,name',
                 'transactions.authorizedBy:id,name',
             ])

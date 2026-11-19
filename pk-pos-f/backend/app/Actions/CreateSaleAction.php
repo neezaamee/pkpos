@@ -12,22 +12,51 @@ class CreateSaleAction
      * Create a sale with items in a single database transaction.
      *
      * @param array<string, mixed> $data
-     * @param string $userId
+     * @param string|null $userId
      * @return Sale
      */
-    public function execute(array $data, string $userId): Sale
+    public function execute(array $data, ?string $userId = null): Sale
     {
         return DB::transaction(function () use ($data, $userId) {
             $items = $data['items'];
             unset($data['items']);
 
-            $data['user_id'] = $userId;
+            if ($userId) {
+                $data['user_id'] = $userId;
+            }
+
+            if (! isset($data['subtotal_minor']) || ! isset($data['total_minor'])) {
+                $subtotal = 0;
+                $tax = 0;
+                $total = 0;
+                foreach ($items as $item) {
+                    $qty = (float) ($item['quantity'] ?? 1);
+                    $price = (int) ($item['unit_price_minor'] ?? 0);
+                    $lineTotal = (int) ($item['line_total_minor'] ?? round($qty * $price));
+                    $lineTax = (int) ($item['tax_amount_minor'] ?? 0);
+                    $total += $lineTotal;
+                    $tax += $lineTax;
+                    $subtotal += ($lineTotal - $lineTax);
+                }
+                $data['subtotal_minor'] = $data['subtotal_minor'] ?? $subtotal;
+                $data['tax_minor'] = $data['tax_minor'] ?? $tax;
+                $data['total_minor'] = $data['total_minor'] ?? $total;
+            }
+
+            $data['status'] = $data['status'] ?? 'completed';
+
             $sale = Sale::create($data);
 
             $tenant = \App\Models\Tenant::find($sale->tenant_id);
             $stockService = app(\App\Services\Inventory\StockService::class);
 
             foreach ($items as $item) {
+                $qty = (float) ($item['quantity'] ?? 1);
+                $unitPrice = (int) ($item['unit_price_minor'] ?? 0);
+                $taxBps = (int) ($item['tax_rate_basis_points'] ?? 0);
+                $item['tax_amount_minor'] = $item['tax_amount_minor'] ?? (int) round(($qty * $unitPrice * $taxBps) / 10000);
+                $item['line_total_minor'] = $item['line_total_minor'] ?? (int) round($qty * $unitPrice) + $item['tax_amount_minor'];
+
                 $sale->items()->create($item);
 
                 // Auto-deduct inventory in base units (taking conversion_factor into account)
@@ -74,7 +103,9 @@ class CreateSaleAction
                 if (! $customer->canAcceptCredit($sale->total_minor)) {
                     $limitRs = number_format($customer->credit_limit_minor / 100);
                     $balanceRs = number_format($customer->current_balance_minor / 100);
-                    throw new \DomainException("Credit limit exceeded. Customer balance is Rs. {$balanceRs}, limit is Rs. {$limitRs}.");
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_method' => ["Credit limit exceeded. Customer balance is Rs. {$balanceRs}, limit is Rs. {$limitRs}."],
+                    ]);
                 }
 
                 $user = \App\Models\User::find($userId);

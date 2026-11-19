@@ -48,4 +48,12 @@ class CustomerTransaction extends Model
     {
         return $this->belongsTo(User::class, 'recorded_by_user_id');
     }
+
+    /**
+     * Alias for running_balance_minor for cross-ledger consistency.
+     */
+    public function getBalanceAfterMinorAttribute(): int
+    {
+        return (int) $this->running_balance_minor;
+    }
 }

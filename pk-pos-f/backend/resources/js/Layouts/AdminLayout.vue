@@ -195,6 +195,35 @@
             </svg>
             <span v-if="!isRailMode">Movements Log</span>
           </Link>
+
+          <Link
+            href="/purchases"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/purchases') }"
+            :title="isRailMode ? 'Purchase Orders (GRN)' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <span v-if="!isRailMode">Purchase Orders (GRN)</span>
+          </Link>
+
+          <Link
+            href="/suppliers"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/suppliers') }"
+            :title="isRailMode ? 'Suppliers & Payables' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span v-if="!isRailMode">Suppliers &amp; Payables</span>
+          </Link>
         </template>
 
         <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">

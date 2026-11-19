@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
 use App\Http\Controllers\Api\V1\SaleController;
 use App\Http\Controllers\Api\V1\ShiftApiController;
+use App\Http\Controllers\Api\V1\SupplierApiController;
 use App\Http\Controllers\Api\V1\SupportApiController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TaxRuleController;
@@ -112,6 +113,18 @@ Route::prefix('v1')->group(function () {
         Route::get('/customers/{id}', [CustomerApiController::class, 'show']);
         Route::get('/customers/{id}/ledger', [CustomerApiController::class, 'ledger']);
         Route::post('/customers/{id}/payments', [CustomerApiController::class, 'recordPayment']);
+        Route::get('/pos/customers', [CustomerApiController::class, 'index']);
+        Route::post('/pos/customers', [CustomerApiController::class, 'store']);
+        Route::get('/pos/customers/{id}', [CustomerApiController::class, 'show']);
+        Route::get('/pos/customers/{id}/ledger', [CustomerApiController::class, 'ledger']);
+        Route::post('/pos/customers/{id}/payments', [CustomerApiController::class, 'recordPayment']);
+
+        // Purchasing & Supplier Management
+        Route::get('/suppliers', [SupplierApiController::class, 'index']);
+        Route::post('/suppliers', [SupplierApiController::class, 'store']);
+        Route::get('/suppliers/{id}', [SupplierApiController::class, 'show']);
+        Route::get('/suppliers/{id}/ledger', [SupplierApiController::class, 'ledger']);
+        Route::post('/suppliers/{id}/payments', [SupplierApiController::class, 'recordPayment']);
 
         // Tiered Price Lists & Dynamic Pricing
         Route::get('/price-lists', [PriceListApiController::class, 'index']);

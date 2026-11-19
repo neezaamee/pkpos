@@ -25,6 +25,7 @@ beforeEach(function () {
     $this->terminal = PosTerminal::create([
         'tenant_id' => $this->tenant->id,
         'location_id' => $this->location->id,
+        'terminal_code' => 'TERM-CLIFTON-01',
         'device_id' => 'POS-CLIFTON-01',
         'name' => 'Register 01',
         'status' => 'active',

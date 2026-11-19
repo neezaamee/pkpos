@@ -32,7 +32,13 @@ class CustomerApiController extends Controller
 
         $customers = $query->orderBy('name', 'asc')->paginate(20);
 
-        return response()->json($customers);
+        return response()->json([
+            'customers' => $customers->items(),
+            'data' => $customers->items(),
+            'current_page' => $customers->currentPage(),
+            'last_page' => $customers->lastPage(),
+            'total' => $customers->total(),
+        ]);
     }
 
     /**
@@ -61,7 +67,7 @@ class CustomerApiController extends Controller
         $customer = Customer::create($validated);
 
         return response()->json([
-            'message' => 'Customer registered successfully.',
+            'message' => 'Customer created successfully.',
             'customer' => $customer,
         ], 201);
     }
@@ -130,10 +136,13 @@ class CustomerApiController extends Controller
             $validated['notes'] ?? null
         );
 
+        $amountFormatted = number_format($validated['amount_minor'] / 100);
+
         return response()->json([
-            'message' => 'Payment recorded successfully.',
+            'message' => "Payment of Rs. {$amountFormatted} recorded successfully.",
             'receipt_number' => $transaction->receipt_number,
             'transaction' => $transaction,
+            'customer' => $customer->fresh(),
             'new_balance_minor' => $customer->current_balance_minor,
         ]);
     }

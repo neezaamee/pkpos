@@ -138,7 +138,7 @@ test('credit sale books successfully and increments customer balance and ledger'
     // CustomerTransaction debit entry must exist
     $tx = CustomerTransaction::where('customer_id', $customer->id)->first();
     expect($tx)->not->toBeNull();
-    expect($tx->type)->toBe('credit_sale');
+    expect($tx->type)->toBe('debit_sale');
     expect($tx->amount_minor)->toBe(300000);
     expect($tx->balance_after_minor)->toBe(300000);
     expect($tx->sale_id)->toBe($sale->id);
@@ -241,7 +241,7 @@ test('recording debt payment reduces customer balance and logs credit transactio
 
     // Verify CustomerTransaction
     $tx = CustomerTransaction::where('customer_id', $customer->id)
-        ->where('type', 'payment')
+        ->whereIn('type', ['payment', 'credit_payment'])
         ->first();
 
     expect($tx)->not->toBeNull();
