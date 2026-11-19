@@ -128,6 +128,33 @@ class Customer extends Model
     }
 
     /**
+     * Credit a customer account when goods are returned (Sales Return / Credit Note).
+     * Reduces the customer's outstanding receivable debt (or grants store credit).
+     */
+    public function recordReturnCredit(
+        SaleReturn $saleReturn,
+        int $amountMinor,
+        ?User $user = null
+    ): CustomerTransaction {
+        return DB::transaction(function () use ($saleReturn, $amountMinor, $user) {
+            $this->current_balance_minor -= $amountMinor;
+            $this->save();
+
+            return $this->transactions()->create([
+                'tenant_id' => $this->tenant_id,
+                'sale_id' => $saleReturn->sale_id,
+                'recorded_by_user_id' => $user?->id,
+                'type' => 'credit_return',
+                'amount_minor' => $amountMinor,
+                'running_balance_minor' => $this->current_balance_minor,
+                'payment_method' => 'credit_note',
+                'receipt_number' => $saleReturn->return_number,
+                'notes' => "Credit Note for Return #{$saleReturn->return_number}",
+            ]);
+        });
+    }
+
+    /**
      * Audit and recalculate balance from all historical ledger transactions.
      */
     public function recalculateBalance(): int

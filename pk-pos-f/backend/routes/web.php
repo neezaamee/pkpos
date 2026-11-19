@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CustomerWebController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PurchaseOrderWebController;
+use App\Http\Controllers\SaleReturnWebController;
 use App\Http\Controllers\SupplierWebController;
 use App\Http\Controllers\PublicOnboardingController;
 use App\Http\Controllers\FbrCredentialsController;
@@ -383,4 +384,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/purchases', [PurchaseOrderWebController::class, 'store'])->name('purchases.store');
     Route::get('/purchases/{id}', [PurchaseOrderWebController::class, 'show'])->name('purchases.show')->whereUuid('id');
     Route::post('/purchases/{id}/receive', [PurchaseOrderWebController::class, 'receive'])->name('purchases.receive')->whereUuid('id');
+
+    // Sales Returns, Refunds & FBR Credit Notes
+    Route::get('/returns', [SaleReturnWebController::class, 'index'])->name('returns.index');
+    Route::get('/returns/create', [SaleReturnWebController::class, 'create'])->name('returns.create');
+    Route::post('/returns', [SaleReturnWebController::class, 'store'])->name('returns.store');
+    Route::get('/returns/{id}', [SaleReturnWebController::class, 'show'])->name('returns.show')->whereUuid('id');
 });

@@ -1137,3 +1137,99 @@ export async function recordCustomerPayment(
 
   return await res.json();
 }
+
+export interface ReturnableLineItem {
+  sale_item_id: string;
+  product_id: string;
+  product_name: string;
+  unit_code: string;
+  unit_conversion_factor: number;
+  sold_quantity: number;
+  already_returned_quantity: number;
+  returnable_quantity: number;
+  unit_price_minor: number;
+  tax_rate_basis_points: number;
+}
+
+export interface VerifyInvoiceResponse {
+  sale: {
+    id: string;
+    sale_number: string;
+    total_minor: number;
+    payment_method: string;
+    fbr_usin?: string;
+    customer_id?: string;
+    customer?: {
+      id: string;
+      name: string;
+      phone: string;
+      current_balance_minor: number;
+    };
+  };
+  returnable_items: ReturnableLineItem[];
+}
+
+export interface ProcessReturnPayload {
+  sale_id: string;
+  register_session_id?: string;
+  reason: string;
+  refund_method: string;
+  notes?: string;
+  items: Array<{
+    sale_item_id: string;
+    quantity_returned: number;
+    restock_condition: string;
+  }>;
+}
+
+export async function verifyInvoiceForReturn(invoiceNumber: string): Promise<VerifyInvoiceResponse> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/returns/verify-invoice`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ invoice_number: invoiceNumber }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Invoice lookup failed.' }));
+    throw new Error(err.error || err.message || 'Invoice not found.');
+  }
+
+  return await res.json();
+}
+
+export async function processSaleReturn(payload: ProcessReturnPayload): Promise<any> {
+  const settings = await getSettings();
+  const baseUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (settings.api_token) {
+    headers['Authorization'] = `Bearer ${settings.api_token}`;
+  }
+
+  const res = await fetch(`${baseUrl}/pos/returns`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to process return.' }));
+    throw new Error(err.message || 'Return processing rejected.');
+  }
+
+  return await res.json();
+}

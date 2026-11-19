@@ -154,6 +154,38 @@ class RegisterSession extends Model
     }
 
     /**
+     * Record a cash movement in the drawer (cash_in, cash_drop, payout_expense, refund).
+     */
+    public function recordCashMovement(string $type, int $amountMinor, User|string|null $user = null, ?string $reason = null, ?string $authorizedByUserId = null): CashDrawerTransaction
+    {
+        $userId = $user instanceof User ? $user->id : ($user ?? $this->user_id);
+
+        if ($type === 'cash_in') {
+            $this->cash_in_minor += $amountMinor;
+        } elseif ($type === 'cash_drop') {
+            $this->cash_drop_minor += $amountMinor;
+        } elseif ($type === 'payout' || $type === 'payout_expense') {
+            $this->payout_minor += $amountMinor;
+        } elseif ($type === 'refund') {
+            $this->refund_cash_minor += $amountMinor;
+            $this->refunds_count += 1;
+        }
+
+        $this->recalculateExpectedCash();
+        $this->save();
+
+        return $this->transactions()->create([
+            'tenant_id' => $this->tenant_id,
+            'user_id' => $userId,
+            'authorized_by_user_id' => $authorizedByUserId,
+            'type' => $type === 'payout' ? 'payout_expense' : $type,
+            'amount_minor' => $amountMinor,
+            'balance_after_minor' => $this->expected_cash_minor,
+            'reason' => $reason ?? ucfirst(str_replace('_', ' ', $type)),
+        ]);
+    }
+
+    /**
      * Close the shift session, compute variance, and generate Z-Report.
      */
     public function closeSession(int $closingCashCountedMinor, User $closedBy, ?string $notes = null): self

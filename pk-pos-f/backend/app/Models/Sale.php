@@ -108,4 +108,43 @@ class Sale extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /**
+     * Get any sales returns / credit notes issued against this sale.
+     */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(SaleReturn::class, 'sale_id')->latest();
+    }
+
+    /**
+     * Compute returnable quantities for each item in the sale.
+     */
+    public function getReturnableItems(): array
+    {
+        $items = $this->items()->get();
+        $returnedQuantities = SaleReturnItem::whereIn('sale_item_id', $items->pluck('id'))
+            ->groupBy('sale_item_id')
+            ->selectRaw('sale_item_id, sum(quantity_returned) as total_returned')
+            ->pluck('total_returned', 'sale_item_id');
+
+        return $items->map(function (SaleItem $item) use ($returnedQuantities) {
+            $alreadyReturned = (float) ($returnedQuantities[$item->id] ?? 0);
+            $soldQty = (float) $item->quantity;
+            $returnableQty = max(0, $soldQty - $alreadyReturned);
+
+            return [
+                'sale_item_id' => $item->id,
+                'product_id' => $item->product_id,
+                'product_name' => $item->product_name,
+                'unit_code' => $item->unit_code ?: 'pcs',
+                'unit_conversion_factor' => (float) ($item->unit_conversion_factor ?: 1.0),
+                'sold_quantity' => $soldQty,
+                'already_returned_quantity' => $alreadyReturned,
+                'returnable_quantity' => $returnableQty,
+                'unit_price_minor' => $item->unit_price_minor,
+                'tax_rate_basis_points' => $item->tax_rate_basis_points ?: 0,
+            ];
+        })->values()->all();
+    }
 }

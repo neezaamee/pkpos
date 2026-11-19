@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem } from '../types/pos';
 import { formatPKR } from '../types/pos';
-import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer } from '../services/posService';
+import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer, verifyInvoiceForReturn, processSaleReturn, type VerifyInvoiceResponse } from '../services/posService';
 
 interface HeldSale {
   id: string;
@@ -64,6 +64,103 @@ const tempDiscountInput = ref<number>(0);
 // Held / Parked Sales State
 const heldSales = ref<HeldSale[]>([]);
 const showHeldSalesModal = ref(false);
+
+// Sales Returns & FBR Credit Notes State
+const showReturnModal = ref(false);
+const returnInvoiceQuery = ref('');
+const isVerifyingReturnInvoice = ref(false);
+const returnVerificationResult = ref<VerifyInvoiceResponse | null>(null);
+const returnItemsState = ref<Array<{
+  sale_item_id: string;
+  product_name: string;
+  unit_code: string;
+  sold_quantity: number;
+  returnable_quantity: number;
+  quantity_returned: number;
+  unit_price_minor: number;
+  restock_condition: 'restock_shelf' | 'damaged_quarantine' | 'discard';
+}>>([]);
+const returnReason = ref('customer_change_of_mind');
+const returnRefundMethod = ref('cash');
+const returnNotes = ref('');
+const isProcessingReturn = ref(false);
+const returnErrorMessage = ref('');
+const returnSuccessResult = ref<any>(null);
+
+function openReturnModal() {
+  showReturnModal.value = true;
+  returnInvoiceQuery.value = '';
+  returnVerificationResult.value = null;
+  returnItemsState.value = [];
+  returnErrorMessage.value = '';
+  returnSuccessResult.value = null;
+}
+
+async function handleLookupReturnInvoice() {
+  if (!returnInvoiceQuery.value.trim()) return;
+  isVerifyingReturnInvoice.value = true;
+  returnErrorMessage.value = '';
+  returnVerificationResult.value = null;
+  try {
+    const res = await verifyInvoiceForReturn(returnInvoiceQuery.value.trim());
+    returnVerificationResult.value = res;
+    returnItemsState.value = res.returnable_items.map(item => ({
+      sale_item_id: item.sale_item_id,
+      product_name: item.product_name,
+      unit_code: item.unit_code,
+      sold_quantity: item.sold_quantity,
+      returnable_quantity: item.returnable_quantity,
+      quantity_returned: 0,
+      unit_price_minor: item.unit_price_minor,
+      restock_condition: 'restock_shelf',
+    }));
+    returnRefundMethod.value = res.sale.customer_id ? 'credit_note_khata' : 'cash';
+  } catch (err: any) {
+    returnErrorMessage.value = err.message || 'Invoice lookup failed.';
+  } finally {
+    isVerifyingReturnInvoice.value = false;
+  }
+}
+
+const totalReturnRefundMinor = computed(() => {
+  return returnItemsState.value.reduce((sum, item) => {
+    const qty = Number(item.quantity_returned) || 0;
+    return sum + Math.round(qty * item.unit_price_minor);
+  }, 0);
+});
+
+async function handleProcessReturn() {
+  if (!returnVerificationResult.value) return;
+  const itemsToReturn = returnItemsState.value
+    .filter(i => (Number(i.quantity_returned) || 0) > 0)
+    .map(i => ({
+      sale_item_id: i.sale_item_id,
+      quantity_returned: Number(i.quantity_returned),
+      restock_condition: i.restock_condition,
+    }));
+
+  if (itemsToReturn.length === 0) {
+    returnErrorMessage.value = 'Please enter a return quantity for at least one item.';
+    return;
+  }
+
+  isProcessingReturn.value = true;
+  returnErrorMessage.value = '';
+  try {
+    const res = await processSaleReturn({
+      sale_id: returnVerificationResult.value.sale.id,
+      reason: returnReason.value,
+      refund_method: returnRefundMethod.value,
+      notes: returnNotes.value,
+      items: itemsToReturn,
+    });
+    returnSuccessResult.value = res.sale_return;
+  } catch (err: any) {
+    returnErrorMessage.value = err.message || 'Failed to process return.';
+  } finally {
+    isProcessingReturn.value = false;
+  }
+}
 
 // Shortcuts Help Modal State
 const showHelpModal = ref(false);
@@ -548,6 +645,11 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
     focusSearch();
     return;
   }
+  if (e.key === 'F6') {
+    e.preventDefault();
+    openReturnModal();
+    return;
+  }
   if (e.key === 'F8') {
     e.preventDefault();
     parkCurrentSale();
@@ -762,6 +864,9 @@ onUnmounted(() => {
         </button>
         <button class="s-pill" @click="mobileSection = 'products'; focusSearch(false);">
           <kbd>F4</kbd> Search
+        </button>
+        <button class="s-pill" @click="openReturnModal">
+          <kbd>F6</kbd> Return
         </button>
         <button class="s-pill" :disabled="cart.length === 0" @click="parkCurrentSale">
           <kbd>F8</kbd> Park Sale
@@ -1507,6 +1612,188 @@ onUnmounted(() => {
         <button class="next-sale-btn" @click="closeConfirmationModal">
           Next Sale <span class="shortcut">Enter</span>
         </button>
+      </div>
+    </div>
+
+    <!-- 6. Sales Return & FBR Credit Note Modal (F6) -->
+    <div v-if="showReturnModal" class="modal-overlay" @click.self="showReturnModal = false">
+      <div class="modal-card" style="max-width: 680px; width: 95%; max-height: 90vh; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <div>
+            <h3 class="modal-title" style="margin-bottom: 0.25rem;">Sales Return &amp; FBR Credit Note</h3>
+            <p class="modal-sub">Scan receipt barcode, verify items, and issue statutory Type 2 Credit Note</p>
+          </div>
+          <button class="modal-close-btn" @click="showReturnModal = false">&times;</button>
+        </div>
+
+        <!-- Success Result View -->
+        <div v-if="returnSuccessResult" style="text-align: center; padding: 1.5rem 0;">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 1.75rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            ✓
+          </div>
+          <h4 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem;">
+            Return Processed Successfully
+          </h4>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Return #{{ returnSuccessResult.return_number }} &bull; FBR Credit Note #{{ returnSuccessResult.fbr_credit_note_number }}
+          </p>
+
+          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 1rem; max-width: 320px; margin: 0 auto 1.5rem;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #ef4444;">Refund Amount</div>
+            <div style="font-size: 1.75rem; font-weight: 800; font-family: monospace; color: #ef4444; margin-top: 0.25rem;">
+              -{{ formatPKR(returnSuccessResult.total_refund_minor) }}
+            </div>
+          </div>
+
+          <button class="next-sale-btn" @click="showReturnModal = false">
+            Done (Esc)
+          </button>
+        </div>
+
+        <!-- Return Workflow Form -->
+        <div v-else>
+          <!-- Step 1: Scan or Type Invoice # -->
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.4rem;">
+              Scan Receipt Barcode or Type Invoice Number
+            </label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input
+                v-model="returnInvoiceQuery"
+                type="text"
+                class="pos-input"
+                placeholder="e.g. INV-20261122-0001"
+                style="flex: 1; font-family: monospace; font-weight: 700;"
+                @keydown.enter="handleLookupReturnInvoice"
+              />
+              <button
+                type="button"
+                class="chip-btn"
+                style="background: #3b82f6; color: white; padding: 0.5rem 1rem;"
+                :disabled="isVerifyingReturnInvoice || !returnInvoiceQuery.trim()"
+                @click="handleLookupReturnInvoice"
+              >
+                {{ isVerifyingReturnInvoice ? 'Verifying...' : 'Verify' }}
+              </button>
+            </div>
+            <div v-if="returnErrorMessage" style="color: #ef4444; font-size: 0.75rem; margin-top: 0.4rem;">
+              {{ returnErrorMessage }}
+            </div>
+          </div>
+
+          <!-- Step 2: Return Items Table if verified -->
+          <div v-if="returnVerificationResult" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem; margin-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span style="font-size: 0.85rem; font-weight: 700; color: #f8fafc;">
+                Invoice #{{ returnVerificationResult.sale.sale_number }}
+              </span>
+              <span v-if="returnVerificationResult.sale.customer" style="font-size: 0.78rem; color: #94a3b8;">
+                Customer: <strong style="color: #fff;">{{ returnVerificationResult.sale.customer.name }}</strong>
+              </span>
+            </div>
+
+            <div style="max-height: 220px; overflow-y: auto; margin-bottom: 1rem;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: #94a3b8; text-align: left;">
+                    <th style="padding: 0.4rem 0.25rem;">Item</th>
+                    <th style="padding: 0.4rem 0.25rem; text-align: center;">Sold</th>
+                    <th style="padding: 0.4rem 0.25rem; text-align: center;">Returnable</th>
+                    <th style="padding: 0.4rem 0.25rem; width: 85px; text-align: center;">Return Qty</th>
+                    <th style="padding: 0.4rem 0.25rem;">Restock Condition</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in returnItemsState" :key="item.sale_item_id" style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.5rem 0.25rem;">
+                      <div style="font-weight: 700; color: #fff;">{{ item.product_name }}</div>
+                      <div style="font-size: 0.72rem; color: #94a3b8;">{{ formatPKR(item.unit_price_minor) }} / {{ item.unit_code }}</div>
+                    </td>
+                    <td style="padding: 0.5rem 0.25rem; text-align: center; font-family: monospace;">
+                      {{ item.sold_quantity }}
+                    </td>
+                    <td style="padding: 0.5rem 0.25rem; text-align: center; font-family: monospace; color: #10b981; font-weight: 700;">
+                      {{ item.returnable_quantity }}
+                    </td>
+                    <td style="padding: 0.5rem 0.25rem;">
+                      <input
+                        v-model.number="item.quantity_returned"
+                        type="number"
+                        step="any"
+                        min="0"
+                        :max="item.returnable_quantity"
+                        class="pos-input"
+                        style="padding: 0.25rem; font-family: monospace; text-align: center; font-size: 0.85rem;"
+                        placeholder="0"
+                        :disabled="item.returnable_quantity <= 0"
+                      />
+                    </td>
+                    <td style="padding: 0.5rem 0.25rem;">
+                      <select
+                        v-model="item.restock_condition"
+                        class="pos-input"
+                        style="padding: 0.25rem; font-size: 0.75rem;"
+                        :disabled="item.quantity_returned <= 0"
+                      >
+                        <option value="restock_shelf">Restock Shelf</option>
+                        <option value="damaged_quarantine">Damaged (Quarantine)</option>
+                        <option value="discard">Discard / Expired</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Refund Method & Settlement -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+              <div>
+                <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.3rem;">
+                  Refund Settlement Mode
+                </label>
+                <select v-model="returnRefundMethod" class="pos-input" style="font-size: 0.8rem;">
+                  <option value="cash">Cash Refund (Drawer Cash)</option>
+                  <option v-if="returnVerificationResult.sale.customer_id" value="credit_note_khata">
+                    Customer Khata Credit (Udhaar)
+                  </option>
+                  <option value="original_payment">Original Payment Method</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.3rem;">
+                  Return Reason
+                </label>
+                <select v-model="returnReason" class="pos-input" style="font-size: 0.8rem;">
+                  <option value="customer_change_of_mind">Customer Change of Mind</option>
+                  <option value="defective">Defective / Damaged</option>
+                  <option value="wrong_item">Wrong Item</option>
+                  <option value="expired">Expired</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
+              <div>
+                <span style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Total Refund</span>
+                <div style="font-size: 1.35rem; font-weight: 800; font-family: monospace; color: #ef4444;">
+                  -{{ formatPKR(totalReturnRefundMinor) }}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="confirm-pay-btn"
+                style="background: #ef4444; border-color: #ef4444; width: auto; padding: 0.6rem 1.25rem;"
+                :disabled="isProcessingReturn || totalReturnRefundMinor <= 0"
+                @click="handleProcessReturn"
+              >
+                {{ isProcessingReturn ? 'Processing...' : 'Issue FBR Credit Note' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\PriceListApiController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
 use App\Http\Controllers\Api\V1\SaleController;
+use App\Http\Controllers\Api\V1\SaleReturnApiController;
 use App\Http\Controllers\Api\V1\ShiftApiController;
 use App\Http\Controllers\Api\V1\SupplierApiController;
 use App\Http\Controllers\Api\V1\SupportApiController;
@@ -137,6 +138,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/pos/shifts/{sessionId}/x-report', [ShiftApiController::class, 'generateXReport']);
         Route::post('/pos/shifts/{sessionId}/close', [ShiftApiController::class, 'closeShift']);
         Route::get('/pos/shifts/history', [ShiftApiController::class, 'history']);
+
+        // Sales Returns & FBR Credit Notes
+        Route::post('/pos/returns/verify-invoice', [SaleReturnApiController::class, 'verifyInvoice']);
+        Route::post('/pos/returns', [SaleReturnApiController::class, 'store']);
+        Route::get('/pos/returns/{id}', [SaleReturnApiController::class, 'show']);
 
         // Idempotent Sync routes
         Route::middleware('idempotent')->group(function () {
