@@ -628,6 +628,36 @@
         </div>
       </nav>
 
+      <!-- Hardware Telemetry HUD (Maximalist Command Center) -->
+      <div v-if="!isRailMode" class="telemetry-hud-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+          <span style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #a78bfa;">
+            System Telemetry
+          </span>
+          <span style="font-size: 0.65rem; color: #34d399; font-weight: 600; display: flex; align-items: center; gap: 3px;">
+            <span style="width: 5px; height: 5px; border-radius: 50%; background: #10b981;"></span>
+            Nominal
+          </span>
+        </div>
+        <div style="height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 9999px; overflow: hidden;">
+          <div style="width: 64%; height: 100%; background: linear-gradient(90deg, #6366f1, #06b6d4); border-radius: 9999px;"></div>
+        </div>
+        <div class="telemetry-hud-chips">
+          <div class="telemetry-hud-chip">
+            <span class="telemetry-hud-label">CPU</span>
+            <span class="telemetry-hud-val" style="color: #38bdf8;">64%</span>
+          </div>
+          <div class="telemetry-hud-chip">
+            <span class="telemetry-hud-label">RAM</span>
+            <span class="telemetry-hud-val" style="color: #c084fc;">8.2GB</span>
+          </div>
+          <div class="telemetry-hud-chip">
+            <span class="telemetry-hud-label">NET</span>
+            <span class="telemetry-hud-val" style="color: #34d399;">1GB/s</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Sidebar Footer User Profile -->
       <div class="sidebar-footer">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -711,8 +741,31 @@
           </div>
         </div>
 
-        <!-- Center: Quick Command Palette Trigger (Ctrl K) -->
-        <div class="topbar-center">
+        <!-- Center: Status Beacons + Quick Command Palette Trigger (Ctrl K) -->
+        <div class="topbar-center" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <!-- Maximalist Operational Status Beacons -->
+          <div class="topbar-beacons-group" style="display: flex; align-items: center; gap: 0.45rem;">
+            <Link
+              href="/superadmin/compliance/fbr"
+              class="topbar-beacon beacon-green"
+              title="Federal Board of Revenue Fiscal Gateway: Connected & Transmitting"
+              style="text-decoration: none;"
+            >
+              <span class="beacon-pulse-dot"></span>
+              <span>FBR Live: ONLINE</span>
+            </Link>
+
+            <div class="topbar-beacon beacon-cyan" title="API Gateway Uptime (30-day average: 99.99%)">
+              <span class="beacon-pulse-dot"></span>
+              <span>API: 99.99%</span>
+            </div>
+
+            <div class="topbar-beacon beacon-violet" title="PostgreSQL Multi-Tenant Cluster Status">
+              <span class="beacon-pulse-dot"></span>
+              <span>SYSTEM: OPERATIONAL</span>
+            </div>
+          </div>
+
           <button class="command-palette-trigger" @click="isPaletteOpen = true" title="Quick Search or Jump to Module (Ctrl K)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>

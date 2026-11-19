@@ -177,6 +177,24 @@ class SuperAdminDashboardController extends Controller
 
         $arpaMinor = $activeSubsCount > 0 ? (int) round($mrrMinor / $activeSubsCount) : 0;
 
+        // 9. Recent Platform Sales for Live Telemetry Stream
+        $recentSales = Sale::withoutGlobalScope(TenantScope::class)
+            ->with(['tenant:id,name'])
+            ->latest()
+            ->take(8)
+            ->get(['id', 'tenant_id', 'sale_number', 'payment_method', 'total_minor', 'fbr_status', 'fbr_invoice_number', 'created_at'])
+            ->map(fn($s) => [
+                'id' => $s->id,
+                'store_name' => $s->tenant?->name ?? ('Store #' . substr((string) $s->tenant_id, 0, 4)),
+                'sale_number' => $s->sale_number,
+                'payment_method' => $s->payment_method ?? 'cash',
+                'amount_minor' => (int) $s->total_minor,
+                'fbr_status' => $s->fbr_status,
+                'fbr_invoice_number' => $s->fbr_invoice_number,
+                'time_formatted' => $s->created_at ? $s->created_at->format('h:i:s A') : now()->format('h:i:s A'),
+                'is_live' => true,
+            ]);
+
         return Inertia::render('SuperAdmin/Dashboard', [
             'metrics' => [
                 'total_tenants' => $totalTenants,
@@ -211,6 +229,7 @@ class SuperAdminDashboardController extends Controller
             'province_distribution' => $provinceData,
             'top_merchants' => $topMerchants,
             'recent_tenants' => $recentTenants,
+            'recent_sales' => $recentSales,
         ]);
     }
 }
