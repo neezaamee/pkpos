@@ -182,7 +182,7 @@ class SuperAdminDashboardController extends Controller
             ->with(['tenant:id,name'])
             ->latest()
             ->take(8)
-            ->get(['id', 'tenant_id', 'sale_number', 'payment_method', 'total_minor', 'fbr_status', 'fbr_invoice_number', 'created_at'])
+            ->get(['id', 'tenant_id', 'sale_number', 'payment_method', 'total_minor', 'fbr_status', 'fbr_usin', 'created_at'])
             ->map(fn($s) => [
                 'id' => $s->id,
                 'store_name' => $s->tenant?->name ?? ('Store #' . substr((string) $s->tenant_id, 0, 4)),
@@ -190,7 +190,7 @@ class SuperAdminDashboardController extends Controller
                 'payment_method' => $s->payment_method ?? 'cash',
                 'amount_minor' => (int) $s->total_minor,
                 'fbr_status' => $s->fbr_status,
-                'fbr_invoice_number' => $s->fbr_invoice_number,
+                'fbr_invoice_number' => $s->fbr_usin,
                 'time_formatted' => $s->created_at ? $s->created_at->format('h:i:s A') : now()->format('h:i:s A'),
                 'is_live' => true,
             ]);
