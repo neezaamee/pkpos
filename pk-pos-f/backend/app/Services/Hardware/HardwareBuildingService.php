@@ -24,7 +24,7 @@ class HardwareBuildingService
         $calculatedBoxes = null;
         $totalSqft = null;
 
-        if (($unit === 'bag' || $unit === 'bag_50kg' || str_contains($unit, 'bag')) && ($product->weight_kg_per_unit || str_contains(strtolower($product->name), 'cement'))) {
+        if (($unit === 'bag' || $unit === 'bag_50kg' || str_contains(strtolower($product->name), 'cement')) && ($product->weight_kg_per_unit || str_contains(strtolower($product->name), 'cement'))) {
             $kgPerBag = (float) ($product->weight_kg_per_unit ?: 50.0);
             $weightKg = $quantity * $kgPerBag;
         } elseif ($unit === 'ton') {
@@ -33,13 +33,13 @@ class HardwareBuildingService
             $weightKg = $quantity * 40.0;
         } elseif ($unit === 'kg') {
             $weightKg = $quantity;
-        } elseif (($unit === 'feet' || $unit === 'rft' || $unit === 'length_ft' || str_contains($unit, 'feet') || str_contains($unit, 'rebar')) && $product->weight_kg_per_unit) {
+        } elseif (($unit === 'feet' || $unit === 'rft' || $unit === 'length_ft' || $unit === 'rebar_feet') && $product->weight_kg_per_unit) {
             $weightKg = $quantity * (float) $product->weight_kg_per_unit;
         } elseif ($unit === 'cft') {
             // Sand / Crush standard bulk density ~ 45 KG per cubic foot
             $density = (float) ($product->weight_kg_per_unit ?: 45.0);
             $weightKg = $quantity * $density;
-        } elseif (($unit === 'sqft' || str_contains($unit, 'tile') || str_contains($unit, 'sqft')) && $product->sqft_per_box && $product->sqft_per_box > 0) {
+        } elseif (($unit === 'sqft' || $unit === 'tile_box' || $unit === 'box') && $product->sqft_per_box && $product->sqft_per_box > 0) {
             // Tiles / Marbles box calculation
             $totalSqft = $quantity;
             $sqftPerBox = (float) $product->sqft_per_box;
@@ -105,7 +105,7 @@ class HardwareBuildingService
 
             // Add line items
             $items = $challanData['items'] ?? null;
-            if (! empty($items) && is_array($items)) {
+            if (!empty($items) && is_array($items)) {
                 foreach ($items as $item) {
                     $challan->items()->create([
                         'sale_item_id' => $item['sale_item_id'] ?? null,
@@ -120,14 +120,21 @@ class HardwareBuildingService
             } else {
                 // Auto-create from sale items
                 foreach ($sale->items as $saleItem) {
+                    $weight = $saleItem->weight_kg;
+                    $product = $saleItem->product ?? Product::find($saleItem->product_id);
+                    if (($weight === null || (float) $weight === 0.0) && $product) {
+                        $calc = $this->calculateDimensionalDetails($product, (float) $saleItem->quantity, $saleItem->dimensional_unit ?: $saleItem->unit_code);
+                        $weight = $calc['weight_kg'] > 0 ? $calc['weight_kg'] : null;
+                    }
+
                     $challan->items()->create([
                         'sale_item_id' => $saleItem->id,
                         'product_id' => $saleItem->product_id,
                         'product_name' => $saleItem->product_name,
                         'ordered_quantity' => (float) $saleItem->quantity,
                         'dispatched_quantity' => (float) $saleItem->quantity,
-                        'unit_code' => $saleItem->unit_code ?: ($saleItem->product?->unit ?: 'pcs'),
-                        'weight_kg' => $saleItem->weight_kg,
+                        'unit_code' => $saleItem->unit_code ?: ($product?->unit ?: 'pcs'),
+                        'weight_kg' => $weight,
                     ]);
                 }
             }
@@ -180,12 +187,14 @@ class HardwareBuildingService
             ],
             'total_billed_minor' => $totalBilledMinor,
             'total_receivable_minor' => $creditSalesMinor,
-            'total_paid_cash_minor' => $cashSalesMinor,
+            'credit_receivable_minor' => $creditSalesMinor,
+            'cash_paid_minor' => $cashSalesMinor,
             'sales_count' => $sales->count(),
+            'delivery_challans_count' => $challansCount,
             'summary' => [
                 'total_billed_minor' => $totalBilledMinor,
-                'credit_receivable_minor' => $creditSalesMinor,
                 'total_receivable_minor' => $creditSalesMinor,
+                'credit_receivable_minor' => $creditSalesMinor,
                 'cash_paid_minor' => $cashSalesMinor,
                 'sales_count' => $sales->count(),
                 'delivery_challans_count' => $challansCount,
@@ -194,3 +203,4 @@ class HardwareBuildingService
         ];
     }
 }
+

@@ -20,7 +20,9 @@ class DeliveryChallanWebController extends Controller
 
     public function index(Request $request): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $status = $request->query('status');
 
         $query = DeliveryChallan::where('tenant_id', $tenantId)
@@ -45,7 +47,9 @@ class DeliveryChallanWebController extends Controller
 
     public function show(Request $request, string $id): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $challan = DeliveryChallan::where('tenant_id', $tenantId)
             ->with(['contractorProject.customer', 'sale.customer', 'items.product', 'tenant', 'location'])
             ->findOrFail($id);
@@ -57,7 +61,9 @@ class DeliveryChallanWebController extends Controller
 
     public function updateStatus(Request $request, string $id): RedirectResponse
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $challan = DeliveryChallan::where('tenant_id', $tenantId)->findOrFail($id);
 
         $validated = $request->validate([

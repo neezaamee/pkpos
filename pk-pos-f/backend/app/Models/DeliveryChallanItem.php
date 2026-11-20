@@ -29,42 +29,6 @@ class DeliveryChallanItem extends Model
         'weight_kg' => 'decimal:3',
     ];
 
-    protected $appends = [
-        'quantity_dispatched',
-        'quantity_ordered',
-        'unit',
-    ];
-
-    public function getQuantityDispatchedAttribute()
-    {
-        return $this->attributes['dispatched_quantity'] ?? 0;
-    }
-
-    public function setQuantityDispatchedAttribute($value): void
-    {
-        $this->attributes['dispatched_quantity'] = $value;
-    }
-
-    public function getQuantityOrderedAttribute()
-    {
-        return $this->attributes['ordered_quantity'] ?? 0;
-    }
-
-    public function setQuantityOrderedAttribute($value): void
-    {
-        $this->attributes['ordered_quantity'] = $value;
-    }
-
-    public function getUnitAttribute(): string
-    {
-        return $this->attributes['unit_code'] ?? 'pcs';
-    }
-
-    public function setUnitAttribute($value): void
-    {
-        $this->attributes['unit_code'] = $value;
-    }
-
     public function deliveryChallan(): BelongsTo
     {
         return $this->belongsTo(DeliveryChallan::class, 'delivery_challan_id');
@@ -79,4 +43,10 @@ class DeliveryChallanItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function getQuantityDispatchedAttribute(): ?float
+    {
+        return isset($this->attributes['dispatched_quantity']) ? (float) $this->attributes['dispatched_quantity'] : null;
+    }
 }
+

@@ -16,9 +16,9 @@ class NarcoticWebController extends Controller
      */
     public function index(Request $request): Response
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         $search = $request->query('search');
         $from = $request->query('from', now()->startOfMonth()->toDateString());
         $to = $request->query('to', now()->toDateString());
@@ -73,10 +73,6 @@ class NarcoticWebController extends Controller
 
     protected function authorizeAccess(Request $request): void
     {
-        abort_unless(
-            in_array($request->user()->role, ['owner', 'manager']),
-            403,
-            'Unauthorized. Requires owner or manager role.'
-        );
+        $this->authorizeStaffOrSuperAdmin($request);
     }
 }

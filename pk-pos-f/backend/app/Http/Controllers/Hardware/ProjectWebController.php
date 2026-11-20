@@ -19,7 +19,9 @@ class ProjectWebController extends Controller
 
     public function index(Request $request): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $customerId = $request->query('customer_id');
 
         $query = ContractorProject::where('tenant_id', $tenantId)
@@ -44,7 +46,9 @@ class ProjectWebController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
 
         $validated = $request->validate([
             'customer_id' => ['required', 'uuid', 'exists:customers,id'],
@@ -69,7 +73,9 @@ class ProjectWebController extends Controller
 
     public function show(Request $request, string $id): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $project = ContractorProject::where('tenant_id', $tenantId)->with('customer')->findOrFail($id);
 
         $ledger = $this->hardwareService->getProjectSiteLedger($project);

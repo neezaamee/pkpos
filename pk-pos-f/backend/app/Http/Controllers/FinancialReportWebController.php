@@ -15,7 +15,9 @@ class FinancialReportWebController extends Controller
      */
     public function trialBalance(Request $request, FinancialReportService $reportService, AccountingService $accountingService): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $accountingService->provisionDefaultChartOfAccounts($tenant);
 
         $asOfDate = $request->query('as_of_date') ?? now()->toDateString();
@@ -34,7 +36,9 @@ class FinancialReportWebController extends Controller
      */
     public function profitAndLoss(Request $request, FinancialReportService $reportService, AccountingService $accountingService): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $accountingService->provisionDefaultChartOfAccounts($tenant);
 
         $startDate = $request->query('start_date') ?? now()->startOfMonth()->toDateString();
@@ -56,7 +60,9 @@ class FinancialReportWebController extends Controller
      */
     public function balanceSheet(Request $request, FinancialReportService $reportService, AccountingService $accountingService): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $accountingService->provisionDefaultChartOfAccounts($tenant);
 
         $asOfDate = $request->query('as_of_date') ?? now()->toDateString();

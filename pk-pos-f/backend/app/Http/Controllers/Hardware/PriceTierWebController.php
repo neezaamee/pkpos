@@ -14,7 +14,9 @@ class PriceTierWebController extends Controller
 {
     public function index(Request $request): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $productId = $request->query('product_id');
 
         $query = ProductPriceTier::where('tenant_id', $tenantId)
@@ -40,7 +42,9 @@ class PriceTierWebController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
 
         $validated = $request->validate([
             'product_id' => ['required', 'uuid', 'exists:products,id'],
@@ -61,7 +65,9 @@ class PriceTierWebController extends Controller
 
     public function destroy(Request $request, string $id): RedirectResponse
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $tier = ProductPriceTier::where('tenant_id', $tenantId)->findOrFail($id);
         $tier->delete();
 

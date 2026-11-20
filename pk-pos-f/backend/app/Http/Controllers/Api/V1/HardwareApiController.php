@@ -17,7 +17,8 @@ class HardwareApiController extends Controller
 {
     public function __construct(
         protected HardwareBuildingService $hardwareService
-    ) {}
+    ) {
+    }
 
     /**
      * Get active construction projects / sites for a specific contractor / customer.
@@ -193,3 +194,4 @@ class HardwareApiController extends Controller
         ]);
     }
 }
+

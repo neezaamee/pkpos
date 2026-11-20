@@ -16,9 +16,9 @@ class ReceiptTemplateWebController extends Controller
      */
     public function edit(Request $request): Response
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         $template = ReceiptTemplate::forTenant($tenant);
 
         return Inertia::render('Settings/ReceiptTemplate', [
@@ -38,9 +38,9 @@ class ReceiptTemplateWebController extends Controller
      */
     public function update(Request $request): RedirectResponse
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         $template = ReceiptTemplate::forTenant($tenant);
 
         $validated = $request->validate([
@@ -74,10 +74,6 @@ class ReceiptTemplateWebController extends Controller
      */
     protected function authorizeAccess(Request $request): void
     {
-        abort_unless(
-            in_array($request->user()->role, ['owner', 'manager']),
-            403,
-            'Unauthorized. Requires owner or manager role.'
-        );
+        $this->authorizeStaffOrSuperAdmin($request);
     }
 }

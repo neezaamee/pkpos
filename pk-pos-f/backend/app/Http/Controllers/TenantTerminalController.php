@@ -19,8 +19,10 @@ class TenantTerminalController extends Controller
      */
     public function index(Request $request): Response
     {
-        $tenantId = Auth::user()->tenant_id;
-        $tenant = Auth::user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
+        $tenantId = $tenant->id;
 
         $fifteenMinutesAgo = now()->subMinutes(15);
 
@@ -85,11 +87,9 @@ class TenantTerminalController extends Controller
      */
     public function generatePairingCode(Request $request): RedirectResponse
     {
-        $tenant = Auth::user()->tenant;
-        if (! $tenant) {
-            abort(403, 'No merchant tenant associated with this account.');
-        }
+        $this->authorizeStaffOrSuperAdmin($request);
 
+        $tenant = $this->requireTenant($request);
         if (! $tenant->canAddTerminal()) {
             $limit = $tenant->currentPlan()?->max_terminals ?? 1;
             return back()->with('error', "Terminal quota reached. Your current plan allows a maximum of {$limit} active terminals.");
@@ -146,7 +146,9 @@ class TenantTerminalController extends Controller
      */
     public function regeneratePairingCode(Request $request, string $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $terminal = PosTerminal::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->findOrFail($id);
@@ -165,9 +167,11 @@ class TenantTerminalController extends Controller
     /**
      * Delete or unpair a counter terminal.
      */
-    public function destroy(string $id): RedirectResponse
+    public function destroy(Request $request, string $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $terminal = PosTerminal::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->findOrFail($id);

@@ -18,7 +18,9 @@ class FloorAndTableWebController extends Controller
      */
     public function index(Request $request): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $locationId = $request->query('location_id') ?? $tenant->locations()->first()?->id;
 
         $floors = RestaurantFloor::where('tenant_id', $tenant->id)
@@ -50,7 +52,9 @@ class FloorAndTableWebController extends Controller
      */
     public function storeFloor(Request $request): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
 
         $validated = $request->validate([
             'location_id' => ['required', 'uuid', 'exists:locations,id'],
@@ -76,7 +80,9 @@ class FloorAndTableWebController extends Controller
      */
     public function storeTable(Request $request): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
 
         $validated = $request->validate([
             'location_id' => ['required', 'uuid', 'exists:locations,id'],
@@ -105,7 +111,9 @@ class FloorAndTableWebController extends Controller
      */
     public function updateTable(Request $request, string $id): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $table = RestaurantTable::where('tenant_id', $tenant->id)->findOrFail($id);
 
         $validated = $request->validate([
@@ -126,7 +134,9 @@ class FloorAndTableWebController extends Controller
      */
     public function destroyTable(Request $request, string $id): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $table = RestaurantTable::where('tenant_id', $tenant->id)->findOrFail($id);
         $table->delete();
 

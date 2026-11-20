@@ -42,42 +42,6 @@ class DeliveryChallan extends Model
         'delivered_at' => 'datetime',
     ];
 
-    protected $appends = [
-        'freight_terms',
-        'freight_amount_minor',
-        'site_destination',
-    ];
-
-    public function getFreightTermsAttribute(): string
-    {
-        return $this->attributes['freight_payment_type'] ?? 'to_pay_customer';
-    }
-
-    public function setFreightTermsAttribute($value): void
-    {
-        $this->attributes['freight_payment_type'] = $value;
-    }
-
-    public function getFreightAmountMinorAttribute(): int
-    {
-        return (int) ($this->attributes['freight_minor'] ?? 0);
-    }
-
-    public function setFreightAmountMinorAttribute($value): void
-    {
-        $this->attributes['freight_minor'] = (int) $value;
-    }
-
-    public function getSiteDestinationAttribute(): ?string
-    {
-        return $this->attributes['destination_site'] ?? null;
-    }
-
-    public function setSiteDestinationAttribute($value): void
-    {
-        $this->attributes['destination_site'] = $value;
-    }
-
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
@@ -118,4 +82,20 @@ class DeliveryChallan extends Model
             'delivered_at' => now(),
         ]);
     }
+
+    public function getFreightTermsAttribute(): ?string
+    {
+        return $this->attributes['freight_payment_type'] ?? null;
+    }
+
+    public function getFreightAmountMinorAttribute(): int
+    {
+        return (int) ($this->attributes['freight_minor'] ?? 0);
+    }
+
+    public function getSiteDestinationAttribute(): ?string
+    {
+        return $this->attributes['destination_site'] ?? null;
+    }
 }
+

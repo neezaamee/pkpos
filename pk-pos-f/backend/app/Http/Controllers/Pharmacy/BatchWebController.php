@@ -24,9 +24,9 @@ class BatchWebController extends Controller
      */
     public function index(Request $request): Response
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         $filter = $request->query('filter', 'all'); // 'all', 'expiring_30', 'expiring_60', 'expiring_90', 'expired', 'quarantined'
         $search = $request->query('search');
 
@@ -123,9 +123,9 @@ class BatchWebController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
 
         $validated = $request->validate([
             'product_id' => ['required', 'uuid', 'exists:products,id'],
@@ -151,9 +151,9 @@ class BatchWebController extends Controller
      */
     public function update(Request $request, string $id): RedirectResponse
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         $batch = ProductBatch::where('tenant_id', $tenant->id)->where('id', $id)->firstOrFail();
 
         $validated = $request->validate([
@@ -174,9 +174,9 @@ class BatchWebController extends Controller
      */
     public function quarantineExpired(Request $request): RedirectResponse
     {
-        $this->authorizeAccess($request);
+        $this->authorizeStaffOrSuperAdmin($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         $count = $this->batchService->quarantineExpiredBatches($tenant);
 
         return redirect()->back()->with('success', "{$count} expired batches quarantined successfully.");
@@ -184,10 +184,6 @@ class BatchWebController extends Controller
 
     protected function authorizeAccess(Request $request): void
     {
-        abort_unless(
-            in_array($request->user()->role, ['owner', 'manager']),
-            403,
-            'Unauthorized. Requires owner or manager role.'
-        );
+        $this->authorizeStaffOrSuperAdmin($request);
     }
 }

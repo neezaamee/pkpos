@@ -57,7 +57,7 @@ class ProductWebController extends Controller
     {
         $this->authorizeAccess($request);
 
-        $tenant = $request->user()->tenant;
+        $tenant = $this->requireTenant($request);
         if ($tenant && ! $tenant->canAddProduct()) {
             $limit = $tenant->currentPlan()?->max_skus ?? 1;
             return back()->with('error', "Product catalog quota exceeded. Your plan allows a maximum of {$limit} SKUs.");
@@ -82,9 +82,9 @@ class ProductWebController extends Controller
         $priceMinor = (int) round($validated['price_in_pkr'] * 100);
         $costMinor = isset($validated['cost_in_pkr']) ? (int) round($validated['cost_in_pkr'] * 100) : null;
 
-        DB::transaction(function () use ($validated, $priceMinor, $costMinor, $request) {
+        DB::transaction(function () use ($validated, $priceMinor, $costMinor, $tenant) {
             $product = Product::create([
-                'tenant_id' => $request->user()->tenant_id,
+                'tenant_id' => $tenant->id,
                 'name' => $validated['name'],
                 'sku' => $validated['sku'] ?? null,
                 'barcode' => $validated['barcode'] ?? null,
@@ -100,7 +100,7 @@ class ProductWebController extends Controller
                 foreach ($validated['variants'] as $v) {
                     $variantOverride = isset($v['price_override_in_pkr']) ? (int) round($v['price_override_in_pkr'] * 100) : null;
                     ProductVariant::create([
-                        'tenant_id' => $request->user()->tenant_id,
+                        'tenant_id' => $tenant->id,
                         'product_id' => $product->id,
                         'name' => $v['name'],
                         'sku' => $v['sku'] ?? null,
@@ -196,10 +196,6 @@ class ProductWebController extends Controller
      */
     protected function authorizeAccess(Request $request): void
     {
-        abort_unless(
-            in_array($request->user()->role, ['owner', 'manager']),
-            403,
-            'Unauthorized. Requires owner or manager role.'
-        );
+        $this->authorizeStaffOrSuperAdmin($request);
     }
 }

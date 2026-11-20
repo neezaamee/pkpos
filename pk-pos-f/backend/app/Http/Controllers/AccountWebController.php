@@ -17,7 +17,9 @@ class AccountWebController extends Controller
      */
     public function index(Request $request, AccountingService $accountingService): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $accountingService->provisionDefaultChartOfAccounts($tenant);
 
         $type = $request->query('type');
@@ -64,7 +66,9 @@ class AccountWebController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
 
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:accounts,code,NULL,id,tenant_id,' . $tenantId],
@@ -92,7 +96,9 @@ class AccountWebController extends Controller
      */
     public function show(Request $request, string $id, FinancialReportService $reportService): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $account = Account::where('tenant_id', $tenantId)->findOrFail($id);
 
         $startDate = $request->query('start_date');
@@ -114,7 +120,9 @@ class AccountWebController extends Controller
      */
     public function sync(Request $request, AccountingService $accountingService): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $results = $accountingService->syncExistingTransactions($tenant);
 
         return redirect()->route('accounts.index')->with('success', "Historical sync completed: {$results['sales_synced']} sales, {$results['returns_synced']} returns, {$results['grn_synced']} GRN purchases synchronized to the General Ledger.");

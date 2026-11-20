@@ -17,7 +17,9 @@ class JournalEntryWebController extends Controller
      */
     public function index(Request $request): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $sourceType = $request->query('source_type');
         $status = $request->query('status');
         $search = $request->query('search');
@@ -67,7 +69,9 @@ class JournalEntryWebController extends Controller
      */
     public function create(Request $request): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
         $accounts = Account::where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->orderBy('code')
@@ -83,7 +87,9 @@ class JournalEntryWebController extends Controller
      */
     public function store(Request $request, AccountingService $accountingService): RedirectResponse
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
 
         $validated = $request->validate([
             'entry_date' => ['required', 'date'],
@@ -113,7 +119,7 @@ class JournalEntryWebController extends Controller
             ])->withInput();
         }
 
-        $entry = $accountingService->postManualJournal($validated, $request->user());
+        $entry = $accountingService->postManualJournal($validated, $request->user(), $tenantId);
 
         return redirect()->route('journal-entries.show', $entry->id)
             ->with('success', "Journal Entry #{$entry->entry_number} posted successfully.");
@@ -124,7 +130,9 @@ class JournalEntryWebController extends Controller
      */
     public function show(Request $request, string $id): Response
     {
-        $tenantId = $request->user()->tenant_id;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenantId = $this->requireTenant($request)->id;
 
         $entry = JournalEntry::where('tenant_id', $tenantId)
             ->with(['createdByUser:id,name', 'lines.account:id,code,name,type,normal_balance'])

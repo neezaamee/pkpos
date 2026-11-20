@@ -844,9 +844,9 @@ class AccountingService
     /**
      * Post a Manual Journal Entry created by accountant / store manager.
      */
-    public function postManualJournal(array $data, User $user): JournalEntry
+    public function postManualJournal(array $data, User $user, ?string $tenantId = null): JournalEntry
     {
-        $tenantId = $user->tenant_id;
+        $tenantId = $tenantId ?? $user->tenant_id;
 
         return DB::transaction(function () use ($data, $user, $tenantId) {
             $entryNumber = $this->generateEntryNumber($tenantId);

@@ -38,7 +38,7 @@ class CreateSaleAction
                 }
             }
 
-            if (! empty($payments) && is_array($payments)) {
+            if (!empty($payments) && is_array($payments)) {
                 if (count($payments) > 1) {
                     $data['payment_method'] = 'split';
                 } elseif (empty($data['payment_method'])) {
@@ -46,7 +46,7 @@ class CreateSaleAction
                 }
             }
 
-            if (! isset($data['subtotal_minor']) || ! isset($data['total_minor'])) {
+            if (!isset($data['subtotal_minor']) || !isset($data['total_minor'])) {
                 $subtotal = 0;
                 $tax = 0;
                 $total = 0;
@@ -75,15 +75,6 @@ class CreateSaleAction
 
             $data['status'] = $data['status'] ?? 'completed';
 
-            // Auto-populate contractor project site name if project specified
-            if (! empty($data['contractor_project_id']) && empty($data['project_site_name'])) {
-                $proj = \App\Models\ContractorProject::find($data['contractor_project_id']);
-                if ($proj) {
-                    $data['project_site_name'] = $proj->name;
-                    $data['customer_id'] = $data['customer_id'] ?? $proj->customer_id;
-                }
-            }
-
             if (empty($data['sale_number'])) {
                 $date = now()->format('Ymd');
                 $rand = strtoupper(substr(bin2hex(random_bytes(3)), 0, 4));
@@ -99,7 +90,7 @@ class CreateSaleAction
 
             foreach ($items as $item) {
                 $prod = null;
-                if (! empty($item['product_id'])) {
+                if (!empty($item['product_id'])) {
                     $prod = Product::find($item['product_id']);
                 }
 
@@ -123,7 +114,7 @@ class CreateSaleAction
 
                 // Batch & FEFO resolution:
                 $batch = null;
-                if (! empty($item['batch_id'])) {
+                if (!empty($item['batch_id'])) {
                     $batch = \App\Models\ProductBatch::find($item['batch_id']);
                 } elseif ($prod) {
                     $batch = $prod->fefoBatch($sale->location_id);
@@ -145,25 +136,10 @@ class CreateSaleAction
                 $item['cooking_notes'] = $item['cooking_notes'] ?? null;
                 $item['kitchen_station_id'] = $item['kitchen_station_id'] ?? $prod?->kitchen_station_id ?? null;
 
-                // Hardware & Building dimensional tracking
-                $dimUnit = $item['dimensional_unit'] ?? $prod?->dimensional_unit ?? null;
-                $dimQty = isset($item['dimensional_quantity']) ? (float) $item['dimensional_quantity'] : $qty;
-                $weightKg = isset($item['weight_kg']) ? (float) $item['weight_kg'] : null;
-
-                if ($weightKg === null && $prod) {
-                    $dimDetails = app(\App\Services\Hardware\HardwareBuildingService::class)->calculateDimensionalDetails($prod, $qty, $dimUnit);
-                    $weightKg = $dimDetails['weight_kg'] ?: null;
-                }
-
-                $item['dimensional_unit'] = $dimUnit;
-                $item['dimensional_quantity'] = $dimQty;
-                $item['weight_kg'] = $weightKg;
-                $item['contractor_project_id'] = $item['contractor_project_id'] ?? $sale->contractor_project_id ?? null;
-
                 $sale->items()->create($item);
 
                 // Auto-deduct inventory in base units (taking conversion_factor into account)
-                if ($tenant && ! empty($item['product_id']) && ! empty($sale->location_id)) {
+                if ($tenant && !empty($item['product_id']) && !empty($sale->location_id)) {
                     $conversionFactor = (float) ($item['unit_conversion_factor'] ?? 1.0);
                     $deductedQty = ((float) $item['quantity']) * ($conversionFactor ?: 1.0);
 
@@ -194,7 +170,7 @@ class CreateSaleAction
             }
 
             // Record tender payment records (sale_payments)
-            if (! empty($payments) && is_array($payments)) {
+            if (!empty($payments) && is_array($payments)) {
                 foreach ($payments as $p) {
                     $sale->payments()->create([
                         'tenant_id' => $sale->tenant_id,
@@ -243,7 +219,7 @@ class CreateSaleAction
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if (! $customer->canAcceptCredit($creditAmount)) {
+                if (!$customer->canAcceptCredit($creditAmount)) {
                     $limitRs = number_format($customer->credit_limit_minor / 100);
                     $balanceRs = number_format($customer->current_balance_minor / 100);
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -269,7 +245,7 @@ class CreateSaleAction
                 ]);
             }
 
-            if (! empty($prescriptionData)) {
+            if (!empty($prescriptionData)) {
                 $batchService->recordPrescriptionAndNarcotics($tenant, $sale, $prescriptionData, $resolvedUserId);
             }
 
@@ -291,22 +267,13 @@ class CreateSaleAction
                 }
             }
 
-            // Hardware & Building Delivery Challan Dispatch
-            $createChallan = $data['create_delivery_challan'] ?? (! empty($data['delivery_challan']));
-            if ($createChallan) {
-                $challanData = (array) ($data['delivery_challan'] ?? []);
+            // Hardware Delivery Challan Auto-Dispatch
+            if (!empty($data['create_delivery_challan'])) {
+                $challanData = is_array($data['delivery_challan'] ?? null) ? $data['delivery_challan'] : [];
                 app(\App\Services\Hardware\HardwareBuildingService::class)->createDeliveryChallan($sale, $challanData);
             }
 
-            return $sale->load([
-                'items.batch',
-                'payments',
-                'prescription.narcoticEntries',
-                'kitchenOrders.items',
-                'restaurantTable',
-                'contractorProject',
-                'deliveryChallans.items',
-            ]);
+            return $sale->load(['items.batch', 'payments', 'prescription.narcoticEntries', 'kitchenOrders.items', 'restaurantTable', 'deliveryChallans']);
         });
     }
 }

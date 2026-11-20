@@ -14,7 +14,9 @@ class ModifierWebController extends Controller
 {
     public function index(Request $request): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
 
         $groups = ModifierGroup::where('tenant_id', $tenant->id)
             ->with(['options' => fn ($q) => $q->orderBy('sort_order')])
@@ -29,7 +31,9 @@ class ModifierWebController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
@@ -62,7 +66,9 @@ class ModifierWebController extends Controller
 
     public function destroy(Request $request, string $id): RedirectResponse
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $group = ModifierGroup::where('tenant_id', $tenant->id)->findOrFail($id);
         $group->delete();
 

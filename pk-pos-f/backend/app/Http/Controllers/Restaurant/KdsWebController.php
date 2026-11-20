@@ -20,7 +20,9 @@ class KdsWebController extends Controller
      */
     public function index(Request $request): Response
     {
-        $tenant = $request->user()->tenant;
+        $this->authorizeStaffOrSuperAdmin($request);
+
+        $tenant = $this->requireTenant($request);
         $locationId = $request->query('location_id') ?? $tenant->locations()->first()?->id;
         $stationId = $request->query('station_id');
 
