@@ -256,7 +256,7 @@ class ProductController extends Controller
         $tenant = $tenant ?? $request->user()?->tenant ?? \App\Models\Tenant::first();
 
         $query = Product::withoutGlobalScopes()
-            ->with(['variants', 'uomConversions'])
+            ->with(['variants', 'uomConversions', 'modifierGroups.options'])
             ->where('is_active', true);
 
         if ($tenant) {
@@ -331,6 +331,20 @@ class ProductController extends Controller
                     'barcode' => $u->barcode,
                     'conversion_factor' => (float) $u->conversion_factor,
                     'price_minor' => (int) $u->price_minor,
+                ])->values(),
+                'kitchen_station_id' => $product->kitchen_station_id,
+                'preparation_time_minutes' => $product->preparation_time_minutes,
+                'is_kitchen_item' => (bool) $product->is_kitchen_item,
+                'modifier_groups' => $product->modifierGroups->map(fn ($mg) => [
+                    'id' => $mg->id,
+                    'name' => $mg->name,
+                    'min_selections' => $mg->min_selections,
+                    'max_selections' => $mg->max_selections,
+                    'options' => $mg->options->where('is_active', true)->map(fn ($opt) => [
+                        'id' => $opt->id,
+                        'name' => $opt->name,
+                        'price_override_minor' => (int) $opt->price_override_minor,
+                    ])->values(),
                 ])->values(),
                 'updated_at' => $product->updated_at->toIso8601String(),
             ];

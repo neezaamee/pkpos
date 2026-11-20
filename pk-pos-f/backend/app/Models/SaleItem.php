@@ -35,6 +35,9 @@ class SaleItem extends Model
         'batch_id',
         'batch_number',
         'expiry_date',
+        'selected_modifiers',
+        'cooking_notes',
+        'kitchen_station_id',
     ];
 
     /**
@@ -53,6 +56,7 @@ class SaleItem extends Model
             'line_total_minor' => 'integer',
             'discount_amount_minor' => 'integer',
             'expiry_date' => 'date',
+            'selected_modifiers' => 'array',
         ];
     }
 
@@ -98,5 +102,10 @@ class SaleItem extends Model
     public function batch(): BelongsTo
     {
         return $this->belongsTo(ProductBatch::class, 'batch_id');
+    }
+
+    public function kitchenStation(): BelongsTo
+    {
+        return $this->belongsTo(KitchenStation::class, 'kitchen_station_id');
     }
 }

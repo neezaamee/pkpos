@@ -1,8 +1,38 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem, SplitPaymentItem, ProductBatchItem, PrescriptionData } from '../types/pos';
+import type {
+  CachedProduct,
+  CartItem,
+  CustomerProfile,
+  PaymentMethod,
+  ProcessResult,
+  ProductUomConversion,
+  ProductVariantItem,
+  SplitPaymentItem,
+  ProductBatchItem,
+  PrescriptionData,
+  OrderType,
+  RestaurantFloorItem,
+  RestaurantTableItem,
+  ModifierGroupItem,
+  SelectedModifier
+} from '../types/pos';
 import { formatPKR } from '../types/pos';
-import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer, verifyInvoiceForReturn, processSaleReturn, fetchReceiptTemplate, fetchProductBatches, type VerifyInvoiceResponse, type ReceiptTemplateData } from '../services/posService';
+import {
+  getCachedProducts,
+  getProductByBarcode,
+  processSale,
+  openCashDrawer,
+  searchCustomers,
+  createCustomer,
+  verifyInvoiceForReturn,
+  processSaleReturn,
+  fetchReceiptTemplate,
+  fetchProductBatches,
+  fetchRestaurantFloorsAndTables,
+  type VerifyInvoiceResponse,
+  type ReceiptTemplateData
+} from '../services/posService';
 
 interface HeldSale {
   id: string;
@@ -193,15 +223,205 @@ const completedResult = ref<{
   result: ProcessResult;
   totalMinor: number;
   subtotalMinor?: number;
+  serviceChargeMinor?: number;
   taxMinor?: number;
   tenderedMinor: number;
   changeMinor: number;
   paymentMethod: string;
+  orderType?: OrderType;
+  tableNumber?: string;
+  covers?: number;
+  serverName?: string;
+  deliveryAddress?: string;
   payments?: SplitPaymentItem[];
   items?: CartItem[];
   customer?: CustomerProfile | null;
   prescription?: PrescriptionData | null;
 } | null>(null);
+
+// Restaurant & Food Service Vertical State
+const orderType = ref<OrderType>('dine_in');
+const selectedTable = ref<RestaurantTableItem | null>(null);
+const covers = ref<number>(2);
+const serverName = ref<string>('Capt. Tariq');
+const serviceChargeBasisPoints = ref<number>(500); // 5% dine-in service charge
+const fireKotOnOrder = ref<boolean>(true);
+const deliveryAddress = ref<string>('');
+const deliveryRiderName = ref<string>('');
+
+const showTableModal = ref(false);
+const restaurantFloors = ref<RestaurantFloorItem[]>([]);
+const unassignedTables = ref<RestaurantTableItem[]>([]);
+const activeFloorTab = ref<string>('all');
+const isLoadingTables = ref(false);
+
+const filteredTables = computed(() => {
+  let tablesList: RestaurantTableItem[] = [];
+  if (activeFloorTab.value === 'all') {
+    restaurantFloors.value.forEach(f => {
+      if (f.tables) tablesList.push(...f.tables);
+    });
+    tablesList.push(...unassignedTables.value);
+  } else if (activeFloorTab.value === 'unassigned') {
+    tablesList = [...unassignedTables.value];
+  } else {
+    const floor = restaurantFloors.value.find(f => f.id === activeFloorTab.value);
+    tablesList = floor?.tables ? [...floor.tables] : [];
+  }
+  return tablesList;
+});
+
+async function loadRestaurantTables() {
+  isLoadingTables.value = true;
+  try {
+    const data = await fetchRestaurantFloorsAndTables();
+    restaurantFloors.value = data.floors || [];
+    unassignedTables.value = data.unassigned_tables || [];
+  } catch (err) {
+    console.error('Failed to load restaurant floors and tables:', err);
+  } finally {
+    isLoadingTables.value = false;
+  }
+}
+
+function openTablePickerModal() {
+  showTableModal.value = true;
+  loadRestaurantTables();
+}
+
+function selectTable(table: RestaurantTableItem) {
+  selectedTable.value = table;
+  showTableModal.value = false;
+}
+
+// Menu Modifiers & Cooking Notes State
+const showModifierModal = ref(false);
+const modifierProduct = ref<CachedProduct | null>(null);
+const selectedModifierOptions = ref<Record<string, string[]>>({});
+const modifierCookingNotes = ref<string>('');
+const modifierValidationErrors = ref<string[]>([]);
+
+function openModifierModal(product: CachedProduct) {
+  modifierProduct.value = product;
+  selectedModifierOptions.value = {};
+  modifierCookingNotes.value = '';
+  modifierValidationErrors.value = [];
+  if (product.modifier_groups) {
+    for (const group of product.modifier_groups) {
+      selectedModifierOptions.value[group.id] = [];
+      for (const opt of group.options || []) {
+        if (opt.is_default) {
+          selectedModifierOptions.value[group.id].push(opt.id);
+        }
+      }
+    }
+  }
+  showModifierModal.value = true;
+}
+
+function handleRadioModifier(groupId: string, optionId: string) {
+  selectedModifierOptions.value[groupId] = [optionId];
+}
+
+function handleCheckboxModifier(group: ModifierGroupItem, optionId: string, checked: boolean) {
+  const current = selectedModifierOptions.value[group.id] || [];
+  if (checked) {
+    if (group.max_selections && current.length >= group.max_selections) {
+      return;
+    }
+    selectedModifierOptions.value[group.id] = [...current, optionId];
+  } else {
+    selectedModifierOptions.value[group.id] = current.filter(id => id !== optionId);
+  }
+}
+
+const computedModifierTotal = computed(() => {
+  if (!modifierProduct.value) return 0;
+  let total = modifierProduct.value.price_minor;
+  if (modifierProduct.value.modifier_groups) {
+    for (const group of modifierProduct.value.modifier_groups) {
+      const chosenIds = selectedModifierOptions.value[group.id] || [];
+      for (const optId of chosenIds) {
+        const opt = group.options?.find(o => o.id === optId);
+        if (opt && opt.price_surcharge_minor) {
+          total += opt.price_surcharge_minor;
+        }
+      }
+    }
+  }
+  return total;
+});
+
+function confirmModifiersAndAddToCart() {
+  if (!modifierProduct.value) return;
+  modifierValidationErrors.value = [];
+
+  if (modifierProduct.value.modifier_groups) {
+    for (const group of modifierProduct.value.modifier_groups) {
+      const chosen = selectedModifierOptions.value[group.id] || [];
+      if (group.is_required && chosen.length === 0) {
+        modifierValidationErrors.value.push(`Please make a selection for required group: ${group.name}`);
+      }
+      if (group.min_selections > 0 && chosen.length < group.min_selections) {
+        modifierValidationErrors.value.push(`Minimum ${group.min_selections} selection(s) required for: ${group.name}`);
+      }
+    }
+  }
+
+  if (modifierValidationErrors.value.length > 0) {
+    return;
+  }
+
+  const selectedMods: SelectedModifier[] = [];
+  if (modifierProduct.value.modifier_groups) {
+    for (const group of modifierProduct.value.modifier_groups) {
+      const chosenIds = selectedModifierOptions.value[group.id] || [];
+      for (const optId of chosenIds) {
+        const opt = group.options?.find(o => o.id === optId);
+        if (opt) {
+          selectedMods.push({
+            modifier_group_id: group.id,
+            modifier_option_id: opt.id,
+            group_name: group.name,
+            option_name: opt.name,
+            price_surcharge_minor: opt.price_surcharge_minor || 0,
+          });
+        }
+      }
+    }
+  }
+
+  addToCart(
+    modifierProduct.value,
+    1,
+    undefined,
+    undefined,
+    selectedMods,
+    modifierCookingNotes.value.trim() || undefined
+  );
+
+  showModifierModal.value = false;
+  modifierProduct.value = null;
+}
+
+// Line Item Notes State
+const showItemNotesModal = ref(false);
+const itemForNotes = ref<CartItem | null>(null);
+const tempNotesInput = ref('');
+
+function openItemNotes(item: CartItem) {
+  itemForNotes.value = item;
+  tempNotesInput.value = item.cooking_notes || '';
+  showItemNotesModal.value = true;
+}
+
+function saveItemNotes() {
+  if (itemForNotes.value) {
+    itemForNotes.value.cooking_notes = tempNotesInput.value.trim() || undefined;
+  }
+  showItemNotesModal.value = false;
+  itemForNotes.value = null;
+}
 
 // Pharmacy & Medical Store Vertical State
 const showPrescriptionModal = ref(false);
@@ -298,8 +518,13 @@ const taxMinor = computed(() => {
   }, 0);
 });
 
+const serviceChargeMinor = computed(() => {
+  if (orderType.value !== 'dine_in' || serviceChargeBasisPoints.value <= 0) return 0;
+  return Math.round((discountedSubtotalMinor.value * serviceChargeBasisPoints.value) / 10000);
+});
+
 const totalMinor = computed(() => {
-  return discountedSubtotalMinor.value + taxMinor.value;
+  return discountedSubtotalMinor.value + serviceChargeMinor.value + taxMinor.value;
 });
 
 const changeDueMinor = computed(() => {
@@ -485,9 +710,11 @@ function handleSearchInput() {
   loadProducts(q);
 }
 
-// Product selection dispatcher: checks for variants first
+// Product selection dispatcher: checks for modifiers first, then variants
 function onProductClick(product: CachedProduct) {
-  if (product.variants && product.variants.length > 0) {
+  if (product.modifier_groups && product.modifier_groups.length > 0) {
+    openModifierModal(product);
+  } else if (product.variants && product.variants.length > 0) {
     selectedProductForVariants.value = product;
     showVariantModal.value = true;
   } else {
@@ -506,13 +733,17 @@ function addToCart(
   product: CachedProduct,
   quantity: number = 1,
   variant?: ProductVariantItem,
-  packUom?: ProductUomConversion
+  packUom?: ProductUomConversion,
+  selectedModifiers?: SelectedModifier[],
+  cookingNotes?: string
 ) {
   const existing = cart.value.find((item) => {
     const sameProd = item.product.id === product.id;
     const sameVar = variant ? item.variant?.id === variant.id : !item.variant;
     const sameUom = packUom ? item.selected_uom?.id === packUom.id : !item.selected_uom;
-    return sameProd && sameVar && sameUom;
+    const noMod = (!selectedModifiers || selectedModifiers.length === 0) && (!item.selected_modifiers || item.selected_modifiers.length === 0);
+    const noNotes = !cookingNotes && !item.cooking_notes;
+    return sameProd && sameVar && sameUom && noMod && noNotes;
   });
 
   const rate = product.tax_rate_basis_points || 1800;
@@ -524,6 +755,11 @@ function addToCart(
     unitPrice = packUom.price_minor;
     unitCode = packUom.unit_code;
     conversionFactor = packUom.conversion_factor;
+  }
+
+  if (selectedModifiers && selectedModifiers.length > 0) {
+    const surcharge = selectedModifiers.reduce((acc, m) => acc + (m.price_surcharge_minor || 0), 0);
+    unitPrice += surcharge;
   }
 
   if (existing) {
@@ -546,6 +782,9 @@ function addToCart(
       batch_id: product.fefo_batch?.id,
       batch_number: product.fefo_batch?.batch_number,
       expiry_date: product.fefo_batch?.expiry_date,
+      selected_modifiers: selectedModifiers,
+      cooking_notes: cookingNotes,
+      kitchen_station_id: product.kitchen_station_id,
     };
     cart.value.push(newItem);
   }
@@ -806,6 +1045,9 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
     if (showSplitModal.value) { showSplitModal.value = false; focusSearch(); return; }
     if (showPrescriptionModal.value) { showPrescriptionModal.value = false; focusSearch(); return; }
     if (showBatchModal.value) { showBatchModal.value = false; selectedCartItemForBatch.value = null; focusSearch(); return; }
+    if (showTableModal.value) { showTableModal.value = false; focusSearch(); return; }
+    if (showModifierModal.value) { showModifierModal.value = false; modifierProduct.value = null; focusSearch(); return; }
+    if (showItemNotesModal.value) { showItemNotesModal.value = false; itemForNotes.value = null; focusSearch(); return; }
     searchQuery.value = '';
     focusSearch();
     return;
@@ -962,6 +1204,9 @@ async function handleCompleteSale() {
       batch_id: item.batch_id || item.product.fefo_batch?.id || undefined,
       batch_number: item.batch_number || item.product.fefo_batch?.batch_number || undefined,
       expiry_date: item.expiry_date || item.product.fefo_batch?.expiry_date || undefined,
+      selected_modifiers: item.selected_modifiers && item.selected_modifiers.length > 0 ? item.selected_modifiers : undefined,
+      cooking_notes: item.cooking_notes || undefined,
+      kitchen_station_id: item.kitchen_station_id || item.product.kitchen_station_id || undefined,
     }));
 
     const paymentsPayload = selectedPayment.value === 'split' && splitPaymentsApplied.value.length > 0
@@ -988,6 +1233,16 @@ async function handleCompleteSale() {
       discount_minor: discountMinor.value,
       tax_minor: taxMinor.value,
       total_minor: totalMinor.value,
+      order_type: orderType.value,
+      restaurant_table_id: selectedTable.value?.id || undefined,
+      table_number: selectedTable.value?.table_number || undefined,
+      server_name: serverName.value || undefined,
+      covers: orderType.value === 'dine_in' ? covers.value : undefined,
+      service_charge_basis_points: orderType.value === 'dine_in' ? serviceChargeBasisPoints.value : 0,
+      service_charge_minor: serviceChargeMinor.value,
+      delivery_address: orderType.value === 'delivery' ? deliveryAddress.value : undefined,
+      delivery_rider_name: orderType.value === 'delivery' ? deliveryRiderName.value : undefined,
+      fire_kot: fireKotOnOrder.value,
       customer_id: selectedCustomer.value?.id || undefined,
       buyer_name: selectedCustomer.value?.name || customerDetails.value.name || undefined,
       buyer_phone: selectedCustomer.value?.phone || undefined,
@@ -1030,10 +1285,16 @@ async function handleCompleteSale() {
       result: res,
       totalMinor: totalMinor.value,
       subtotalMinor: subtotalMinor.value,
+      serviceChargeMinor: serviceChargeMinor.value,
       taxMinor: taxMinor.value,
       tenderedMinor,
       changeMinor: changeDueMinor.value,
       paymentMethod: selectedPayment.value === 'split' ? 'Split Payment' : selectedPayment.value,
+      orderType: orderType.value,
+      tableNumber: selectedTable.value?.table_number,
+      covers: covers.value,
+      serverName: serverName.value,
+      deliveryAddress: deliveryAddress.value,
       payments: paymentsPayload,
       items: [...cart.value],
       customer: selectedCustomer.value || null,
@@ -1064,6 +1325,9 @@ function closeConfirmationModal() {
     prescription_date: new Date().toISOString().split('T')[0],
     diagnosis_notes: '',
   };
+  selectedTable.value = null;
+  deliveryAddress.value = '';
+  deliveryRiderName.value = '';
   selectedPayment.value = 'cash';
   mobileSection.value = 'products';
   clearCart();
@@ -1072,6 +1336,7 @@ function closeConfirmationModal() {
 onMounted(() => {
   loadProducts();
   loadHeldSalesFromStorage();
+  loadRestaurantTables();
   fetchReceiptTemplate().then(data => {
     if (data) receiptTemplateData.value = data;
   });
@@ -1155,6 +1420,102 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Restaurant & Food Service Operations Bar -->
+    <div class="restaurant-order-type-bar">
+      <div class="order-type-selector">
+        <button
+          type="button"
+          class="ot-btn"
+          :class="{ active: orderType === 'dine_in' }"
+          @click="orderType = 'dine_in'"
+        >
+          <span>🍽️</span> Dine-In
+        </button>
+        <button
+          type="button"
+          class="ot-btn"
+          :class="{ active: orderType === 'takeaway' }"
+          @click="orderType = 'takeaway'"
+        >
+          <span>🥡</span> Takeaway
+        </button>
+        <button
+          type="button"
+          class="ot-btn"
+          :class="{ active: orderType === 'delivery' }"
+          @click="orderType = 'delivery'"
+        >
+          <span>🛵</span> Delivery
+        </button>
+      </div>
+
+      <!-- Dine-In Controls -->
+      <div v-if="orderType === 'dine_in'" class="dine-in-meta-row">
+        <button
+          type="button"
+          class="table-select-pill"
+          :class="{ 'has-table': !!selectedTable }"
+          @click="openTablePickerModal"
+        >
+          <span class="table-icon">🪑</span>
+          <span v-if="selectedTable" class="table-name">
+            {{ selectedTable.table_number }} <span v-if="selectedTable.floor">({{ selectedTable.floor.name }})</span>
+          </span>
+          <span v-else class="table-placeholder">Select Table</span>
+          <span v-if="selectedTable" class="table-seats">{{ selectedTable.seating_capacity }} Seats</span>
+        </button>
+        <button
+          v-if="selectedTable"
+          type="button"
+          class="clear-table-btn"
+          title="Clear Table Selection"
+          @click="selectedTable = null"
+        >
+          &times;
+        </button>
+
+        <div class="covers-control">
+          <span class="ctrl-label">Covers:</span>
+          <button type="button" class="stepper-btn" @click="covers = Math.max(1, covers - 1)">-</button>
+          <span class="covers-val">{{ covers }}</span>
+          <button type="button" class="stepper-btn" @click="covers = covers + 1">+</button>
+        </div>
+
+        <div class="server-attribution">
+          <span class="ctrl-label">Server:</span>
+          <input type="text" v-model="serverName" class="server-input" placeholder="Waiter Name" />
+        </div>
+
+        <div class="service-charge-pill" :title="`Service Charge: ${(serviceChargeBasisPoints / 100)}% on Dine-In`">
+          <span class="sc-badge">SC: {{ (serviceChargeBasisPoints / 100).toFixed(0) }}%</span>
+        </div>
+
+        <label class="kot-toggle-label" title="Fire KOT to Kitchen Stations on settlement">
+          <input type="checkbox" v-model="fireKotOnOrder" />
+          <span>🔥 Auto-Fire KOT</span>
+        </label>
+      </div>
+
+      <!-- Delivery Controls -->
+      <div v-else-if="orderType === 'delivery'" class="delivery-meta-row">
+        <input type="text" v-model="deliveryAddress" class="delivery-input" placeholder="Delivery Address..." />
+        <input type="text" v-model="deliveryRiderName" class="rider-input" placeholder="Rider / Partner Name" />
+        <label class="kot-toggle-label">
+          <input type="checkbox" v-model="fireKotOnOrder" />
+          <span>🔥 Auto-Fire KOT</span>
+        </label>
+      </div>
+
+      <!-- Takeaway Controls -->
+      <div v-else class="takeaway-meta-row">
+        <span class="takeaway-hint">🥡 Counter Pickup / Packing Order</span>
+        <label class="kot-toggle-label">
+          <input type="checkbox" v-model="fireKotOnOrder" />
+          <span>🔥 Auto-Fire KOT</span>
+        </label>
+      </div>
+    </div>
+
     <!-- 3-COLUMN MAIN WORKSPACE -->
     <div class="checkout-main-grid">
       <!-- COLUMN 1: Product Catalog & Search (~34% width) -->
@@ -1186,7 +1547,10 @@ onUnmounted(() => {
           >
             <div class="product-top">
               <span class="product-name">{{ product.name }}</span>
-              <span v-if="product.variants && product.variants.length > 0" class="variants-badge">
+              <span v-if="product.modifier_groups && product.modifier_groups.length > 0" class="variants-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">
+                Modifiers
+              </span>
+              <span v-else-if="product.variants && product.variants.length > 0" class="variants-badge">
                 {{ product.variants.length }} Variants
               </span>
               <span v-else class="tax-badge">{{ (product.tax_rate_basis_points / 100).toFixed(0) }}% Tax</span>
@@ -1335,6 +1699,30 @@ onUnmounted(() => {
                   {{ u.unit_code }} ({{ Number(u.conversion_factor) }})
                 </button>
               </div>
+
+              <!-- Modifiers & Cooking Notes Display & Action -->
+              <div v-if="item.selected_modifiers && item.selected_modifiers.length > 0" style="margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                <span
+                  v-for="mod in item.selected_modifiers"
+                  :key="mod.modifier_option_id"
+                  style="font-size: 0.68rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 1px 5px;"
+                >
+                  + {{ mod.option_name }} <span v-if="(mod.price_surcharge_minor ?? 0) > 0">({{ formatPKR(mod.price_surcharge_minor!) }})</span>
+                </span>
+              </div>
+              <div v-if="item.cooking_notes" style="font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem; font-style: italic;">
+                📝 "{{ item.cooking_notes }}"
+              </div>
+              <div style="margin-top: 0.35rem;">
+                <button
+                  type="button"
+                  style="font-size: 0.68rem; background: transparent; border: 1px dashed #64748b; color: #cbd5e1; border-radius: 4px; padding: 1px 6px; cursor: pointer;"
+                  title="Add or edit chef notes for this item"
+                  @click="openItemNotes(item)"
+                >
+                  📝 {{ item.cooking_notes ? 'Edit Notes' : '+ Chef Notes' }}
+                </button>
+              </div>
             </div>
 
             <div class="item-qty-controls">
@@ -1378,6 +1766,10 @@ onUnmounted(() => {
           <div v-if="discountPercent > 0" class="totals-row discount-row">
             <span class="total-label">Discount ({{ discountPercent }}%)</span>
             <span class="total-val">-{{ formatPKR(discountMinor) }}</span>
+          </div>
+          <div v-if="orderType === 'dine_in' && serviceChargeMinor > 0" class="totals-row service-charge-row">
+            <span class="total-label">Service Charge ({{ (serviceChargeBasisPoints / 100).toFixed(0) }}%)</span>
+            <span class="total-val">+{{ formatPKR(serviceChargeMinor) }}</span>
           </div>
           <div class="totals-row">
             <span class="total-label">Sales Tax (FBR GST)</span>
@@ -2435,6 +2827,225 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Restaurant Table Picker Modal -->
+    <div v-if="showTableModal" class="modal-overlay" @click.self="showTableModal = false">
+      <div class="modal-card" style="max-width: 760px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.4rem;">🪑</span>
+            <div>
+              <h3 class="modal-title" style="margin: 0;">Select Dining Table</h3>
+              <p class="modal-sub" style="margin: 2px 0 0 0;">Assign table and covers for Dine-In order</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" @click="showTableModal = false">&times;</button>
+        </div>
+
+        <!-- Floor Filter Tabs -->
+        <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem; overflow-x: auto; padding-bottom: 0.25rem;">
+          <button
+            type="button"
+            class="s-pill"
+            :class="{ active: activeFloorTab === 'all' }"
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem;"
+            @click="activeFloorTab = 'all'"
+          >
+            All Floors
+          </button>
+          <button
+            v-for="floor in restaurantFloors"
+            :key="floor.id"
+            type="button"
+            class="s-pill"
+            :class="{ active: activeFloorTab === floor.id }"
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem;"
+            @click="activeFloorTab = floor.id"
+          >
+            {{ floor.name }} ({{ floor.tables?.length || 0 }})
+          </button>
+          <button
+            v-if="unassignedTables.length > 0"
+            type="button"
+            class="s-pill"
+            :class="{ active: activeFloorTab === 'unassigned' }"
+            style="font-size: 0.75rem; padding: 0.35rem 0.8rem;"
+            @click="activeFloorTab = 'unassigned'"
+          >
+            Unassigned ({{ unassignedTables.length }})
+          </button>
+        </div>
+
+        <!-- Tables Grid -->
+        <div v-if="isLoadingTables" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+          Loading dining tables...
+        </div>
+        <div v-else-if="filteredTables.length === 0" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+          No tables found for this floor. You can configure floors and tables in Admin > Restaurant > Floors & Tables.
+        </div>
+        <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; max-height: 380px; overflow-y: auto; padding: 0.25rem;">
+          <div
+            v-for="table in filteredTables"
+            :key="table.id"
+            style="background: #1e293b; border: 2px solid #334155; border-radius: 8px; padding: 0.75rem; cursor: pointer; transition: all 0.15s ease;"
+            :style="{
+              borderColor: selectedTable?.id === table.id ? '#38bdf8' : (table.status === 'occupied' ? '#ef4444' : (table.status === 'billed' ? '#f59e0b' : '#10b981')),
+              background: selectedTable?.id === table.id ? 'rgba(56, 189, 248, 0.15)' : '#1e293b'
+            }"
+            @click="selectTable(table)"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+              <span style="font-weight: 800; font-size: 1rem; color: #f8fafc;">{{ table.table_number }}</span>
+              <span
+                style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 1px 4px; border-radius: 3px;"
+                :style="{
+                  background: table.status === 'occupied' ? 'rgba(239, 68, 68, 0.2)' : (table.status === 'billed' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'),
+                  color: table.status === 'occupied' ? '#f87171' : (table.status === 'billed' ? '#fbbf24' : '#34d399')
+                }"
+              >
+                {{ table.status }}
+              </span>
+            </div>
+            <div style="font-size: 0.75rem; color: #94a3b8;">{{ table.floor?.name || 'Main Hall' }}</div>
+            <div style="font-size: 0.7rem; color: #64748b; margin-top: 0.35rem;">👥 {{ table.seating_capacity }} Covers</div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 0.75rem;">
+          <button
+            v-if="selectedTable"
+            type="button"
+            class="chip-btn"
+            style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);"
+            @click="selectedTable = null; showTableModal = false;"
+          >
+            Clear Selected Table
+          </button>
+          <div v-else></div>
+          <button type="button" class="secondary-btn" @click="showTableModal = false">
+            Close (Esc)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu Modifiers & Cooking Notes Modal -->
+    <div v-if="showModifierModal && modifierProduct" class="modal-overlay" @click.self="showModifierModal = false">
+      <div class="modal-card" style="max-width: 620px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <div>
+            <h3 class="modal-title" style="margin-bottom: 0.25rem;">Customize: {{ modifierProduct.name }}</h3>
+            <p class="modal-sub">Base Price: {{ formatPKR(modifierProduct.price_minor) }}</p>
+          </div>
+          <button class="modal-close-btn" @click="showModifierModal = false">&times;</button>
+        </div>
+
+        <div v-if="modifierValidationErrors.length > 0" style="margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 6px; color: #fca5a5; font-size: 0.8rem;">
+          <div v-for="err in modifierValidationErrors" :key="err">• {{ err }}</div>
+        </div>
+
+        <div style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; padding-right: 0.25rem;">
+          <!-- Modifier Groups -->
+          <div
+            v-for="group in modifierProduct.modifier_groups || []"
+            :key="group.id"
+            style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div>
+                <strong style="color: #f8fafc; font-size: 0.9rem;">{{ group.name }}</strong>
+                <span v-if="group.is_required" style="color: #ef4444; margin-left: 4px; font-size: 0.7rem; font-weight: 700;">*Required</span>
+              </div>
+              <span style="font-size: 0.7rem; color: #94a3b8;">
+                Select {{ group.min_selections > 0 ? `min ${group.min_selections}` : '' }}{{ group.max_selections ? ` max ${group.max_selections}` : '' }}
+              </span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+              <label
+                v-for="opt in group.options || []"
+                :key="opt.id"
+                style="display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; border-radius: 6px; background: #1e293b; border: 1px solid #334155; cursor: pointer;"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input
+                    v-if="group.max_selections === 1"
+                    type="radio"
+                    :name="'mod_group_' + group.id"
+                    :value="opt.id"
+                    :checked="selectedModifierOptions[group.id]?.includes(opt.id)"
+                    @change="handleRadioModifier(group.id, opt.id)"
+                  />
+                  <input
+                    v-else
+                    type="checkbox"
+                    :value="opt.id"
+                    :checked="selectedModifierOptions[group.id]?.includes(opt.id)"
+                    @change="handleCheckboxModifier(group, opt.id, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span style="color: #e2e8f0; font-size: 0.85rem;">{{ opt.name }}</span>
+                </div>
+                <span v-if="(opt.price_surcharge_minor ?? 0) > 0" style="color: #38bdf8; font-weight: 700; font-size: 0.8rem;">
+                  +{{ formatPKR(opt.price_surcharge_minor!) }}
+                </span>
+                <span v-else style="color: #64748b; font-size: 0.75rem;">Included</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Chef Cooking Notes -->
+          <div>
+            <label style="display: block; font-weight: 700; font-size: 0.85rem; color: #e2e8f0; margin-bottom: 0.35rem;">
+              📝 Kitchen / Cooking Notes:
+            </label>
+            <textarea
+              v-model="modifierCookingNotes"
+              rows="2"
+              placeholder="e.g., Less spicy, no onions, extra crispy, sauce on the side..."
+              class="pos-input"
+              style="width: 100%; box-sizing: border-box; resize: vertical; font-size: 0.85rem;"
+            ></textarea>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 0.75rem;">
+          <div style="font-size: 1rem; font-weight: 800; color: #34d399; font-family: var(--font-mono);">
+            Total: {{ formatPKR(computedModifierTotal) }}
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="secondary-btn" @click="showModifierModal = false">
+              Cancel
+            </button>
+            <button type="button" class="next-sale-btn" style="margin: 0; width: auto; padding: 0.5rem 1.25rem;" @click="confirmModifiersAndAddToCart">
+              Add to Basket
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Item Chef Notes Modal -->
+    <div v-if="showItemNotesModal && itemForNotes" class="modal-overlay" @click.self="showItemNotesModal = false">
+      <div class="modal-card" style="max-width: 480px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <h3 class="modal-title" style="margin: 0;">Chef Notes: {{ itemForNotes.product.name }}</h3>
+          <button class="modal-close-btn" @click="showItemNotesModal = false">&times;</button>
+        </div>
+        <div>
+          <textarea
+            v-model="tempNotesInput"
+            rows="3"
+            class="pos-input"
+            style="width: 100%; box-sizing: border-box; resize: vertical; font-size: 0.85rem;"
+            placeholder="e.g. Less oil, extra sauce on side..."
+          ></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="secondary-btn" @click="showItemNotesModal = false">Cancel</button>
+          <button type="button" class="next-sale-btn" style="margin: 0; width: auto; padding: 0.5rem 1rem;" @click="saveItemNotes">Save Notes</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Printable Thermal Receipt (Hidden on screen, styled with active ReceiptTemplate when printed) -->
     <div id="thermal-receipt" class="print-only">
       <div
@@ -2487,6 +3098,27 @@ onUnmounted(() => {
           <div style="display: flex; justify-content: space-between;">
             <span>Date: {{ new Date().toLocaleDateString('en-GB') }}</span>
           </div>
+          <div v-if="completedResult?.orderType" style="display: flex; justify-content: space-between; font-weight: 700; text-transform: uppercase;">
+            <span>Type:</span>
+            <span>
+              {{ completedResult.orderType }}
+              <template v-if="completedResult.orderType === 'dine_in' && completedResult.tableNumber">
+                (T#{{ completedResult.tableNumber }})
+              </template>
+            </span>
+          </div>
+          <div v-if="completedResult?.covers && completedResult.orderType === 'dine_in'" style="display: flex; justify-content: space-between;">
+            <span>Covers:</span>
+            <span>{{ completedResult.covers }} Guests</span>
+          </div>
+          <div v-if="completedResult?.serverName" style="display: flex; justify-content: space-between;">
+            <span>Server:</span>
+            <span>{{ completedResult.serverName }}</span>
+          </div>
+          <div v-if="completedResult?.deliveryAddress" style="display: flex; justify-content: space-between; font-size: 9px;">
+            <span>Address:</span>
+            <span>{{ completedResult.deliveryAddress }}</span>
+          </div>
           <div v-if="receiptTemplateData?.template.show_customer_info && completedResult?.customer" style="display: flex; justify-content: space-between;">
             <span>Customer: {{ completedResult.customer.name }}</span>
           </div>
@@ -2503,6 +3135,14 @@ onUnmounted(() => {
             <div style="font-weight: 700;">{{ item.product.name }}</div>
             <div v-if="item.batch_number || item.product.fefo_batch" style="font-size: 8px; color: #444;">
               Batch: {{ item.batch_number || item.product.fefo_batch?.batch_number }} | Exp: {{ item.expiry_date || item.product.fefo_batch?.expiry_date }}
+            </div>
+            <div v-if="item.selected_modifiers && item.selected_modifiers.length > 0" style="font-size: 8px; color: #444; padding-left: 4px;">
+              <div v-for="mod in item.selected_modifiers" :key="mod.modifier_option_id">
+                + {{ mod.option_name }} <span v-if="(mod.price_surcharge_minor ?? 0) > 0">({{ formatPKR(mod.price_surcharge_minor!) }})</span>
+              </div>
+            </div>
+            <div v-if="item.cooking_notes" style="font-size: 8px; font-style: italic; color: #555; padding-left: 4px;">
+              Notes: {{ item.cooking_notes }}
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span>{{ item.quantity }} x {{ formatPKR(item.unit_price_minor) }}</span>
@@ -2521,6 +3161,10 @@ onUnmounted(() => {
           <div style="display: flex; justify-content: space-between;">
             <span>Subtotal:</span>
             <span>{{ formatPKR(completedResult?.subtotalMinor || 0) }}</span>
+          </div>
+          <div v-if="completedResult?.serviceChargeMinor && completedResult.serviceChargeMinor > 0" style="display: flex; justify-content: space-between;">
+            <span>Service Charge:</span>
+            <span>{{ formatPKR(completedResult.serviceChargeMinor) }}</span>
           </div>
           <div v-if="receiptTemplateData?.template.show_tax_breakdown" style="display: flex; justify-content: space-between;">
             <span>Sales Tax:</span>
@@ -2685,6 +3329,209 @@ onUnmounted(() => {
   border-radius: 50%;
   background: #10b981;
   box-shadow: 0 0 6px #10b981;
+}
+
+/* RESTAURANT OPERATIONAL COMMAND BAR */
+.restaurant-order-type-bar {
+  background: #090d16;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 1rem;
+  gap: 1rem;
+  flex-shrink: 0;
+  user-select: none;
+  flex-wrap: wrap;
+}
+
+.order-type-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.ot-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+.ot-btn:hover {
+  color: #f8fafc;
+}
+
+.ot-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dine-in-meta-row,
+.delivery-meta-row,
+.takeaway-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.table-select-pill {
+  background: #1e293b;
+  border: 1px dashed #475569;
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-select-pill:hover {
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.table-select-pill.has-table {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid #10b981;
+  color: #34d399;
+}
+
+.table-seats {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+.clear-table-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  line-height: 1;
+}
+
+.covers-control {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.74rem;
+}
+
+.covers-control .ctrl-label {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.covers-val {
+  font-weight: 800;
+  color: #f8fafc;
+  min-width: 14px;
+  text-align: center;
+}
+
+.stepper-btn {
+  background: #334155;
+  border: none;
+  color: #f8fafc;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.stepper-btn:hover {
+  background: #475569;
+}
+
+.server-attribution {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+}
+
+.server-attribution .ctrl-label {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.server-input {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  font-size: 0.74rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  width: 110px;
+}
+
+.service-charge-pill {
+  font-size: 0.72rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.kot-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fb923c;
+  cursor: pointer;
+}
+
+.delivery-input,
+.rider-input {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  font-size: 0.74rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  width: 170px;
+}
+
+.takeaway-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 /* 3-COLUMN MAIN WORKSPACE GRID */

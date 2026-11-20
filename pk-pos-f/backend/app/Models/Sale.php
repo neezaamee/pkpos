@@ -39,6 +39,16 @@ class Sale extends Model
         'fbr_status',
         'fbr_error',
         'fbr_submitted_at',
+        'order_type',
+        'restaurant_table_id',
+        'table_number',
+        'server_user_id',
+        'server_name',
+        'covers',
+        'service_charge_basis_points',
+        'service_charge_minor',
+        'delivery_address',
+        'delivery_rider_name',
     ];
 
     /**
@@ -179,5 +189,20 @@ class Sale extends Model
                 'tax_rate_basis_points' => $item->tax_rate_basis_points ?: 0,
             ];
         })->values()->all();
+    }
+
+    public function restaurantTable(): BelongsTo
+    {
+        return $this->belongsTo(RestaurantTable::class, 'restaurant_table_id');
+    }
+
+    public function serverUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'server_user_id');
+    }
+
+    public function kitchenOrders(): HasMany
+    {
+        return $this->hasMany(KitchenOrder::class, 'sale_id')->latest('fired_at');
     }
 }

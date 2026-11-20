@@ -290,6 +290,71 @@
           </Link>
         </template>
 
+        <!-- Restaurant & Food Service Vertical -->
+        <template v-if="user?.role === 'owner' || user?.role === 'manager'">
+          <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🍽️</span> Restaurant &amp; Food
+          </div>
+
+          <Link
+            href="/restaurant/tables"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/restaurant/tables') }"
+            :title="isRailMode ? 'Floor Plans & Tables' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span v-if="!isRailMode">Floors &amp; Tables</span>
+          </Link>
+
+          <Link
+            href="/restaurant/stations"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/restaurant/stations') }"
+            :title="isRailMode ? 'Kitchen Stations' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2c-4 4-8 7.5-8 12a8 8 0 0 0 16 0c0-4.5-4-8-8-12z"></path>
+            </svg>
+            <span v-if="!isRailMode">Kitchen Stations</span>
+          </Link>
+
+          <Link
+            href="/restaurant/modifiers"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/restaurant/modifiers') }"
+            :title="isRailMode ? 'Menu Modifiers & Add-ons' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            <span v-if="!isRailMode">Menu Modifiers</span>
+          </Link>
+
+          <Link
+            href="/restaurant/kds"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/restaurant/kds') }"
+            :title="isRailMode ? 'Live Kitchen Display (KDS)' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span v-if="!isRailMode">Kitchen Display (KDS)</span>
+          </Link>
+        </template>
+
         <!-- Finance & Accounting Section -->
         <template v-if="user?.role === 'owner' || user?.role === 'manager'">
           <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">

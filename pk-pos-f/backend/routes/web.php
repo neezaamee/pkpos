@@ -9,6 +9,10 @@ use App\Http\Controllers\JournalEntryWebController;
 use App\Http\Controllers\Pharmacy\BatchWebController;
 use App\Http\Controllers\Pharmacy\NarcoticWebController;
 use App\Http\Controllers\Pharmacy\PrescriptionWebController;
+use App\Http\Controllers\Restaurant\FloorAndTableWebController;
+use App\Http\Controllers\Restaurant\KitchenStationWebController;
+use App\Http\Controllers\Restaurant\ModifierWebController;
+use App\Http\Controllers\Restaurant\KdsWebController;
 use App\Http\Controllers\PurchaseOrderWebController;
 use App\Http\Controllers\ReceiptTemplateWebController;
 use App\Http\Controllers\SaleReturnWebController;
@@ -429,4 +433,22 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/pharmacy/prescriptions', [PrescriptionWebController::class, 'index'])->name('pharmacy.prescriptions.index');
     Route::get('/pharmacy/prescriptions/{id}', [PrescriptionWebController::class, 'show'])->name('pharmacy.prescriptions.show')->whereUuid('id');
+
+    // Restaurant & Food Service Vertical
+    Route::get('/restaurant/tables', [FloorAndTableWebController::class, 'index'])->name('restaurant.tables.index');
+    Route::post('/restaurant/floors', [FloorAndTableWebController::class, 'storeFloor'])->name('restaurant.floors.store');
+    Route::post('/restaurant/tables', [FloorAndTableWebController::class, 'storeTable'])->name('restaurant.tables.store');
+    Route::put('/restaurant/tables/{id}', [FloorAndTableWebController::class, 'updateTable'])->name('restaurant.tables.update')->whereUuid('id');
+    Route::delete('/restaurant/tables/{id}', [FloorAndTableWebController::class, 'destroyTable'])->name('restaurant.tables.destroy')->whereUuid('id');
+
+    Route::get('/restaurant/stations', [KitchenStationWebController::class, 'index'])->name('restaurant.stations.index');
+    Route::post('/restaurant/stations', [KitchenStationWebController::class, 'store'])->name('restaurant.stations.store');
+    Route::put('/restaurant/stations/{id}', [KitchenStationWebController::class, 'update'])->name('restaurant.stations.update')->whereUuid('id');
+    Route::delete('/restaurant/stations/{id}', [KitchenStationWebController::class, 'destroy'])->name('restaurant.stations.destroy')->whereUuid('id');
+
+    Route::get('/restaurant/modifiers', [ModifierWebController::class, 'index'])->name('restaurant.modifiers.index');
+    Route::post('/restaurant/modifiers', [ModifierWebController::class, 'store'])->name('restaurant.modifiers.store');
+    Route::delete('/restaurant/modifiers/{id}', [ModifierWebController::class, 'destroy'])->name('restaurant.modifiers.destroy')->whereUuid('id');
+
+    Route::get('/restaurant/kds', [KdsWebController::class, 'index'])->name('restaurant.kds.index');
 });

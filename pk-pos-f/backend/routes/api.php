@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\PriceListApiController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReceiptTemplateApiController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
+use App\Http\Controllers\Api\V1\RestaurantApiController;
 use App\Http\Controllers\Api\V1\SaleController;
 use App\Http\Controllers\Api\V1\SaleReturnApiController;
 use App\Http\Controllers\Api\V1\ShiftApiController;
@@ -153,6 +154,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/pos/pharmacy/medicines', [PharmacyApiController::class, 'searchMedicines']);
         Route::get('/pos/pharmacy/batches/{productId}', [PharmacyApiController::class, 'getBatches']);
         Route::get('/pos/pharmacy/expiring-batches', [PharmacyApiController::class, 'getExpiringBatches']);
+
+        // Restaurant & Food Service Vertical
+        Route::get('/pos/restaurant/floors-tables', [RestaurantApiController::class, 'getFloorsAndTables']);
+        Route::get('/pos/restaurant/tables/{tableId}', [RestaurantApiController::class, 'getTableStatus']);
+        Route::post('/pos/restaurant/tables/{tableId}/occupy', [RestaurantApiController::class, 'occupyTable']);
+        Route::post('/pos/restaurant/tables/{tableId}/release', [RestaurantApiController::class, 'releaseTable']);
+        Route::get('/pos/restaurant/modifiers', [RestaurantApiController::class, 'getModifierGroups']);
+        Route::get('/pos/restaurant/kds/orders', [RestaurantApiController::class, 'getKdsOrders']);
+        Route::post('/pos/restaurant/kds/orders/{kotId}/bump', [RestaurantApiController::class, 'bumpKdsOrder']);
+        Route::post('/pos/restaurant/sales/{saleId}/fire-kot', [RestaurantApiController::class, 'fireKot']);
 
         // Idempotent Sync routes
         Route::middleware('idempotent')->group(function () {

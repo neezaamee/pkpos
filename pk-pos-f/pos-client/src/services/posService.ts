@@ -171,6 +171,10 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
             cold_chain: item.cold_chain,
             rack_location: item.rack_location,
             fefo_batch: item.fefo_batch,
+            kitchen_station_id: item.kitchen_station_id,
+            preparation_time_minutes: item.preparation_time_minutes,
+            is_kitchen_item: item.is_kitchen_item,
+            modifier_groups: item.modifier_groups || [],
             variants: item.variants || [],
             uom_conversions: item.uom_conversions || [],
             allows_decimals: item.allows_decimals ?? (item.unit === 'kg' || item.unit === 'gram' || item.unit === 'litre' || item.unit === 'meter'),
@@ -251,6 +255,17 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
     buyer_cnic: parsed.buyer_cnic || undefined,
     buyer_ntn: parsed.buyer_ntn || undefined,
     prescription: parsed.prescription || undefined,
+    order_type: parsed.order_type || 'dine_in',
+    restaurant_table_id: parsed.restaurant_table_id || undefined,
+    table_number: parsed.table_number || undefined,
+    server_user_id: parsed.server_user_id || undefined,
+    server_name: parsed.server_name || undefined,
+    covers: parsed.covers || undefined,
+    service_charge_basis_points: parsed.service_charge_basis_points || undefined,
+    service_charge_minor: parsed.service_charge_minor || undefined,
+    delivery_address: parsed.delivery_address || undefined,
+    delivery_rider_name: parsed.delivery_rider_name || undefined,
+    fire_kot: parsed.fire_kot ?? true,
     status: 'completed',
     fbr_status: 'submitted',
     fbr_usin: 'USIN-MOCK-' + Math.floor(100000 + Math.random() * 900000),
@@ -274,6 +289,9 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
       batch_id: item.batch_id || undefined,
       batch_number: item.batch_number || undefined,
       expiry_date: item.expiry_date || undefined,
+      selected_modifiers: item.selected_modifiers || undefined,
+      cooking_notes: item.cooking_notes || undefined,
+      kitchen_station_id: item.kitchen_station_id || undefined,
     })),
   };
 
@@ -1409,4 +1427,125 @@ export async function fetchExpiringBatches(days = 90): Promise<any[]> {
   }
 
   return [];
+}
+
+/**
+ * Fetch restaurant floors and tables with live occupancy status.
+ */
+export async function fetchRestaurantFloorsAndTables(locationId?: string): Promise<{ floors: any[]; unassigned_tables: any[] }> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return { floors: [], unassigned_tables: [] };
+
+  try {
+    const params = new URLSearchParams();
+    if (locationId) params.append('location_id', locationId);
+
+    const res = await fetch(`${cleanUrl}/pos/restaurant/floors-tables?${params.toString()}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to fetch restaurant floors and tables:', e);
+  }
+
+  return { floors: [], unassigned_tables: [] };
+}
+
+/**
+ * Fetch modifier groups for food items.
+ */
+export async function fetchModifierGroups(productId?: string): Promise<any[]> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return [];
+
+  try {
+    const url = productId
+      ? `${cleanUrl}/pos/restaurant/modifiers?product_id=${productId}`
+      : `${cleanUrl}/pos/restaurant/modifiers`;
+
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to fetch modifier groups:', e);
+  }
+
+  return [];
+}
+
+/**
+ * Fire Kitchen Order Tickets (KOT) for an active sale.
+ */
+export async function fireKitchenOrder(saleId: string, itemIds?: string[]): Promise<any> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/restaurant/sales/${saleId}/fire-kot`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ item_ids: itemIds }),
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to fire KOT:', e);
+  }
+
+  return null;
+}
+
+/**
+ * Release / vacate table back to available status.
+ */
+export async function releaseRestaurantTable(tableId: string): Promise<boolean> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return false;
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/restaurant/tables/${tableId}/release`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    return res.ok;
+  } catch (e) {
+    console.error('Failed to release table:', e);
+    return false;
+  }
 }

@@ -39,6 +39,9 @@ class Product extends Model
         'is_narcotic',
         'cold_chain',
         'rack_location',
+        'kitchen_station_id',
+        'preparation_time_minutes',
+        'is_kitchen_item',
     ];
 
     /**
@@ -149,5 +152,15 @@ class Product extends Model
             ->first();
 
         return $conversion ? $conversion->price_minor : $this->price_minor;
+    }
+
+    public function kitchenStation(): BelongsTo
+    {
+        return $this->belongsTo(KitchenStation::class);
+    }
+
+    public function modifierGroups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(ModifierGroup::class, 'product_modifier_group')->with('options');
     }
 }

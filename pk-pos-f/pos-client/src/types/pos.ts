@@ -76,6 +76,55 @@ export interface PrescriptionData {
   diagnosis_notes?: string;
 }
 
+export type OrderType = 'dine_in' | 'takeaway' | 'delivery';
+
+export interface ModifierOptionItem {
+  id: string;
+  name: string;
+  price_override_minor?: number;
+  price_surcharge_minor?: number;
+  is_default?: boolean;
+}
+
+export interface ModifierGroupItem {
+  id: string;
+  name: string;
+  min_selections: number;
+  max_selections: number;
+  is_required?: boolean;
+  options: ModifierOptionItem[];
+}
+
+export interface SelectedModifier {
+  modifier_group_id?: string;
+  modifier_option_id?: string;
+  group?: string;
+  option?: string;
+  group_name?: string;
+  option_name?: string;
+  price_minor?: number;
+  price_surcharge_minor?: number;
+}
+
+export interface RestaurantTableItem {
+  id: string;
+  table_number: string;
+  capacity: number;
+  seating_capacity?: number;
+  status: 'available' | 'occupied' | 'billed' | 'reserved' | 'cleaning';
+  shape?: 'square' | 'round' | 'rectangle';
+  floor_id?: string;
+  floor?: { id: string; name: string };
+  current_sale_id?: string;
+}
+
+export interface RestaurantFloorItem {
+  id: string;
+  name: string;
+  floor_number: number;
+  tables: RestaurantTableItem[];
+}
+
 export interface CachedProduct {
   id: string;
   name: string;
@@ -101,6 +150,11 @@ export interface CachedProduct {
   rack_location?: string;
   fefo_batch?: ProductBatchItem;
   batches?: ProductBatchItem[];
+  // Restaurant Vertical Fields
+  kitchen_station_id?: string;
+  preparation_time_minutes?: number;
+  is_kitchen_item?: boolean;
+  modifier_groups?: ModifierGroupItem[];
 }
 
 export interface CartItem {
@@ -119,6 +173,10 @@ export interface CartItem {
   batch_id?: string;
   batch_number?: string;
   expiry_date?: string;
+  // Restaurant Modifiers & Kitchen Instructions
+  selected_modifiers?: SelectedModifier[];
+  cooking_notes?: string;
+  kitchen_station_id?: string;
 }
 
 export type ProcessResult =

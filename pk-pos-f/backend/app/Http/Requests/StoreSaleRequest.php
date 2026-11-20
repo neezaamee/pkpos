@@ -65,6 +65,17 @@ class StoreSaleRequest extends FormRequest
             'items.*.batch_id' => ['nullable', 'uuid', 'exists:product_batches,id'],
             'items.*.batch_number' => ['nullable', 'string', 'max:50'],
             'items.*.expiry_date' => ['nullable', 'date'],
+            'items.*.selected_modifiers' => ['nullable', 'array'],
+            'items.*.cooking_notes' => ['nullable', 'string', 'max:255'],
+            'items.*.kitchen_station_id' => ['nullable', 'uuid', 'exists:kitchen_stations,id'],
+            'order_type' => ['nullable', 'string', 'in:dine_in,takeaway,delivery'],
+            'restaurant_table_id' => ['nullable', 'uuid', 'exists:restaurant_tables,id'],
+            'table_number' => ['nullable', 'string', 'max:50'],
+            'server_user_id' => ['nullable', 'uuid', 'exists:users,id'],
+            'server_name' => ['nullable', 'string', 'max:100'],
+            'covers' => ['nullable', 'integer', 'min:1'],
+            'service_charge_basis_points' => ['nullable', 'integer', 'min:0'],
+            'fire_kot' => ['nullable', 'boolean'],
         ];
     }
 

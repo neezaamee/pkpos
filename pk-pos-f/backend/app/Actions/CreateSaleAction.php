@@ -65,6 +65,14 @@ class CreateSaleAction
                 $data['total_minor'] = $data['total_minor'] ?? $total;
             }
 
+            // Calculate Service Charge if configured (e.g. Dine-In 5% or 10%)
+            $serviceChargeBps = (int) ($data['service_charge_basis_points'] ?? 0);
+            if ($serviceChargeBps > 0 && empty($data['service_charge_minor'])) {
+                $charge = (int) round(($data['subtotal_minor'] * $serviceChargeBps) / 10000);
+                $data['service_charge_minor'] = $charge;
+                $data['total_minor'] += $charge;
+            }
+
             $data['status'] = $data['status'] ?? 'completed';
 
             if (empty($data['sale_number'])) {
@@ -123,6 +131,10 @@ class CreateSaleAction
                     $item['batch_number'] = $batch->batch_number;
                     $item['expiry_date'] = $batch->expiry_date->toDateString();
                 }
+
+                $item['selected_modifiers'] = $item['selected_modifiers'] ?? null;
+                $item['cooking_notes'] = $item['cooking_notes'] ?? null;
+                $item['kitchen_station_id'] = $item['kitchen_station_id'] ?? $prod?->kitchen_station_id ?? null;
 
                 $sale->items()->create($item);
 
@@ -237,7 +249,25 @@ class CreateSaleAction
                 $batchService->recordPrescriptionAndNarcotics($tenant, $sale, $prescriptionData, $resolvedUserId);
             }
 
-            return $sale->load(['items.batch', 'payments', 'prescription.narcoticEntries']);
+            // Restaurant KOT Dispatch
+            $fireKot = $data['fire_kot'] ?? false;
+            if ($fireKot) {
+                app(\App\Services\Restaurant\KitchenOrderService::class)->fireKitchenOrders($sale);
+            }
+
+            // Restaurant Table Lifecycle
+            if ($sale->restaurant_table_id) {
+                $table = \App\Models\RestaurantTable::find($sale->restaurant_table_id);
+                if ($table) {
+                    if ($sale->status === 'completed') {
+                        $table->release();
+                    } else {
+                        $table->occupy($sale);
+                    }
+                }
+            }
+
+            return $sale->load(['items.batch', 'payments', 'prescription.narcoticEntries', 'kitchenOrders.items', 'restaurantTable']);
         });
     }
 }
