@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem } from '../types/pos';
+import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem, SplitPaymentItem } from '../types/pos';
 import { formatPKR } from '../types/pos';
-import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer, verifyInvoiceForReturn, processSaleReturn, type VerifyInvoiceResponse } from '../services/posService';
+import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer, verifyInvoiceForReturn, processSaleReturn, fetchReceiptTemplate, type VerifyInvoiceResponse, type ReceiptTemplateData } from '../services/posService';
 
 interface HeldSale {
   id: string;
@@ -172,15 +172,34 @@ const nonCashConfirmed = ref<boolean>(false);
 const isProcessing = ref<boolean>(false);
 const processError = ref<string | null>(null);
 
+// Receipt Template State
+const receiptTemplateData = ref<ReceiptTemplateData | null>(null);
+
+// Split / Multi-Tender Payment State
+const showSplitModal = ref<boolean>(false);
+const splitTenders = ref<{ method: 'cash' | 'card' | 'raast' | 'credit'; amount: number | null; ref: string }[]>([
+  { method: 'cash', amount: null, ref: '' },
+  { method: 'card', amount: null, ref: '' },
+  { method: 'raast', amount: null, ref: '' },
+  { method: 'credit', amount: null, ref: '' },
+]);
+const splitPaymentsApplied = ref<SplitPaymentItem[]>([]);
+const splitCreditError = ref<string>('');
+
 // Sale Confirmation Modal State
 const showConfirmation = ref<boolean>(false);
 const completedResult = ref<{
   saleNumber: string;
   result: ProcessResult;
   totalMinor: number;
+  subtotalMinor?: number;
+  taxMinor?: number;
   tenderedMinor: number;
   changeMinor: number;
   paymentMethod: string;
+  payments?: SplitPaymentItem[];
+  items?: CartItem[];
+  customer?: CustomerProfile | null;
 } | null>(null);
 
 // Hardware Barcode Scanner Buffer
@@ -266,6 +285,96 @@ const creditExceeded = computed(() => {
   return totalMinor.value > customerAvailableCreditMinor.value;
 });
 
+// Split Payment Computeds
+const splitTotalAllocatedMinor = computed(() => {
+  return splitTenders.value.reduce((acc, t) => acc + Math.round((t.amount || 0) * 100), 0);
+});
+
+const splitRemainingMinor = computed(() => {
+  return totalMinor.value - splitTotalAllocatedMinor.value;
+});
+
+const isSplitValid = computed(() => {
+  return totalMinor.value > 0 && splitTotalAllocatedMinor.value === totalMinor.value && !splitCreditError.value;
+});
+
+function openSplitPaymentModal() {
+  if (cart.value.length === 0) return;
+  splitCreditError.value = '';
+  if (splitPaymentsApplied.value.length > 0) {
+    splitTenders.value.forEach(t => {
+      const match = splitPaymentsApplied.value.find(p => p.payment_method === t.method);
+      t.amount = match ? match.amount_minor / 100 : null;
+      t.ref = match?.reference || '';
+    });
+  } else {
+    const cashAmt = amountTendered.value && amountTendered.value < totalMinor.value / 100
+      ? amountTendered.value
+      : null;
+    splitTenders.value[0].amount = cashAmt;
+    splitTenders.value[1].amount = null;
+    splitTenders.value[2].amount = null;
+    splitTenders.value[3].amount = null;
+  }
+  showSplitModal.value = true;
+}
+
+function allocateRemainingTo(index: number) {
+  const currentItemAmount = Math.round((splitTenders.value[index].amount || 0) * 100);
+  const otherTendersSum = splitTotalAllocatedMinor.value - currentItemAmount;
+  const rem = Math.max(0, totalMinor.value - otherTendersSum);
+  splitTenders.value[index].amount = Math.round(rem) / 100;
+  validateSplitCredit();
+}
+
+function validateSplitCredit() {
+  splitCreditError.value = '';
+  const creditTender = splitTenders.value.find(t => t.method === 'credit');
+  if (creditTender && creditTender.amount && creditTender.amount > 0) {
+    if (!selectedCustomer.value) {
+      splitCreditError.value = 'Attach a customer account first to use Khata credit.';
+      return;
+    }
+    const creditMinor = Math.round(creditTender.amount * 100);
+    if (creditMinor > customerAvailableCreditMinor.value) {
+      splitCreditError.value = `Credit allocation (${formatPKR(creditMinor)}) exceeds customer limit (${formatPKR(customerAvailableCreditMinor.value)}).`;
+    }
+  }
+}
+
+function applySplitPayment() {
+  validateSplitCredit();
+  if (!isSplitValid.value) return;
+
+  const active: SplitPaymentItem[] = [];
+  splitTenders.value.forEach(t => {
+    if (t.amount && t.amount > 0) {
+      active.push({
+        payment_method: t.method,
+        amount_minor: Math.round(t.amount * 100),
+        tendered_minor: Math.round(t.amount * 100),
+        change_minor: 0,
+        reference: t.ref.trim() || undefined,
+      });
+    }
+  });
+
+  splitPaymentsApplied.value = active;
+  selectedPayment.value = 'split';
+  showSplitModal.value = false;
+}
+
+function clearSplitPayment() {
+  splitPaymentsApplied.value = [];
+  splitTenders.value.forEach(t => { t.amount = null; t.ref = ''; });
+  selectedPayment.value = 'cash';
+  showSplitModal.value = false;
+}
+
+function printThermalReceipt() {
+  window.print();
+}
+
 const canCompleteSale = computed(() => {
   if (cart.value.length === 0 || isProcessing.value) return false;
   if (selectedPayment.value === 'cash') {
@@ -275,6 +384,10 @@ const canCompleteSale = computed(() => {
   }
   if (selectedPayment.value === 'credit') {
     return selectedCustomer.value !== null && !creditExceeded.value;
+  }
+  if (selectedPayment.value === 'split') {
+    return splitPaymentsApplied.value.length > 0 &&
+      splitPaymentsApplied.value.reduce((acc, p) => acc + p.amount_minor, 0) === totalMinor.value;
   }
   return nonCashConfirmed.value;
 });
@@ -619,6 +732,7 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
     if (showCustomerModal.value) { showCustomerModal.value = false; focusSearch(); return; }
     if (showDiscountModal.value) { showDiscountModal.value = false; focusSearch(); return; }
     if (showHeldSalesModal.value) { showHeldSalesModal.value = false; focusSearch(); return; }
+    if (showSplitModal.value) { showSplitModal.value = false; focusSearch(); return; }
     searchQuery.value = '';
     focusSearch();
     return;
@@ -648,6 +762,11 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
   if (e.key === 'F6') {
     e.preventDefault();
     openReturnModal();
+    return;
+  }
+  if (e.key === 'F7') {
+    e.preventDefault();
+    openSplitPaymentModal();
     return;
   }
   if (e.key === 'F8') {
@@ -754,10 +873,15 @@ async function handleCompleteSale() {
       discount_amount_minor: 0,
     }));
 
+    const paymentsPayload = selectedPayment.value === 'split' && splitPaymentsApplied.value.length > 0
+      ? splitPaymentsApplied.value
+      : undefined;
+
     const salePayload = {
       id: saleId,
       sale_number: saleNumber,
       payment_method: selectedPayment.value,
+      payments: paymentsPayload,
       subtotal_minor: subtotalMinor.value,
       discount_minor: discountMinor.value,
       tax_minor: taxMinor.value,
@@ -772,12 +896,20 @@ async function handleCompleteSale() {
 
     const res = await processSale(JSON.stringify(salePayload));
 
-    if (selectedCustomer.value && selectedPayment.value === 'credit') {
-      selectedCustomer.value.current_balance_minor =
-        (selectedCustomer.value.current_balance_minor || 0) + totalMinor.value;
+    if (selectedCustomer.value) {
+      if (selectedPayment.value === 'credit') {
+        selectedCustomer.value.current_balance_minor =
+          (selectedCustomer.value.current_balance_minor || 0) + totalMinor.value;
+      } else if (selectedPayment.value === 'split' && paymentsPayload) {
+        const creditTender = paymentsPayload.find(p => p.payment_method === 'credit');
+        if (creditTender) {
+          selectedCustomer.value.current_balance_minor =
+            (selectedCustomer.value.current_balance_minor || 0) + creditTender.amount_minor;
+        }
+      }
     }
 
-    if (selectedPayment.value === 'cash') {
+    if (selectedPayment.value === 'cash' || (selectedPayment.value === 'split' && paymentsPayload?.some(p => p.payment_method === 'cash'))) {
       try {
         await openCashDrawer();
       } catch (err) {
@@ -794,9 +926,14 @@ async function handleCompleteSale() {
       saleNumber,
       result: res,
       totalMinor: totalMinor.value,
+      subtotalMinor: subtotalMinor.value,
+      taxMinor: taxMinor.value,
       tenderedMinor,
       changeMinor: changeDueMinor.value,
-      paymentMethod: selectedPayment.value,
+      paymentMethod: selectedPayment.value === 'split' ? 'Split Payment' : selectedPayment.value,
+      payments: paymentsPayload,
+      items: [...cart.value],
+      customer: selectedCustomer.value || null,
     };
 
     showConfirmation.value = true;
@@ -810,6 +947,9 @@ async function handleCompleteSale() {
 function closeConfirmationModal() {
   showConfirmation.value = false;
   completedResult.value = null;
+  splitPaymentsApplied.value = [];
+  splitTenders.value.forEach(t => { t.amount = null; t.ref = ''; });
+  selectedPayment.value = 'cash';
   mobileSection.value = 'products';
   clearCart();
 }
@@ -817,6 +957,9 @@ function closeConfirmationModal() {
 onMounted(() => {
   loadProducts();
   loadHeldSalesFromStorage();
+  fetchReceiptTemplate().then(data => {
+    if (data) receiptTemplateData.value = data;
+  });
   window.addEventListener('keydown', handleGlobalKeydown);
   focusSearch();
 });
@@ -867,6 +1010,15 @@ onUnmounted(() => {
         </button>
         <button class="s-pill" @click="openReturnModal">
           <kbd>F6</kbd> Return
+        </button>
+        <button
+          class="s-pill"
+          :class="{ active: selectedPayment === 'split' }"
+          :disabled="cart.length === 0"
+          @click="openSplitPaymentModal"
+          title="Split / Multi-Tender Payment (F7)"
+        >
+          <kbd>F7</kbd> Split
         </button>
         <button class="s-pill" :disabled="cart.length === 0" @click="parkCurrentSale">
           <kbd>F8</kbd> Park Sale
@@ -1110,6 +1262,13 @@ onUnmounted(() => {
           >
             Khata (Udhaar)
           </button>
+          <button
+            class="pay-method-btn"
+            :class="{ active: selectedPayment === 'split' }"
+            @click="openSplitPaymentModal"
+          >
+            Split (F7)
+          </button>
         </div>
 
         <!-- Cash Tender Workflow -->
@@ -1202,6 +1361,52 @@ onUnmounted(() => {
             </div>
             <div v-else style="margin-top: 0.5rem; padding: 0.4rem; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; color: #34d399; font-size: 0.75rem; text-align: center;">
               Authorized for Khata purchase
+            </div>
+          </div>
+        </div>
+
+        <!-- Split Tender Workflow -->
+        <div v-else-if="selectedPayment === 'split'" class="split-workflow" style="margin-top: 1rem; padding: 0.85rem; background: rgba(56, 189, 248, 0.08); border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.25);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.825rem; font-weight: 700; color: #38bdf8;">Split Payment Tenders</span>
+            <button
+              type="button"
+              @click="openSplitPaymentModal"
+              style="font-size: 0.72rem; padding: 0.2rem 0.5rem; background: #0284c7; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
+            >
+              Edit Split (F7)
+            </button>
+          </div>
+
+          <div v-if="splitPaymentsApplied.length === 0" style="text-align: center; padding: 0.5rem 0;">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Distribute total invoice amount across Cash, Card, Raast, or Khata.
+            </p>
+            <button
+              type="button"
+              class="confirm-pay-btn"
+              style="padding: 0.45rem 1rem; font-size: 0.825rem;"
+              @click="openSplitPaymentModal"
+            >
+              Allocate Split Tenders (F7)
+            </button>
+          </div>
+
+          <div v-else style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <div
+              v-for="(p, idx) in splitPaymentsApplied"
+              :key="idx"
+              style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.25); padding: 0.35rem 0.5rem; border-radius: 4px; font-size: 0.78rem;"
+            >
+              <span class="cap" style="font-weight: 600; color: #f8fafc;">
+                {{ p.payment_method }} <span v-if="p.reference" style="font-size: 0.7rem; color: #94a3b8;">({{ p.reference }})</span>
+              </span>
+              <strong style="font-family: var(--font-mono); color: #38bdf8;">{{ formatPKR(p.amount_minor) }}</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.35rem; margin-top: 0.25rem; font-size: 0.8rem;">
+              <span style="color: #94a3b8;">Total Allocated:</span>
+              <strong style="color: #10b981; font-family: var(--font-mono);">{{ formatPKR(splitTotalAllocatedMinor) }}</strong>
             </div>
           </div>
         </div>
@@ -1603,15 +1808,36 @@ onUnmounted(() => {
             <span>Change Returned:</span>
             <strong class="highlight-change">{{ formatPKR(completedResult?.changeMinor || 0) }}</strong>
           </div>
+          <div v-if="completedResult?.payments && completedResult.payments.length > 1" style="margin: 0.5rem 0; padding: 0.5rem; background: rgba(0,0,0,0.25); border-radius: 6px; font-size: 0.78rem;">
+            <div style="font-weight: 700; color: #38bdf8; margin-bottom: 0.25rem;">Split Tenders:</div>
+            <div v-for="(p, idx) in completedResult.payments" :key="idx" style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span class="cap">{{ p.payment_method }} {{ p.reference ? `(${p.reference})` : '' }}:</span>
+              <strong>{{ formatPKR(p.amount_minor) }}</strong>
+            </div>
+          </div>
           <div class="m-row">
             <span>Payment Method:</span>
             <span class="cap">{{ completedResult?.paymentMethod }}</span>
           </div>
         </div>
 
-        <button class="next-sale-btn" @click="closeConfirmationModal">
-          Next Sale <span class="shortcut">Enter</span>
-        </button>
+        <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+          <button
+            type="button"
+            class="print-receipt-btn"
+            @click="printThermalReceipt"
+            style="flex: 1; padding: 0.75rem; background: #334155; color: #f8fafc; border: 1px solid #475569; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+          >
+            <span>🖨️</span> Print Thermal Receipt
+          </button>
+          <button
+            class="next-sale-btn"
+            style="flex: 1; margin: 0;"
+            @click="closeConfirmationModal"
+          >
+            Next Sale <span class="shortcut">Enter</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1796,10 +2022,266 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 7. Split Payment / Multi-Tender Modal (F7) -->
+    <div v-if="showSplitModal" class="modal-overlay" @click.self="showSplitModal = false">
+      <div class="modal-card" style="max-width: 580px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <div>
+            <h3 class="modal-title" style="margin-bottom: 0.25rem;">Multi-Tender / Split Payment</h3>
+            <p class="modal-sub">Allocate invoice balance across multiple payment methods</p>
+          </div>
+          <button class="modal-close-btn" @click="showSplitModal = false">&times;</button>
+        </div>
+
+        <!-- Balance Due & Allocation Tracker -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem;">
+          <div style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Total Invoice Due</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; font-family: var(--font-mono);">
+              {{ formatPKR(totalMinor) }}
+            </div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Allocated So Far</div>
+            <div style="font-size: 1.1rem; font-weight: 800; font-family: var(--font-mono);" :style="{ color: splitTotalAllocatedMinor > totalMinor ? '#ef4444' : '#38bdf8' }">
+              {{ formatPKR(splitTotalAllocatedMinor) }}
+            </div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Remaining</div>
+            <div style="font-size: 1.1rem; font-weight: 800; font-family: var(--font-mono);" :style="{ color: splitRemainingMinor === 0 ? '#10b981' : (splitRemainingMinor < 0 ? '#ef4444' : '#f59e0b') }">
+              {{ formatPKR(splitRemainingMinor) }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Notification -->
+        <div v-if="splitCreditError" style="padding: 0.5rem 0.75rem; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 6px; color: #ef4444; font-size: 0.75rem; margin-bottom: 1rem;">
+          {{ splitCreditError }}
+        </div>
+
+        <!-- Tender Distribution Rows -->
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1.25rem;">
+          <div
+            v-for="(tender, idx) in splitTenders"
+            :key="tender.method"
+            style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="cap" style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;">
+                  {{ tender.method === 'credit' ? 'Customer Khata (Udhaar)' : tender.method }}
+                </span>
+                <span v-if="tender.method === 'credit' && selectedCustomer" style="font-size: 0.7rem; color: #10b981;">
+                  (Max: {{ formatPKR(customerAvailableCreditMinor) }})
+                </span>
+                <span v-else-if="tender.method === 'credit' && !selectedCustomer" style="font-size: 0.7rem; color: #ef4444;">
+                  (No customer attached)
+                </span>
+              </div>
+              <button
+                type="button"
+                @click="allocateRemainingTo(idx)"
+                style="font-size: 0.7rem; padding: 0.2rem 0.5rem; background: #334155; color: #38bdf8; border: 1px solid #475569; border-radius: 4px; cursor: pointer; font-weight: 600;"
+              >
+                + Fill Remaining
+              </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div>
+                <input
+                  type="number"
+                  v-model.number="tender.amount"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  class="pos-input"
+                  style="font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700;"
+                  @input="validateSplitCredit"
+                />
+              </div>
+              <div>
+                <input
+                  v-if="tender.method !== 'cash'"
+                  type="text"
+                  v-model="tender.ref"
+                  :placeholder="tender.method === 'credit' ? 'Customer purchase note...' : (tender.method === 'card' ? 'Approval code / Card #' : 'Raast Tx ID / Ref #')"
+                  class="pos-input"
+                  style="font-size: 0.8rem;"
+                />
+                <div v-else style="display: flex; align-items: center; height: 100%; color: #94a3b8; font-size: 0.75rem; padding-left: 0.5rem;">
+                  POS Cash in Drawer
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Actions -->
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button
+            type="button"
+            class="chip-btn"
+            style="padding: 0.6rem 1rem;"
+            @click="clearSplitPayment"
+          >
+            Clear / Cancel
+          </button>
+          <button
+            type="button"
+            class="next-sale-btn"
+            style="margin: 0; width: auto; padding: 0.6rem 1.5rem;"
+            :disabled="!isSplitValid"
+            @click="applySplitPayment"
+          >
+            Apply Split Payment (Enter)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Printable Thermal Receipt (Hidden on screen, styled with active ReceiptTemplate when printed) -->
+    <div id="thermal-receipt" class="print-only">
+      <div
+        :style="{
+          width: receiptTemplateData?.template.paper_width === '58mm' ? '58mm' : '80mm',
+          fontFamily: `'Courier New', Courier, monospace`,
+          fontSize: receiptTemplateData?.template.paper_width === '58mm' ? '10px' : '12px',
+          color: '#000000',
+          padding: '4px',
+          lineHeight: '1.25'
+        }"
+      >
+        <div style="text-align: center; margin-bottom: 6px;">
+          <div style="font-size: 14px; font-weight: 900; text-transform: uppercase;">
+            {{ receiptTemplateData?.template.business_name || receiptTemplateData?.tenant.name || 'POS STORE' }}
+          </div>
+          <div v-if="receiptTemplateData?.template.branch_name" style="font-weight: 700;">
+            {{ receiptTemplateData.template.branch_name }}
+          </div>
+          <div v-if="receiptTemplateData?.template.address_line1">
+            {{ receiptTemplateData.template.address_line1 }}
+          </div>
+          <div v-if="receiptTemplateData?.template.phone">
+            Tel: {{ receiptTemplateData.template.phone }}
+          </div>
+          <div v-if="receiptTemplateData?.template.header_note" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0; margin-top: 2px; font-weight: 700;">
+            {{ receiptTemplateData.template.header_note }}
+          </div>
+        </div>
+
+        <div style="border-bottom: 1px dashed #000; padding-bottom: 3px; margin-bottom: 4px; font-size: 10px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>{{ receiptTemplateData?.template.ntn_label || 'NTN:' }}</span>
+            <span style="font-weight: 700;">{{ receiptTemplateData?.tenant.ntn || 'N/A' }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>{{ receiptTemplateData?.template.strn_label || 'STRN:' }}</span>
+            <span style="font-weight: 700;">{{ receiptTemplateData?.tenant.strn || 'N/A' }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>{{ receiptTemplateData?.template.pos_id_label || 'POS ID:' }}</span>
+            <span style="font-weight: 700;">{{ receiptTemplateData?.tenant.fbr_pos_id || 'POS-001' }}</span>
+          </div>
+        </div>
+
+        <div style="font-size: 10px; margin-bottom: 4px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>Inv #: {{ completedResult?.saleNumber }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Date: {{ new Date().toLocaleDateString('en-GB') }}</span>
+          </div>
+          <div v-if="receiptTemplateData?.template.show_customer_info && completedResult?.customer" style="display: flex; justify-content: space-between;">
+            <span>Customer: {{ completedResult.customer.name }}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0; font-weight: 700; display: flex; justify-content: space-between; font-size: 10px;">
+          <span>ITEM</span>
+          <span>QTY x RATE</span>
+          <span>TOTAL</span>
+        </div>
+
+        <div style="padding: 4px 0; border-bottom: 1px dashed #000; font-size: 10px;">
+          <div v-for="item in completedResult?.items || []" :key="item.product.id" style="margin-bottom: 3px;">
+            <div style="font-weight: 700;">{{ item.product.name }}</div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>{{ item.quantity }} x {{ formatPKR(item.unit_price_minor) }}</span>
+              <span>{{ formatPKR(item.total_minor) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 4px 0; font-size: 11px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>Subtotal:</span>
+            <span>{{ formatPKR(completedResult?.subtotalMinor || 0) }}</span>
+          </div>
+          <div v-if="receiptTemplateData?.template.show_tax_breakdown" style="display: flex; justify-content: space-between;">
+            <span>Sales Tax:</span>
+            <span>{{ formatPKR(completedResult?.taxMinor || 0) }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-weight: 900; font-size: 13px; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3px 0; margin-top: 2px;">
+            <span>TOTAL:</span>
+            <span>{{ formatPKR(completedResult?.totalMinor || 0) }}</span>
+          </div>
+
+          <div v-if="completedResult?.payments && completedResult.payments.length > 1" style="margin-top: 4px; font-size: 10px;">
+            <div v-for="(p, i) in completedResult.payments" :key="i" style="display: flex; justify-content: space-between;">
+              <span class="cap">{{ p.payment_method }}:</span>
+              <span>{{ formatPKR(p.amount_minor) }}</span>
+            </div>
+          </div>
+          <div v-else style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 3px;">
+            <span class="cap">Tender ({{ completedResult?.paymentMethod }}):</span>
+            <span>{{ formatPKR(completedResult?.tenderedMinor || 0) }}</span>
+          </div>
+        </div>
+
+        <div v-if="receiptTemplateData?.template.show_fbr_qr && completedResult?.result.status === 'Submitted'" style="text-align: center; margin-top: 6px;">
+          <div style="font-size: 10px; font-weight: 700;">USIN: {{ completedResult.result.data.usin }}</div>
+          <div style="font-size: 8px;">FBR Digital Fiscal Invoice</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 6px; font-size: 9px; border-top: 1px dashed #000; padding-top: 4px;">
+          <div v-if="receiptTemplateData?.template.footer_policy" style="font-style: italic; margin-bottom: 2px;">
+            {{ receiptTemplateData.template.footer_policy }}
+          </div>
+          <div v-if="receiptTemplateData?.template.footer_greeting" style="font-weight: 700;">
+            {{ receiptTemplateData.template.footer_greeting }}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #thermal-receipt, #thermal-receipt * {
+    visibility: visible;
+  }
+  #thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: block !important;
+  }
+}
+
 .checkout-container {
   display: flex;
   flex-direction: column;

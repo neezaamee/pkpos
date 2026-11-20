@@ -416,25 +416,50 @@ class AccountingService
             ]);
 
             // 1. Payment Settlement Debit (Cash, Bank, or Customer Khata AR)
-            $paymentMethod = $sale->payment_method;
-            if ($paymentMethod === 'credit') {
-                $paymentAccountId = $settings->default_ar_account_id;
-                $memo = "Customer Khata Receivable #{$sale->sale_number}";
-            } elseif (in_array($paymentMethod, ['card', 'raast', 'wallet'])) {
-                $paymentAccountId = $settings->default_bank_account_id;
-                $memo = "Bank / Digital Settlement #{$sale->sale_number}";
-            } else {
-                $paymentAccountId = $settings->default_cash_account_id;
-                $memo = "Cash in Drawer #{$sale->sale_number}";
-            }
+            $payments = $sale->payments()->get();
+            if ($sale->isSplitPayment() || $payments->isNotEmpty()) {
+                foreach ($payments as $payment) {
+                    $method = $payment->payment_method;
+                    if ($method === 'credit') {
+                        $paymentAccountId = $settings->default_ar_account_id;
+                        $memo = "Customer Khata Receivable #{$sale->sale_number}" . ($payment->reference ? " [{$payment->reference}]" : '');
+                    } elseif (in_array($method, ['card', 'raast', 'wallet', 'cheque'])) {
+                        $paymentAccountId = $settings->default_bank_account_id;
+                        $memo = "Bank / Digital Settlement ({$method}) #{$sale->sale_number}" . ($payment->reference ? " [{$payment->reference}]" : '');
+                    } else {
+                        $paymentAccountId = $settings->default_cash_account_id;
+                        $memo = "Cash in Drawer #{$sale->sale_number}";
+                    }
 
-            $entry->lines()->create([
-                'tenant_id' => $sale->tenant_id,
-                'account_id' => $paymentAccountId,
-                'debit_minor' => $sale->total_minor,
-                'credit_minor' => 0,
-                'memo' => $memo,
-            ]);
+                    $entry->lines()->create([
+                        'tenant_id' => $sale->tenant_id,
+                        'account_id' => $paymentAccountId,
+                        'debit_minor' => $payment->amount_minor,
+                        'credit_minor' => 0,
+                        'memo' => $memo,
+                    ]);
+                }
+            } else {
+                $paymentMethod = $sale->payment_method;
+                if ($paymentMethod === 'credit') {
+                    $paymentAccountId = $settings->default_ar_account_id;
+                    $memo = "Customer Khata Receivable #{$sale->sale_number}";
+                } elseif (in_array($paymentMethod, ['card', 'raast', 'wallet', 'cheque'])) {
+                    $paymentAccountId = $settings->default_bank_account_id;
+                    $memo = "Bank / Digital Settlement #{$sale->sale_number}";
+                } else {
+                    $paymentAccountId = $settings->default_cash_account_id;
+                    $memo = "Cash in Drawer #{$sale->sale_number}";
+                }
+
+                $entry->lines()->create([
+                    'tenant_id' => $sale->tenant_id,
+                    'account_id' => $paymentAccountId,
+                    'debit_minor' => $sale->total_minor,
+                    'credit_minor' => 0,
+                    'memo' => $memo,
+                ]);
+            }
 
             // 2. Gross Sales Revenue Credit
             $entry->lines()->create([

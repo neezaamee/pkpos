@@ -110,6 +110,22 @@ class Sale extends Model
     }
 
     /**
+     * Get any payment tenders (cash, card, split payments) made for this sale.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(SalePayment::class, 'sale_id');
+    }
+
+    /**
+     * Check if this sale was settled via split / multi-tender payments.
+     */
+    public function isSplitPayment(): bool
+    {
+        return $this->payment_method === 'split' || $this->payments()->count() > 1;
+    }
+
+    /**
      * Get any sales returns / credit notes issued against this sale.
      */
     public function returns(): HasMany

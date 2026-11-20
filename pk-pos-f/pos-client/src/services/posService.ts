@@ -229,6 +229,7 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
     id: parsed.id,
     sale_number: parsed.sale_number,
     payment_method: parsed.payment_method,
+    payments: parsed.payments || undefined,
     subtotal_minor: parsed.subtotal_minor,
     tax_minor: parsed.tax_minor,
     total_minor: parsed.total_minor,
@@ -1232,4 +1233,74 @@ export async function processSaleReturn(payload: ProcessReturnPayload): Promise<
   }
 
   return await res.json();
+}
+
+export interface ReceiptTemplateData {
+  template: {
+    business_name?: string;
+    branch_name?: string;
+    address_line1?: string;
+    address_line2?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    ntn_label: string;
+    strn_label: string;
+    pos_id_label: string;
+    paper_width: '80mm' | '58mm';
+    show_tax_breakdown: boolean;
+    show_customer_info: boolean;
+    show_fbr_qr: boolean;
+    header_note?: string;
+    footer_policy?: string;
+    footer_greeting?: string;
+    logo_url?: string;
+  };
+  tenant: {
+    id: string;
+    name: string;
+    ntn?: string;
+    strn?: string;
+    province?: string;
+    fbr_pos_id?: string;
+  };
+}
+
+export async function fetchReceiptTemplate(): Promise<ReceiptTemplateData | null> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const cached = localStorage.getItem('pk_pos_receipt_template');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/receipt-template`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (res.ok) {
+      const data: ReceiptTemplateData = await res.json();
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('pk_pos_receipt_template', JSON.stringify(data));
+      }
+      return data;
+    }
+  } catch (e) {
+    console.error('Failed to fetch receipt template:', e);
+  }
+
+  return null;
 }

@@ -22,8 +22,19 @@ class CreateSaleAction
             $items = $data['items'];
             unset($data['items']);
 
+            $payments = $data['payments'] ?? null;
+            unset($data['payments']);
+
             if ($userId) {
                 $data['user_id'] = $userId;
+            }
+
+            if (! empty($payments) && is_array($payments)) {
+                if (count($payments) > 1) {
+                    $data['payment_method'] = 'split';
+                } elseif (empty($data['payment_method'])) {
+                    $data['payment_method'] = $payments[0]['payment_method'] ?? 'cash';
+                }
             }
 
             if (! isset($data['subtotal_minor']) || ! isset($data['total_minor'])) {
@@ -74,6 +85,7 @@ class CreateSaleAction
                 $qty = (float) ($item['quantity'] ?? 1);
                 $unitPrice = (int) ($item['unit_price_minor'] ?? 0);
                 $taxBps = (int) ($item['tax_rate_basis_points'] ?? 0);
+                $item['tax_rate_basis_points'] = $taxBps;
                 $item['tax_amount_minor'] = $item['tax_amount_minor'] ?? (int) round(($qty * $unitPrice * $taxBps) / 10000);
                 $item['line_total_minor'] = $item['line_total_minor'] ?? (int) round($qty * $unitPrice) + $item['tax_amount_minor'];
 
@@ -102,6 +114,31 @@ class CreateSaleAction
                 }
             }
 
+            // Record tender payment records (sale_payments)
+            if (! empty($payments) && is_array($payments)) {
+                foreach ($payments as $p) {
+                    $sale->payments()->create([
+                        'tenant_id' => $sale->tenant_id,
+                        'payment_method' => $p['payment_method'],
+                        'amount_minor' => (int) $p['amount_minor'],
+                        'tendered_minor' => isset($p['tendered_minor']) ? (int) $p['tendered_minor'] : (int) $p['amount_minor'],
+                        'change_minor' => (int) ($p['change_minor'] ?? 0),
+                        'reference' => $p['reference'] ?? $p['reference_number'] ?? null,
+                        'notes' => $p['notes'] ?? null,
+                    ]);
+                }
+            } else {
+                $sale->payments()->create([
+                    'tenant_id' => $sale->tenant_id,
+                    'payment_method' => $sale->payment_method ?: 'cash',
+                    'amount_minor' => $sale->total_minor,
+                    'tendered_minor' => $sale->total_minor,
+                    'change_minor' => 0,
+                    'reference' => null,
+                    'notes' => null,
+                ]);
+            }
+
             // Record sale in active register session if one exists
             $activeSession = RegisterSession::where('tenant_id', $sale->tenant_id)
                 ->where('location_id', $sale->location_id)
@@ -113,14 +150,21 @@ class CreateSaleAction
                 $activeSession->recordSale($sale);
             }
 
-            // If credit sale or customer attached, handle Khata ledger
-            if (! empty($sale->customer_id) && $sale->payment_method === 'credit') {
+            // If credit sale or customer attached, handle Khata ledger (works for full or split credit)
+            $creditAmount = $sale->payments()->where('payment_method', 'credit')->sum('amount_minor');
+            if ($creditAmount > 0) {
+                if (empty($sale->customer_id)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'customer_id' => ['A customer must be selected for credit / Khata payment.'],
+                    ]);
+                }
+
                 $customer = \App\Models\Customer::where('tenant_id', $sale->tenant_id)
                     ->where('id', $sale->customer_id)
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if (! $customer->canAcceptCredit($sale->total_minor)) {
+                if (! $customer->canAcceptCredit($creditAmount)) {
                     $limitRs = number_format($customer->credit_limit_minor / 100);
                     $balanceRs = number_format($customer->current_balance_minor / 100);
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -129,7 +173,7 @@ class CreateSaleAction
                 }
 
                 $user = \App\Models\User::find($userId);
-                $customer->chargeCreditSale($sale, $sale->total_minor, $user);
+                $customer->chargeCreditSale($sale, $creditAmount, $user);
             }
 
             // Auto-post to General Ledger
@@ -139,7 +183,7 @@ class CreateSaleAction
                 \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for sale {$sale->id}: " . $e->getMessage());
             }
 
-            return $sale->load('items');
+            return $sale->load(['items', 'payments']);
         });
     }
 }

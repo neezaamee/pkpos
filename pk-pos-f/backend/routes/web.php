@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinancialReportWebController;
 use App\Http\Controllers\JournalEntryWebController;
 use App\Http\Controllers\PurchaseOrderWebController;
+use App\Http\Controllers\ReceiptTemplateWebController;
 use App\Http\Controllers\SaleReturnWebController;
 use App\Http\Controllers\SupplierWebController;
 use App\Http\Controllers\PublicOnboardingController;
@@ -410,4 +411,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/trial-balance', [FinancialReportWebController::class, 'trialBalance'])->name('reports.trial-balance');
     Route::get('/reports/profit-loss', [FinancialReportWebController::class, 'profitAndLoss'])->name('reports.profit-loss');
     Route::get('/reports/balance-sheet', [FinancialReportWebController::class, 'balanceSheet'])->name('reports.balance-sheet');
+
+    // Receipt Template Customizer
+    Route::get('/settings/receipt-template', [ReceiptTemplateWebController::class, 'edit'])->name('receipt-template.edit');
+    Route::put('/settings/receipt-template', [ReceiptTemplateWebController::class, 'update'])->name('receipt-template.update');
 });

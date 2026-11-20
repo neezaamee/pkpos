@@ -26,12 +26,20 @@ class StoreSaleRequest extends FormRequest
             'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
             'location_id' => ['required', 'uuid', 'exists:locations,id'],
             'sale_number' => ['required', 'string', 'max:50'],
-            'payment_method' => ['required', 'string', 'in:cash,card,raast,wallet,credit'],
+            'payment_method' => ['required', 'string', 'in:cash,card,raast,wallet,credit,cheque,split'],
             'currency' => ['nullable', 'string', 'size:3'],
             'subtotal_minor' => ['required', 'integer', 'min:0'],
             'tax_minor' => ['required', 'integer', 'min:0'],
             'total_minor' => ['required', 'integer', 'min:0'],
             'status' => ['required', 'string', 'in:completed,refunded,voided'],
+            'payments' => ['nullable', 'array', 'min:1'],
+            'payments.*.payment_method' => ['required', 'string', 'in:cash,card,raast,wallet,credit,cheque'],
+            'payments.*.amount_minor' => ['required', 'integer', 'gt:0'],
+            'payments.*.tendered_minor' => ['nullable', 'integer', 'min:0'],
+            'payments.*.change_minor' => ['nullable', 'integer', 'min:0'],
+            'payments.*.reference' => ['nullable', 'string', 'max:100'],
+            'payments.*.reference_number' => ['nullable', 'string', 'max:100'],
+            'payments.*.notes' => ['nullable', 'string', 'max:255'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['nullable', 'uuid'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
@@ -46,5 +54,27 @@ class StoreSaleRequest extends FormRequest
             'items.*.discount_type' => ['nullable', 'string', 'in:none,percentage,fixed'],
             'items.*.discount_amount_minor' => ['nullable', 'integer', 'min:0'],
         ];
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $payments = $this->input('payments');
+            if (is_array($payments) && count($payments) > 0) {
+                $totalPaid = array_sum(array_column($payments, 'amount_minor'));
+                $totalMinor = (int) $this->input('total_minor');
+                if ($totalPaid !== $totalMinor) {
+                    $paidRs = number_format($totalPaid / 100, 2);
+                    $dueRs = number_format($totalMinor / 100, 2);
+                    $validator->errors()->add(
+                        'payments',
+                        "Total allocated payments (Rs. {$paidRs}) must equal invoice total (Rs. {$dueRs})."
+                    );
+                }
+            }
+        });
     }
 }

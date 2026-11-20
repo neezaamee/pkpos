@@ -1,4 +1,13 @@
-export type PaymentMethod = 'cash' | 'card' | 'raast' | 'wallet' | 'credit';
+export type PaymentMethod = 'cash' | 'card' | 'raast' | 'wallet' | 'credit' | 'split';
+
+export interface SplitPaymentItem {
+  payment_method: 'cash' | 'card' | 'raast' | 'wallet' | 'credit' | 'cheque';
+  amount_minor: number;
+  tendered_minor?: number;
+  change_minor?: number;
+  reference?: string;
+  notes?: string;
+}
 
 export interface CustomerProfile {
   id: string;

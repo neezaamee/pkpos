@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\CustomerApiController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\PriceListApiController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ReceiptTemplateApiController;
 use App\Http\Controllers\Api\V1\ReleaseApiController;
 use App\Http\Controllers\Api\V1\SaleController;
 use App\Http\Controllers\Api\V1\SaleReturnApiController;
@@ -143,6 +144,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/pos/returns/verify-invoice', [SaleReturnApiController::class, 'verifyInvoice']);
         Route::post('/pos/returns', [SaleReturnApiController::class, 'store']);
         Route::get('/pos/returns/{id}', [SaleReturnApiController::class, 'show']);
+
+        // Receipt Template Branding & Print Layout
+        Route::get('/pos/receipt-template', [ReceiptTemplateApiController::class, 'show']);
 
         // Idempotent Sync routes
         Route::middleware('idempotent')->group(function () {

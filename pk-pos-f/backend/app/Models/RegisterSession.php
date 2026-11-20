@@ -111,7 +111,7 @@ class RegisterSession extends Model
     }
 
     /**
-     * Record a cash sale in this register session.
+     * Record a sale in this register session (supports single and split tenders).
      */
     public function recordSale(Sale $sale): void
     {
@@ -119,36 +119,65 @@ class RegisterSession extends Model
         $this->gross_sales_minor += $sale->total_minor;
         $this->tax_collected_minor += $sale->tax_minor;
 
-        switch ($sale->payment_method) {
-            case 'cash':
-                $this->cash_sales_minor += $sale->total_minor;
-                break;
-            case 'card':
-                $this->card_sales_minor += $sale->total_minor;
-                break;
-            case 'raast':
-                $this->raast_sales_minor += $sale->total_minor;
-                break;
-            case 'wallet':
-                $this->wallet_sales_minor += $sale->total_minor;
-                break;
-            default:
-                $this->cash_sales_minor += $sale->total_minor;
-                break;
+        $cashAmount = 0;
+        $payments = $sale->payments()->get();
+
+        if ($sale->isSplitPayment() || $payments->isNotEmpty()) {
+            foreach ($payments as $payment) {
+                switch ($payment->payment_method) {
+                    case 'cash':
+                        $this->cash_sales_minor += $payment->amount_minor;
+                        $cashAmount += $payment->amount_minor;
+                        break;
+                    case 'card':
+                        $this->card_sales_minor += $payment->amount_minor;
+                        break;
+                    case 'raast':
+                        $this->raast_sales_minor += $payment->amount_minor;
+                        break;
+                    case 'wallet':
+                        $this->wallet_sales_minor += $payment->amount_minor;
+                        break;
+                    // Note: credit (Khata) and cheque do not increment POS cash drawer or digital card balances
+                }
+            }
+        } else {
+            switch ($sale->payment_method) {
+                case 'cash':
+                    $this->cash_sales_minor += $sale->total_minor;
+                    $cashAmount = $sale->total_minor;
+                    break;
+                case 'card':
+                    $this->card_sales_minor += $sale->total_minor;
+                    break;
+                case 'raast':
+                    $this->raast_sales_minor += $sale->total_minor;
+                    break;
+                case 'wallet':
+                    $this->wallet_sales_minor += $sale->total_minor;
+                    break;
+                case 'credit':
+                    // Customer Khata credit does not increment register cash
+                    break;
+                default:
+                    $this->cash_sales_minor += $sale->total_minor;
+                    $cashAmount = $sale->total_minor;
+                    break;
+            }
         }
 
         $this->recalculateExpectedCash();
         $this->save();
 
-        if ($sale->payment_method === 'cash') {
+        if ($cashAmount > 0) {
             $this->transactions()->create([
                 'tenant_id' => $this->tenant_id,
                 'user_id' => $sale->user_id,
                 'sale_id' => $sale->id,
                 'type' => 'sale',
-                'amount_minor' => $sale->total_minor,
+                'amount_minor' => $cashAmount,
                 'balance_after_minor' => $this->expected_cash_minor,
-                'reason' => 'Sale #' . $sale->sale_number,
+                'reason' => 'Sale #' . $sale->sale_number . ($sale->isSplitPayment() ? ' (Cash portion)' : ''),
             ]);
         }
     }

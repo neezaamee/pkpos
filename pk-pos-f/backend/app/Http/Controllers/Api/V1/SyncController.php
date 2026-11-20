@@ -185,6 +185,37 @@ class SyncController extends Controller
                             );
                         }
                     }
+
+                    // Record tender payment records (sale_payments)
+                    $payments = $saleData['payments'] ?? [];
+                    if (! empty($payments) && is_array($payments)) {
+                        foreach ($payments as $p) {
+                            $sale->payments()->create([
+                                'tenant_id' => $tenantId,
+                                'payment_method' => $p['payment_method'],
+                                'amount_minor' => (int) $p['amount_minor'],
+                                'tendered_minor' => isset($p['tendered_minor']) ? (int) $p['tendered_minor'] : (int) $p['amount_minor'],
+                                'change_minor' => (int) ($p['change_minor'] ?? 0),
+                                'reference' => $p['reference'] ?? $p['reference_number'] ?? null,
+                                'notes' => $p['notes'] ?? null,
+                            ]);
+                        }
+                    } else {
+                        $sale->payments()->create([
+                            'tenant_id' => $tenantId,
+                            'payment_method' => $sale->payment_method ?: 'cash',
+                            'amount_minor' => $sale->total_minor,
+                            'tendered_minor' => $sale->total_minor,
+                            'change_minor' => 0,
+                        ]);
+                    }
+
+                    // Auto-post to General Ledger
+                    try {
+                        app(\App\Services\AccountingService::class)->postSale($sale);
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped during sync for sale {$sale->id}: " . $e->getMessage());
+                    }
                 });
 
                 $syncedCount++;
