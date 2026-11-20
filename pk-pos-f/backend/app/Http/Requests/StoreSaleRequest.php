@@ -32,6 +32,15 @@ class StoreSaleRequest extends FormRequest
             'tax_minor' => ['required', 'integer', 'min:0'],
             'total_minor' => ['required', 'integer', 'min:0'],
             'status' => ['required', 'string', 'in:completed,refunded,voided'],
+            'prescription' => ['nullable', 'array'],
+            'prescription.patient_name' => ['required_with:prescription', 'string', 'max:100'],
+            'prescription.patient_phone' => ['nullable', 'string', 'max:50'],
+            'prescription.patient_cnic' => ['nullable', 'string', 'max:20'],
+            'prescription.doctor_name' => ['required_with:prescription', 'string', 'max:100'],
+            'prescription.doctor_pmdc_number' => ['required_with:prescription', 'string', 'max:50'],
+            'prescription.hospital_clinic_name' => ['nullable', 'string', 'max:150'],
+            'prescription.prescription_date' => ['nullable', 'date'],
+            'prescription.diagnosis_notes' => ['nullable', 'string', 'max:500'],
             'payments' => ['nullable', 'array', 'min:1'],
             'payments.*.payment_method' => ['required', 'string', 'in:cash,card,raast,wallet,credit,cheque'],
             'payments.*.amount_minor' => ['required', 'integer', 'gt:0'],
@@ -53,6 +62,9 @@ class StoreSaleRequest extends FormRequest
             'items.*.line_total_minor' => ['required', 'integer', 'min:0'],
             'items.*.discount_type' => ['nullable', 'string', 'in:none,percentage,fixed'],
             'items.*.discount_amount_minor' => ['nullable', 'integer', 'min:0'],
+            'items.*.batch_id' => ['nullable', 'uuid', 'exists:product_batches,id'],
+            'items.*.batch_number' => ['nullable', 'string', 'max:50'],
+            'items.*.expiry_date' => ['nullable', 'date'],
         ];
     }
 

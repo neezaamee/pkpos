@@ -168,7 +168,18 @@ class SyncController extends Controller
                             'tax_rate_basis_points' => $item['tax_rate_basis_points'] ?? 0,
                             'tax_amount_minor' => $item['tax_amount_minor'] ?? $item['tax_minor'] ?? 0,
                             'line_total_minor' => $item['line_total_minor'] ?? $item['total_minor'] ?? 0,
+                            'batch_id' => $item['batch_id'] ?? null,
+                            'batch_number' => $item['batch_number'] ?? null,
+                            'expiry_date' => $item['expiry_date'] ?? null,
                         ]);
+
+                        // Deduct batch stock if batch_id was provided
+                        if (! empty($item['batch_id'])) {
+                            $batch = \App\Models\ProductBatch::withoutGlobalScopes()->find($item['batch_id']);
+                            if ($batch) {
+                                app(\App\Services\Pharmacy\BatchService::class)->deductBatchStock($batch, abs($item['quantity']));
+                            }
+                        }
 
                         // Record stock deduction if product and location exist
                         if ($productId && $sale->location_id) {
@@ -208,6 +219,20 @@ class SyncController extends Controller
                             'tendered_minor' => $sale->total_minor,
                             'change_minor' => 0,
                         ]);
+                    }
+
+                    // Record Doctor Prescription & Narcotic Register audit if present
+                    if (! empty($saleData['prescription']) && is_array($saleData['prescription'])) {
+                        try {
+                            app(\App\Services\Pharmacy\BatchService::class)->recordPrescriptionAndNarcotics(
+                                $user->tenant,
+                                $sale,
+                                $saleData['prescription'],
+                                $user->id
+                            );
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning("Prescription logging failed during sync for sale {$sale->id}: " . $e->getMessage());
+                        }
                     }
 
                     // Auto-post to General Ledger

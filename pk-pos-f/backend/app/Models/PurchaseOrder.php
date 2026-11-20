@@ -115,6 +115,20 @@ class PurchaseOrder extends Model
                     $receivedBy->id
                 );
 
+                // 1b. If batch info is provided (e.g. Pharmacy GRN), record batch stock
+                if (! empty($line['batch_number']) && ! empty($line['expiry_date'])) {
+                    app(\App\Services\Pharmacy\BatchService::class)->recordBatch($tenant, [
+                        'product_id' => $poItem->product_id,
+                        'location_id' => $this->location_id,
+                        'batch_number' => $line['batch_number'],
+                        'manufacturing_date' => $line['manufacturing_date'] ?? null,
+                        'expiry_date' => $line['expiry_date'],
+                        'quantity_on_hand' => $baseQty,
+                        'cost_minor' => $poItem->cost_price_minor,
+                        'mrp_minor' => $line['mrp_minor'] ?? null,
+                    ]);
+                }
+
                 // 2. Update product latest cost price
                 if ($poItem->cost_price_minor > 0) {
                     $product = Product::withoutGlobalScopes()->find($poItem->product_id);

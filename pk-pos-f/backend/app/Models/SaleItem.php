@@ -32,6 +32,9 @@ class SaleItem extends Model
         'line_total_minor',
         'discount_type',
         'discount_amount_minor',
+        'batch_id',
+        'batch_number',
+        'expiry_date',
     ];
 
     /**
@@ -49,6 +52,7 @@ class SaleItem extends Model
             'tax_amount_minor' => 'integer',
             'line_total_minor' => 'integer',
             'discount_amount_minor' => 'integer',
+            'expiry_date' => 'date',
         ];
     }
 
@@ -86,5 +90,13 @@ class SaleItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Get the specific batch that this item was dispensed from.
+     */
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(ProductBatch::class, 'batch_id');
     }
 }

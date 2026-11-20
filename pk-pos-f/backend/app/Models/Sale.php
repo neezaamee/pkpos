@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Sale extends Model
 {
@@ -115,6 +116,22 @@ class Sale extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(SalePayment::class, 'sale_id');
+    }
+
+    /**
+     * Get the doctor prescription recorded for this sale, if applicable.
+     */
+    public function prescription(): HasOne
+    {
+        return $this->hasOne(Prescription::class, 'sale_id');
+    }
+
+    /**
+     * Get any narcotics or controlled drugs register entries recorded for this sale.
+     */
+    public function narcoticEntries(): HasMany
+    {
+        return $this->hasMany(NarcoticRegisterEntry::class, 'sale_id');
     }
 
     /**

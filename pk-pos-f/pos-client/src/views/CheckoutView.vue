@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem, SplitPaymentItem } from '../types/pos';
+import type { CachedProduct, CartItem, CustomerProfile, PaymentMethod, ProcessResult, ProductUomConversion, ProductVariantItem, SplitPaymentItem, ProductBatchItem, PrescriptionData } from '../types/pos';
 import { formatPKR } from '../types/pos';
-import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer, verifyInvoiceForReturn, processSaleReturn, fetchReceiptTemplate, type VerifyInvoiceResponse, type ReceiptTemplateData } from '../services/posService';
+import { getCachedProducts, getProductByBarcode, processSale, openCashDrawer, searchCustomers, createCustomer, verifyInvoiceForReturn, processSaleReturn, fetchReceiptTemplate, fetchProductBatches, type VerifyInvoiceResponse, type ReceiptTemplateData } from '../services/posService';
 
 interface HeldSale {
   id: string;
@@ -200,7 +200,75 @@ const completedResult = ref<{
   payments?: SplitPaymentItem[];
   items?: CartItem[];
   customer?: CustomerProfile | null;
+  prescription?: PrescriptionData | null;
 } | null>(null);
+
+// Pharmacy & Medical Store Vertical State
+const showPrescriptionModal = ref(false);
+const prescriptionCaptured = ref(false);
+const prescriptionData = ref<PrescriptionData>({
+  doctor_name: '',
+  doctor_pmdc_number: '',
+  patient_name: '',
+  patient_cnic: '',
+  patient_phone: '',
+  hospital_clinic_name: '',
+  prescription_date: new Date().toISOString().split('T')[0],
+  diagnosis_notes: '',
+});
+
+const showBatchModal = ref(false);
+const selectedCartItemForBatch = ref<CartItem | null>(null);
+const availableBatchesForProduct = ref<ProductBatchItem[]>([]);
+const isLoadingBatches = ref(false);
+
+const cartHasPrescriptionDrugs = computed(() => {
+  return cart.value.some(i => i.product.is_prescription_required);
+});
+
+const cartHasNarcotics = computed(() => {
+  return cart.value.some(i => i.product.is_narcotic);
+});
+
+async function openBatchPicker(item: CartItem) {
+  selectedCartItemForBatch.value = item;
+  showBatchModal.value = true;
+  isLoadingBatches.value = true;
+  try {
+    availableBatchesForProduct.value = await fetchProductBatches(item.product.id);
+  } finally {
+    isLoadingBatches.value = false;
+  }
+}
+
+function selectBatchForItem(batch: ProductBatchItem) {
+  if (selectedCartItemForBatch.value) {
+    selectedCartItemForBatch.value.batch_id = batch.id;
+    selectedCartItemForBatch.value.batch_number = batch.batch_number;
+    selectedCartItemForBatch.value.expiry_date = batch.expiry_date;
+  }
+  showBatchModal.value = false;
+  selectedCartItemForBatch.value = null;
+}
+
+function confirmPrescription() {
+  if (!prescriptionData.value.doctor_name.trim()) {
+    alert('Doctor Name is required for prescription medicines.');
+    return;
+  }
+  if (!prescriptionData.value.doctor_pmdc_number.trim()) {
+    alert('Doctor PMDC / PMC Registration Number is required.');
+    return;
+  }
+  if (cartHasNarcotics.value && !prescriptionData.value.patient_cnic?.trim()) {
+    alert('Patient CNIC is strictly required by DRAP for Schedule D / Narcotic controlled substances.');
+    return;
+  }
+
+  prescriptionCaptured.value = true;
+  showPrescriptionModal.value = false;
+  handleCompleteSale();
+}
 
 // Hardware Barcode Scanner Buffer
 let barcodeBuffer = '';
@@ -475,6 +543,9 @@ function addToCart(
       selected_uom: packUom,
       unit_code: unitCode,
       unit_conversion_factor: conversionFactor,
+      batch_id: product.fefo_batch?.id,
+      batch_number: product.fefo_batch?.batch_number,
+      expiry_date: product.fefo_batch?.expiry_date,
     };
     cart.value.push(newItem);
   }
@@ -733,6 +804,8 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
     if (showDiscountModal.value) { showDiscountModal.value = false; focusSearch(); return; }
     if (showHeldSalesModal.value) { showHeldSalesModal.value = false; focusSearch(); return; }
     if (showSplitModal.value) { showSplitModal.value = false; focusSearch(); return; }
+    if (showPrescriptionModal.value) { showPrescriptionModal.value = false; focusSearch(); return; }
+    if (showBatchModal.value) { showBatchModal.value = false; selectedCartItemForBatch.value = null; focusSearch(); return; }
     searchQuery.value = '';
     focusSearch();
     return;
@@ -845,6 +918,21 @@ async function handleGlobalKeydown(e: KeyboardEvent) {
 async function handleCompleteSale() {
   if (!canCompleteSale.value || isProcessing.value) return;
 
+  // DRAP Pharmacy Compliance: Enforce Doctor Prescription if Cart contains Rx or Narcotic drugs
+  const requiresRx = cartHasPrescriptionDrugs.value || cartHasNarcotics.value;
+  if (requiresRx && !prescriptionCaptured.value) {
+    if (selectedCustomer.value) {
+      if (!prescriptionData.value.patient_name) prescriptionData.value.patient_name = selectedCustomer.value.name;
+      if (!prescriptionData.value.patient_cnic) prescriptionData.value.patient_cnic = selectedCustomer.value.cnic || '';
+      if (!prescriptionData.value.patient_phone) prescriptionData.value.patient_phone = selectedCustomer.value.phone || '';
+    } else if (customerDetails.value.name) {
+      if (!prescriptionData.value.patient_name) prescriptionData.value.patient_name = customerDetails.value.name;
+      if (!prescriptionData.value.patient_cnic) prescriptionData.value.patient_cnic = customerDetails.value.cnic || '';
+    }
+    showPrescriptionModal.value = true;
+    return;
+  }
+
   isProcessing.value = true;
   processError.value = null;
 
@@ -871,11 +959,25 @@ async function handleCompleteSale() {
       line_total_minor: item.total_minor,
       discount_type: 'none',
       discount_amount_minor: 0,
+      batch_id: item.batch_id || item.product.fefo_batch?.id || undefined,
+      batch_number: item.batch_number || item.product.fefo_batch?.batch_number || undefined,
+      expiry_date: item.expiry_date || item.product.fefo_batch?.expiry_date || undefined,
     }));
 
     const paymentsPayload = selectedPayment.value === 'split' && splitPaymentsApplied.value.length > 0
       ? splitPaymentsApplied.value
       : undefined;
+
+    const prescriptionPayload = prescriptionCaptured.value && prescriptionData.value.doctor_name ? {
+      doctor_name: prescriptionData.value.doctor_name,
+      doctor_pmdc_number: prescriptionData.value.doctor_pmdc_number,
+      patient_name: prescriptionData.value.patient_name || selectedCustomer.value?.name || customerDetails.value.name || 'Walk-in Patient',
+      patient_cnic: prescriptionData.value.patient_cnic || selectedCustomer.value?.cnic || customerDetails.value.cnic || undefined,
+      patient_phone: prescriptionData.value.patient_phone || selectedCustomer.value?.phone || undefined,
+      hospital_clinic_name: prescriptionData.value.hospital_clinic_name || undefined,
+      prescription_date: prescriptionData.value.prescription_date || new Date().toISOString().split('T')[0],
+      diagnosis_notes: prescriptionData.value.diagnosis_notes || undefined,
+    } : undefined;
 
     const salePayload = {
       id: saleId,
@@ -892,6 +994,7 @@ async function handleCompleteSale() {
       buyer_ntn: selectedCustomer.value?.ntn || customerDetails.value.ntn || undefined,
       buyer_cnic: selectedCustomer.value?.cnic || customerDetails.value.cnic || undefined,
       items: itemsPayload,
+      prescription: prescriptionPayload,
     };
 
     const res = await processSale(JSON.stringify(salePayload));
@@ -934,6 +1037,7 @@ async function handleCompleteSale() {
       payments: paymentsPayload,
       items: [...cart.value],
       customer: selectedCustomer.value || null,
+      prescription: prescriptionPayload ? { ...prescriptionData.value } : null,
     };
 
     showConfirmation.value = true;
@@ -949,6 +1053,17 @@ function closeConfirmationModal() {
   completedResult.value = null;
   splitPaymentsApplied.value = [];
   splitTenders.value.forEach(t => { t.amount = null; t.ref = ''; });
+  prescriptionCaptured.value = false;
+  prescriptionData.value = {
+    doctor_name: '',
+    doctor_pmdc_number: '',
+    patient_name: '',
+    patient_cnic: '',
+    patient_phone: '',
+    hospital_clinic_name: '',
+    prescription_date: new Date().toISOString().split('T')[0],
+    diagnosis_notes: '',
+  };
   selectedPayment.value = 'cash';
   mobileSection.value = 'products';
   clearCart();
@@ -1076,13 +1191,38 @@ onUnmounted(() => {
               </span>
               <span v-else class="tax-badge">{{ (product.tax_rate_basis_points / 100).toFixed(0) }}% Tax</span>
             </div>
-            <div class="product-meta">
+
+            <!-- Pharmacy Generic Formula & Strength -->
+            <div v-if="product.generic_name" style="font-size: 0.72rem; color: #38bdf8; font-style: italic; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              {{ product.generic_name }} <span v-if="product.strength">({{ product.strength }})</span>
+            </div>
+
+            <div class="product-meta" style="flex-wrap: wrap; gap: 3px;">
               <span class="pct-code">PCT: {{ product.hs_code }}</span>
               <span v-if="product.barcode" class="barcode-badge">{{ product.barcode }}</span>
+              <span v-if="product.drap_registration_number" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.65rem; padding: 1px 4px; border-radius: 3px;">
+                DRAP: {{ product.drap_registration_number }}
+              </span>
+              <span v-if="product.is_prescription_required" style="background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 3px;">
+                Rx
+              </span>
+              <span v-if="product.is_narcotic" style="background: rgba(220, 38, 38, 0.25); color: #ef4444; font-size: 0.65rem; font-weight: 800; padding: 1px 4px; border-radius: 3px;">
+                SCH-D
+              </span>
+              <span v-if="product.cold_chain" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; font-size: 0.65rem; padding: 1px 4px; border-radius: 3px;">
+                ❄ Cold
+              </span>
             </div>
-            <div class="product-bottom">
-              <span class="price-tag">{{ formatPKR(product.price_minor) }}</span>
-              <span class="unit-tag">/ {{ product.unit }}</span>
+
+            <div class="product-bottom" style="display: flex; justify-content: space-between; align-items: flex-end;">
+              <div>
+                <span class="price-tag">{{ formatPKR(product.price_minor) }}</span>
+                <span class="unit-tag">/ {{ product.unit }}</span>
+              </div>
+              <div v-if="product.fefo_batch" style="font-size: 0.68rem; color: #a3e635; font-family: var(--font-mono); text-align: right;">
+                <div>🏷️ {{ product.fefo_batch.batch_number }}</div>
+                <div style="font-size: 0.6rem; color: #94a3b8;">Exp: {{ product.fefo_batch.expiry_date }}</div>
+              </div>
             </div>
           </div>
 
@@ -1133,11 +1273,17 @@ onUnmounted(() => {
 
           <div v-for="item in cart" :key="item.variant ? item.product.id + '_' + item.variant.id : (item.selected_uom ? item.product.id + '_' + item.selected_uom.id : item.product.id)" class="cart-item-row">
             <div class="item-info">
-              <div class="item-name">
-                {{ item.product.name }}
+              <div class="item-name" style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                <span>{{ item.product.name }}</span>
                 <span v-if="item.variant" class="variant-tag">({{ item.variant.name }})</span>
                 <span v-if="item.selected_uom" class="variant-tag" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">
                   [{{ item.selected_uom.unit_name }}]
+                </span>
+                <span v-if="item.product.is_prescription_required" style="background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 3px;">
+                  Rx
+                </span>
+                <span v-if="item.product.is_narcotic" style="background: rgba(220, 38, 38, 0.25); color: #ef4444; font-size: 0.65rem; font-weight: 800; padding: 1px 4px; border-radius: 3px;">
+                  SCH-D
                 </span>
               </div>
               <div class="item-sub">
@@ -1145,6 +1291,24 @@ onUnmounted(() => {
                   {{ formatPKR(item.unit_price_minor) }} / {{ item.unit_code || item.product.unit || 'pcs' }}
                 </span>
                 <span class="pct-code-small">PCT: {{ item.product.hs_code }}</span>
+              </div>
+
+              <!-- Pharmacy Batch Info & Picker Trigger -->
+              <div v-if="item.batch_number || item.product.fefo_batch" style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem;">
+                <span style="font-size: 0.7rem; color: #a3e635; background: rgba(163, 230, 53, 0.1); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono);">
+                  🏷️ {{ item.batch_number || item.product.fefo_batch?.batch_number }}
+                  <span v-if="item.expiry_date || item.product.fefo_batch?.expiry_date" style="color: #94a3b8; font-size: 0.65rem;">
+                    (Exp: {{ item.expiry_date || item.product.fefo_batch?.expiry_date }})
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  style="font-size: 0.65rem; background: transparent; border: 1px solid #475569; color: #94a3b8; border-radius: 3px; padding: 1px 5px; cursor: pointer;"
+                  title="Choose alternative batch"
+                  @click="openBatchPicker(item)"
+                >
+                  Change
+                </button>
               </div>
               <!-- Multi-UOM Pack Selector (if conversions available) -->
               <div v-if="item.product.uom_conversions && item.product.uom_conversions.length > 0" style="display: flex; gap: 0.35rem; margin-top: 0.35rem;">
@@ -2144,6 +2308,133 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Doctor Prescription & Narcotics Compliance Modal -->
+    <div v-if="showPrescriptionModal" class="modal-overlay" @click.self="showPrescriptionModal = false">
+      <div class="modal-card" style="max-width: 520px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+          <h3 class="modal-title" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+            <span>💊</span> Doctor Prescription Details
+          </h3>
+          <span v-if="cartHasNarcotics" style="background: rgba(220, 38, 38, 0.2); color: #ef4444; border: 1px solid rgba(220, 38, 38, 0.4); font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 4px;">
+            SCHEDULE D / NARCOTICS
+          </span>
+          <span v-else style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">
+            PRESCRIPTION (Rx)
+          </span>
+        </div>
+
+        <p class="modal-sub" style="margin-bottom: 1rem;">
+          DRAP & statutory drug regulations require recording prescribing doctor & patient details for prescription items.
+        </p>
+
+        <div v-if="cartHasNarcotics" style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 0.6rem 0.8rem; border-radius: 4px; font-size: 0.78rem; color: #fca5a5; margin-bottom: 1rem;">
+          ⚠️ <strong>Form 7 Audit Alert:</strong> This sale contains controlled/narcotic substances. Prescribing Doctor's PMDC # and Patient CNIC are mandatory by Federal Drug Inspector regulations.
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group-pos">
+              <label>Doctor Name <span style="color: #ef4444;">*</span></label>
+              <input v-model="prescriptionData.doctor_name" class="pos-input" placeholder="e.g. Dr. Muhammad Tariq" />
+            </div>
+            <div class="form-group-pos">
+              <label>PMDC / PMC Reg # <span style="color: #ef4444;">*</span></label>
+              <input v-model="prescriptionData.doctor_pmdc_number" class="pos-input" placeholder="e.g. 12345-P" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group-pos">
+              <label>Patient Name <span style="color: #ef4444;">*</span></label>
+              <input v-model="prescriptionData.patient_name" class="pos-input" placeholder="Patient Full Name" />
+            </div>
+            <div class="form-group-pos">
+              <label>Patient CNIC <span v-if="cartHasNarcotics" style="color: #ef4444;">*</span></label>
+              <input v-model="prescriptionData.patient_cnic" class="pos-input" placeholder="35201-XXXXXXX-X" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group-pos">
+              <label>Patient Contact / Phone</label>
+              <input v-model="prescriptionData.patient_phone" class="pos-input" placeholder="0300-XXXXXXX" />
+            </div>
+            <div class="form-group-pos">
+              <label>Hospital / Clinic Name</label>
+              <input v-model="prescriptionData.hospital_clinic_name" class="pos-input" placeholder="e.g. Services Hospital" />
+            </div>
+          </div>
+
+          <div class="form-group-pos">
+            <label>Diagnosis / Clinical Notes</label>
+            <input v-model="prescriptionData.diagnosis_notes" class="pos-input" placeholder="e.g. Post-op analgesia / chronic pain" />
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 1.25rem;">
+          <button type="button" class="secondary-btn" style="flex: 1;" @click="showPrescriptionModal = false">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="next-sale-btn"
+            style="flex: 2; background: #0284c7; border-color: #0284c7;"
+            :disabled="!prescriptionData.doctor_name || !prescriptionData.doctor_pmdc_number || (cartHasNarcotics && !prescriptionData.patient_cnic)"
+            @click="confirmPrescription"
+          >
+            Verify & Proceed to Checkout
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pharmacy Batch Picker Modal -->
+    <div v-if="showBatchModal" class="modal-overlay" @click.self="showBatchModal = false">
+      <div class="modal-card" style="max-width: 500px;">
+        <h3 class="modal-title">Select Inventory Batch</h3>
+        <p class="modal-sub" v-if="selectedCartItemForBatch">
+          Available batches for <strong>{{ selectedCartItemForBatch.product.name }}</strong> (Sorted by FEFO)
+        </p>
+
+        <div v-if="isLoadingBatches" style="text-align: center; padding: 2rem; color: #94a3b8;">
+          Loading available batches...
+        </div>
+
+        <div v-else-if="availableBatchesForProduct.length === 0" style="text-align: center; padding: 2rem; color: #94a3b8;">
+          No alternative active batches found.
+        </div>
+
+        <div v-else style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 280px; overflow-y: auto; margin: 1rem 0;">
+          <div
+            v-for="b in availableBatchesForProduct"
+            :key="b.id"
+            style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: #1e293b; border: 1px solid #334155; border-radius: 6px; cursor: pointer;"
+            :style="{ borderColor: selectedCartItemForBatch?.batch_id === b.id ? '#38bdf8' : '#334155' }"
+            @click="selectBatchForItem(b)"
+          >
+            <div>
+              <div style="font-weight: 700; color: #f8fafc; font-family: var(--font-mono); display: flex; align-items: center; gap: 0.5rem;">
+                <span>{{ b.batch_number }}</span>
+                <span v-if="b.is_nearing_expiry" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; font-size: 0.65rem; padding: 1px 4px; border-radius: 3px;">
+                  Expiring Soon ({{ b.days_until_expiry }}d)
+                </span>
+              </div>
+              <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
+                Expiry: {{ b.expiry_date }} | In Stock: {{ b.quantity_on_hand }}
+              </div>
+            </div>
+            <button type="button" class="s-pill active" style="font-size: 0.72rem; padding: 0.25rem 0.6rem;">
+              Select
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="secondary-btn" style="width: 100%;" @click="showBatchModal = false">
+          Close (Esc)
+        </button>
+      </div>
+    </div>
+
     <!-- Printable Thermal Receipt (Hidden on screen, styled with active ReceiptTemplate when printed) -->
     <div id="thermal-receipt" class="print-only">
       <div
@@ -2210,11 +2501,20 @@ onUnmounted(() => {
         <div style="padding: 4px 0; border-bottom: 1px dashed #000; font-size: 10px;">
           <div v-for="item in completedResult?.items || []" :key="item.product.id" style="margin-bottom: 3px;">
             <div style="font-weight: 700;">{{ item.product.name }}</div>
+            <div v-if="item.batch_number || item.product.fefo_batch" style="font-size: 8px; color: #444;">
+              Batch: {{ item.batch_number || item.product.fefo_batch?.batch_number }} | Exp: {{ item.expiry_date || item.product.fefo_batch?.expiry_date }}
+            </div>
             <div style="display: flex; justify-content: space-between;">
               <span>{{ item.quantity }} x {{ formatPKR(item.unit_price_minor) }}</span>
               <span>{{ formatPKR(item.total_minor) }}</span>
             </div>
           </div>
+        </div>
+
+        <!-- Doctor Prescription on Receipt -->
+        <div v-if="completedResult?.prescription" style="border-bottom: 1px dashed #000; padding: 3px 0; font-size: 9px;">
+          <div><strong>Rx Doctor:</strong> {{ completedResult.prescription.doctor_name }} ({{ completedResult.prescription.doctor_pmdc_number }})</div>
+          <div v-if="completedResult.prescription.patient_name"><strong>Patient:</strong> {{ completedResult.prescription.patient_name }}</div>
         </div>
 
         <div style="padding: 4px 0; font-size: 11px;">

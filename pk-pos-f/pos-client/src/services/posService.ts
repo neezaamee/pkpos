@@ -90,7 +90,9 @@ export async function getCachedProducts(query?: string): Promise<CachedProduct[]
     (p) =>
       p.name.toLowerCase().includes(q) ||
       (p.barcode && p.barcode.includes(q)) ||
-      p.hs_code.includes(q)
+      p.hs_code.includes(q) ||
+      (p.generic_name && p.generic_name.toLowerCase().includes(q)) ||
+      (p.drap_registration_number && p.drap_registration_number.toLowerCase().includes(q))
   );
 }
 
@@ -159,6 +161,16 @@ export async function syncCatalog(): Promise<CatalogSyncSummary> {
             unit: item.unit || 'piece',
             barcode: item.barcode || '',
             tax_rate_basis_points: item.tax_rate_basis_points || 1800,
+            generic_name: item.generic_name,
+            drap_registration_number: item.drap_registration_number,
+            dosage_form: item.dosage_form,
+            strength: item.strength,
+            manufacturer: item.manufacturer,
+            is_prescription_required: item.is_prescription_required,
+            is_narcotic: item.is_narcotic,
+            cold_chain: item.cold_chain,
+            rack_location: item.rack_location,
+            fefo_batch: item.fefo_batch,
             variants: item.variants || [],
             uom_conversions: item.uom_conversions || [],
             allows_decimals: item.allows_decimals ?? (item.unit === 'kg' || item.unit === 'gram' || item.unit === 'litre' || item.unit === 'meter'),
@@ -238,6 +250,7 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
     buyer_phone: parsed.buyer_phone || undefined,
     buyer_cnic: parsed.buyer_cnic || undefined,
     buyer_ntn: parsed.buyer_ntn || undefined,
+    prescription: parsed.prescription || undefined,
     status: 'completed',
     fbr_status: 'submitted',
     fbr_usin: 'USIN-MOCK-' + Math.floor(100000 + Math.random() * 900000),
@@ -258,6 +271,9 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
       line_total_minor: item.line_total_minor ?? item.total_minor ?? 0,
       discount_type: item.discount_type || 'none',
       discount_amount_minor: item.discount_amount_minor || 0,
+      batch_id: item.batch_id || undefined,
+      batch_number: item.batch_number || undefined,
+      expiry_date: item.expiry_date || undefined,
     })),
   };
 
@@ -1303,4 +1319,94 @@ export async function fetchReceiptTemplate(): Promise<ReceiptTemplateData | null
   }
 
   return null;
+}
+
+/**
+ * Search pharmacy medicines by brand name, generic name, or DRAP registration number.
+ */
+export async function searchPharmacyMedicines(query: string, locationId?: string): Promise<any[]> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return [];
+
+  try {
+    const params = new URLSearchParams({ q: query });
+    if (locationId) params.append('location_id', locationId);
+
+    const res = await fetch(`${cleanUrl}/pos/pharmacy/medicines?${params.toString()}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to search pharmacy medicines:', e);
+  }
+
+  return [];
+}
+
+/**
+ * Fetch all active batches for a given product sorted by FEFO.
+ */
+export async function fetchProductBatches(productId: string, locationId?: string): Promise<any[]> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return [];
+
+  try {
+    const params = new URLSearchParams();
+    if (locationId) params.append('location_id', locationId);
+
+    const res = await fetch(`${cleanUrl}/pos/pharmacy/batches/${productId}?${params.toString()}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error(`Failed to fetch batches for product ${productId}:`, e);
+  }
+
+  return [];
+}
+
+/**
+ * Fetch batches nearing expiry.
+ */
+export async function fetchExpiringBatches(days = 90): Promise<any[]> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return [];
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/pharmacy/expiring-batches?days=${days}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to fetch expiring batches:', e);
+  }
+
+  return [];
 }

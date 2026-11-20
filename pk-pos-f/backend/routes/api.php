@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BroadcastApiController;
 use App\Http\Controllers\Api\V1\CustomerApiController;
 use App\Http\Controllers\Api\V1\InventoryController;
+use App\Http\Controllers\Api\V1\PharmacyApiController;
 use App\Http\Controllers\Api\V1\PriceListApiController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReceiptTemplateApiController;
@@ -147,6 +148,11 @@ Route::prefix('v1')->group(function () {
 
         // Receipt Template Branding & Print Layout
         Route::get('/pos/receipt-template', [ReceiptTemplateApiController::class, 'show']);
+
+        // Pharmacy Vertical (FEFO Batches, Generics & Narcotics)
+        Route::get('/pos/pharmacy/medicines', [PharmacyApiController::class, 'searchMedicines']);
+        Route::get('/pos/pharmacy/batches/{productId}', [PharmacyApiController::class, 'getBatches']);
+        Route::get('/pos/pharmacy/expiring-batches', [PharmacyApiController::class, 'getExpiringBatches']);
 
         // Idempotent Sync routes
         Route::middleware('idempotent')->group(function () {

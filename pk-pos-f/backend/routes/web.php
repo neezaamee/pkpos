@@ -6,6 +6,9 @@ use App\Http\Controllers\CustomerWebController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinancialReportWebController;
 use App\Http\Controllers\JournalEntryWebController;
+use App\Http\Controllers\Pharmacy\BatchWebController;
+use App\Http\Controllers\Pharmacy\NarcoticWebController;
+use App\Http\Controllers\Pharmacy\PrescriptionWebController;
 use App\Http\Controllers\PurchaseOrderWebController;
 use App\Http\Controllers\ReceiptTemplateWebController;
 use App\Http\Controllers\SaleReturnWebController;
@@ -415,4 +418,15 @@ Route::middleware('auth')->group(function () {
     // Receipt Template Customizer
     Route::get('/settings/receipt-template', [ReceiptTemplateWebController::class, 'edit'])->name('receipt-template.edit');
     Route::put('/settings/receipt-template', [ReceiptTemplateWebController::class, 'update'])->name('receipt-template.update');
+
+    // Pharmacy & Medical Store Vertical
+    Route::get('/pharmacy/batches', [BatchWebController::class, 'index'])->name('pharmacy.batches.index');
+    Route::post('/pharmacy/batches', [BatchWebController::class, 'store'])->name('pharmacy.batches.store');
+    Route::put('/pharmacy/batches/{id}', [BatchWebController::class, 'update'])->name('pharmacy.batches.update')->whereUuid('id');
+    Route::post('/pharmacy/batches/quarantine-expired', [BatchWebController::class, 'quarantineExpired'])->name('pharmacy.batches.quarantine');
+
+    Route::get('/pharmacy/narcotics', [NarcoticWebController::class, 'index'])->name('pharmacy.narcotics.index');
+
+    Route::get('/pharmacy/prescriptions', [PrescriptionWebController::class, 'index'])->name('pharmacy.prescriptions.index');
+    Route::get('/pharmacy/prescriptions/{id}', [PrescriptionWebController::class, 'show'])->name('pharmacy.prescriptions.show')->whereUuid('id');
 });

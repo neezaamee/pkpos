@@ -54,6 +54,28 @@ export interface ProductUomConversion {
   price_minor: number;
 }
 
+export interface ProductBatchItem {
+  id: string;
+  batch_number: string;
+  manufacturing_date?: string;
+  expiry_date: string;
+  days_until_expiry?: number;
+  is_nearing_expiry?: boolean;
+  quantity_on_hand: number;
+  mrp_minor?: number;
+}
+
+export interface PrescriptionData {
+  patient_name: string;
+  patient_phone?: string;
+  patient_cnic?: string;
+  doctor_name: string;
+  doctor_pmdc_number: string;
+  hospital_clinic_name?: string;
+  prescription_date?: string;
+  diagnosis_notes?: string;
+}
+
 export interface CachedProduct {
   id: string;
   name: string;
@@ -67,6 +89,18 @@ export interface CachedProduct {
   variants?: ProductVariantItem[];
   uom_conversions?: ProductUomConversion[];
   allows_decimals?: boolean;
+  // Pharmacy Vertical Fields
+  drap_registration_number?: string;
+  generic_name?: string;
+  dosage_form?: string;
+  strength?: string;
+  manufacturer?: string;
+  is_prescription_required?: boolean;
+  is_narcotic?: boolean;
+  cold_chain?: boolean;
+  rack_location?: string;
+  fefo_batch?: ProductBatchItem;
+  batches?: ProductBatchItem[];
 }
 
 export interface CartItem {
@@ -80,6 +114,11 @@ export interface CartItem {
   selected_uom?: ProductUomConversion;
   unit_code?: string;
   unit_conversion_factor?: number;
+  // Pharmacy Batch Assignment
+  batch?: ProductBatchItem;
+  batch_id?: string;
+  batch_number?: string;
+  expiry_date?: string;
 }
 
 export type ProcessResult =

@@ -239,6 +239,57 @@
           </Link>
         </template>
 
+        <!-- Pharmacy & Medical Store Vertical -->
+        <template v-if="user?.role === 'owner' || user?.role === 'manager'">
+          <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 0.4rem;">
+            <span>💊</span> Pharmacy &amp; Medical
+          </div>
+
+          <Link
+            href="/pharmacy/batches"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/pharmacy/batches') }"
+            :title="isRailMode ? 'Batches & FEFO Expiry' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span v-if="!isRailMode">Batches &amp; Expiry (FEFO)</span>
+          </Link>
+
+          <Link
+            href="/pharmacy/narcotics"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/pharmacy/narcotics') }"
+            :title="isRailMode ? 'Narcotics Register (Schedule D)' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span v-if="!isRailMode">Narcotics (Schedule D)</span>
+          </Link>
+
+          <Link
+            href="/pharmacy/prescriptions"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/pharmacy/prescriptions') }"
+            :title="isRailMode ? 'Doctor Prescriptions' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span v-if="!isRailMode">Doctor Prescriptions</span>
+          </Link>
+        </template>
+
         <!-- Finance & Accounting Section -->
         <template v-if="user?.role === 'owner' || user?.role === 'manager'">
           <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">

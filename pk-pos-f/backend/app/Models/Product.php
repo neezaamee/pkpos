@@ -30,6 +30,15 @@ class Product extends Model
         'tax_category',
         'is_active',
         'product_meta',
+        'drap_registration_number',
+        'generic_name',
+        'dosage_form',
+        'strength',
+        'manufacturer',
+        'is_prescription_required',
+        'is_narcotic',
+        'cold_chain',
+        'rack_location',
     ];
 
     /**
@@ -43,6 +52,9 @@ class Product extends Model
             'price_minor' => 'integer',
             'cost_minor' => 'integer',
             'is_active' => 'boolean',
+            'is_prescription_required' => 'boolean',
+            'is_narcotic' => 'boolean',
+            'cold_chain' => 'boolean',
             'product_meta' => 'array',
         ];
     }
@@ -85,6 +97,38 @@ class Product extends Model
     public function stockLevels(): HasMany
     {
         return $this->hasMany(StockLevel::class, 'product_id');
+    }
+
+    /**
+     * Get pharmaceutical batches for this medicine.
+     */
+    public function batches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class, 'product_id')->orderBy('expiry_date', 'asc');
+    }
+
+    /**
+     * Get active non-expired batches ordered by FEFO (First Expired, First Out).
+     */
+    public function activeBatches(): HasMany
+    {
+        return $this->batches()
+            ->where('status', 'active')
+            ->where('quantity_on_hand', '>', 0)
+            ->where('expiry_date', '>=', now()->toDateString())
+            ->orderBy('expiry_date', 'asc');
+    }
+
+    /**
+     * Get the single earliest-expiring active batch with available stock (FEFO).
+     */
+    public function fefoBatch(?string $locationId = null): ?ProductBatch
+    {
+        $query = $this->activeBatches();
+        if ($locationId) {
+            $query->where('location_id', $locationId);
+        }
+        return $query->first();
     }
 
     /**

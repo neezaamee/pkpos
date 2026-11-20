@@ -37,7 +37,9 @@ class ProductController extends Controller
                 $q->where(function ($sq) use ($search) {
                     $sq->whereLike('name', "%{$search}%")
                         ->orWhereLike('sku', "%{$search}%")
-                        ->orWhereLike('barcode', "%{$search}%");
+                        ->orWhereLike('barcode', "%{$search}%")
+                        ->orWhereLike('generic_name', "%{$search}%")
+                        ->orWhereLike('drap_registration_number', "%{$search}%");
                 });
             })
             ->when($request->filled('tax_category'), function ($q) use ($request) {
@@ -286,6 +288,8 @@ class ProductController extends Controller
                 // fallback to standard rate
             }
 
+            $fefo = $product->fefoBatch($location?->id);
+
             return [
                 'id' => $product->id,
                 'name' => $product->name,
@@ -296,6 +300,24 @@ class ProductController extends Controller
                 'tax_category' => $product->tax_category,
                 'unit' => $product->unit,
                 'tax_rate_basis_points' => $rate,
+                'generic_name' => $product->generic_name,
+                'drap_registration_number' => $product->drap_registration_number,
+                'dosage_form' => $product->dosage_form,
+                'strength' => $product->strength,
+                'manufacturer' => $product->manufacturer,
+                'is_prescription_required' => (bool) $product->is_prescription_required,
+                'is_narcotic' => (bool) $product->is_narcotic,
+                'cold_chain' => (bool) $product->cold_chain,
+                'rack_location' => $product->rack_location,
+                'fefo_batch' => $fefo ? [
+                    'id' => $fefo->id,
+                    'batch_number' => $fefo->batch_number,
+                    'expiry_date' => $fefo->expiry_date->toDateString(),
+                    'days_until_expiry' => $fefo->daysUntilExpiry(),
+                    'is_nearing_expiry' => $fefo->isNearingExpiry(60),
+                    'quantity_on_hand' => (float) $fefo->quantity_on_hand,
+                    'mrp_minor' => $fefo->mrp_minor,
+                ] : null,
                 'variants' => $product->variants->map(fn ($v) => [
                     'id' => $v->id,
                     'name' => $v->name,

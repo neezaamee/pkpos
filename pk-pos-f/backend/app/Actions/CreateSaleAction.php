@@ -16,17 +16,26 @@ class CreateSaleAction
      * @param string|null $userId
      * @return Sale
      */
-    public function execute(array $data, ?string $userId = null): Sale
+    public function execute(array $data, \App\Models\User|string|null $userId = null): Sale
     {
-        return DB::transaction(function () use ($data, $userId) {
+        $resolvedUserId = $userId instanceof \App\Models\User ? $userId->id : $userId;
+
+        return DB::transaction(function () use ($data, $resolvedUserId) {
             $items = $data['items'];
             unset($data['items']);
 
             $payments = $data['payments'] ?? null;
             unset($data['payments']);
 
-            if ($userId) {
-                $data['user_id'] = $userId;
+            $prescriptionData = $data['prescription'] ?? null;
+            unset($data['prescription']);
+
+            if ($resolvedUserId) {
+                $data['user_id'] = $resolvedUserId;
+                if (empty($data['tenant_id'])) {
+                    $u = \App\Models\User::withoutGlobalScopes()->find($resolvedUserId);
+                    $data['tenant_id'] = $u?->tenant_id;
+                }
             }
 
             if (! empty($payments) && is_array($payments)) {
@@ -68,11 +77,17 @@ class CreateSaleAction
 
             $tenant = \App\Models\Tenant::find($sale->tenant_id);
             $stockService = app(\App\Services\Inventory\StockService::class);
+            $batchService = app(\App\Services\Pharmacy\BatchService::class);
+            $requiresPrescription = false;
 
             foreach ($items as $item) {
                 $prod = null;
                 if (! empty($item['product_id'])) {
                     $prod = Product::find($item['product_id']);
+                }
+
+                if ($prod && ($prod->is_prescription_required || $prod->is_narcotic)) {
+                    $requiresPrescription = true;
                 }
 
                 if (empty($item['hs_code'])) {
@@ -89,12 +104,40 @@ class CreateSaleAction
                 $item['tax_amount_minor'] = $item['tax_amount_minor'] ?? (int) round(($qty * $unitPrice * $taxBps) / 10000);
                 $item['line_total_minor'] = $item['line_total_minor'] ?? (int) round($qty * $unitPrice) + $item['tax_amount_minor'];
 
+                // Batch & FEFO resolution:
+                $batch = null;
+                if (! empty($item['batch_id'])) {
+                    $batch = \App\Models\ProductBatch::find($item['batch_id']);
+                } elseif ($prod) {
+                    $batch = $prod->fefoBatch($sale->location_id);
+                }
+
+                if ($batch) {
+                    if ($batch->isExpired()) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'items' => ["Statutory violation: Batch {$batch->batch_number} for {$item['product_name']} expired on {$batch->expiry_date->format('d-M-Y')} and cannot be dispensed."],
+                        ]);
+                    }
+
+                    $item['batch_id'] = $batch->id;
+                    $item['batch_number'] = $batch->batch_number;
+                    $item['expiry_date'] = $batch->expiry_date->toDateString();
+                }
+
                 $sale->items()->create($item);
 
                 // Auto-deduct inventory in base units (taking conversion_factor into account)
                 if ($tenant && ! empty($item['product_id']) && ! empty($sale->location_id)) {
                     $conversionFactor = (float) ($item['unit_conversion_factor'] ?? 1.0);
                     $deductedQty = ((float) $item['quantity']) * ($conversionFactor ?: 1.0);
+
+                    if ($batch) {
+                        try {
+                            $batchService->deductBatchStock($batch, $deductedQty);
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::warning("Batch stock deduction skipped: " . $e->getMessage());
+                        }
+                    }
 
                     try {
                         $stockService->recordMovement(
@@ -105,7 +148,7 @@ class CreateSaleAction
                             -$deductedQty,
                             'sale',
                             $sale->id,
-                            "POS Sale #{$sale->sale_number}",
+                            "POS Sale #{$sale->sale_number}" . ($batch ? " (Batch: {$batch->batch_number})" : ''),
                             $userId
                         );
                     } catch (\Exception $e) {
@@ -172,7 +215,7 @@ class CreateSaleAction
                     ]);
                 }
 
-                $user = \App\Models\User::find($userId);
+                $user = $resolvedUserId ? \App\Models\User::withoutGlobalScopes()->find($resolvedUserId) : null;
                 $customer->chargeCreditSale($sale, $creditAmount, $user);
             }
 
@@ -183,7 +226,18 @@ class CreateSaleAction
                 \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for sale {$sale->id}: " . $e->getMessage());
             }
 
-            return $sale->load(['items', 'payments']);
+            // Prescription validation & Controlled substance (Narcotic) register logging
+            if ($requiresPrescription && empty($prescriptionData)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'prescription' => ['Doctor prescription details (Doctor Name & PMDC #) are mandatory for dispensing prescription or narcotic medicines.'],
+                ]);
+            }
+
+            if (! empty($prescriptionData)) {
+                $batchService->recordPrescriptionAndNarcotics($tenant, $sale, $prescriptionData, $resolvedUserId);
+            }
+
+            return $sale->load(['items.batch', 'payments', 'prescription.narcoticEntries']);
         });
     }
 }
