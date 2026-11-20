@@ -355,6 +355,58 @@
           </Link>
         </template>
 
+        <!-- Hardware, Building Materials & Sanitary Vertical -->
+        <template v-if="user?.role === 'owner' || user?.role === 'manager'">
+          <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: #f97316; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🏗️</span> Hardware &amp; Materials
+          </div>
+
+          <Link
+            href="/hardware/projects"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/hardware/projects') }"
+            :title="isRailMode ? 'Contractor Project Sites' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 21h18"></path>
+              <path d="M5 21V7l8-4v18"></path>
+              <path d="M19 21V11l-6-4"></path>
+              <path d="M9 9h1"></path>
+              <path d="M9 13h1"></path>
+              <path d="M9 17h1"></path>
+            </svg>
+            <span v-if="!isRailMode">Project Sites (Khata)</span>
+          </Link>
+
+          <Link
+            href="/hardware/tiers"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/hardware/tiers') }"
+            :title="isRailMode ? 'Wholesale Price Tiers' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            <span v-if="!isRailMode">Wholesale Price Slabs</span>
+          </Link>
+
+          <Link
+            href="/hardware/challans"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/hardware/challans') }"
+            :title="isRailMode ? 'Delivery Challans & Gate Passes' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            <span v-if="!isRailMode">Delivery Challans / Gate Pass</span>
+          </Link>
+        </template>
+
         <!-- Finance & Accounting Section -->
         <template v-if="user?.role === 'owner' || user?.role === 'manager'">
           <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">

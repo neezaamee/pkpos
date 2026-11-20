@@ -13,6 +13,9 @@ use App\Http\Controllers\Restaurant\FloorAndTableWebController;
 use App\Http\Controllers\Restaurant\KitchenStationWebController;
 use App\Http\Controllers\Restaurant\ModifierWebController;
 use App\Http\Controllers\Restaurant\KdsWebController;
+use App\Http\Controllers\Hardware\ProjectWebController;
+use App\Http\Controllers\Hardware\PriceTierWebController;
+use App\Http\Controllers\Hardware\DeliveryChallanWebController;
 use App\Http\Controllers\PurchaseOrderWebController;
 use App\Http\Controllers\ReceiptTemplateWebController;
 use App\Http\Controllers\SaleReturnWebController;
@@ -451,4 +454,17 @@ Route::middleware('auth')->group(function () {
     Route::delete('/restaurant/modifiers/{id}', [ModifierWebController::class, 'destroy'])->name('restaurant.modifiers.destroy')->whereUuid('id');
 
     Route::get('/restaurant/kds', [KdsWebController::class, 'index'])->name('restaurant.kds.index');
+
+    // Hardware, Building Materials & Sanitary Store Vertical
+    Route::get('/hardware/projects', [ProjectWebController::class, 'index'])->name('hardware.projects.index');
+    Route::post('/hardware/projects', [ProjectWebController::class, 'store'])->name('hardware.projects.store');
+    Route::get('/hardware/projects/{id}', [ProjectWebController::class, 'show'])->name('hardware.projects.show')->whereUuid('id');
+
+    Route::get('/hardware/tiers', [PriceTierWebController::class, 'index'])->name('hardware.tiers.index');
+    Route::post('/hardware/tiers', [PriceTierWebController::class, 'store'])->name('hardware.tiers.store');
+    Route::delete('/hardware/tiers/{id}', [PriceTierWebController::class, 'destroy'])->name('hardware.tiers.destroy')->whereUuid('id');
+
+    Route::get('/hardware/challans', [DeliveryChallanWebController::class, 'index'])->name('hardware.challans.index');
+    Route::get('/hardware/challans/{id}', [DeliveryChallanWebController::class, 'show'])->name('hardware.challans.show')->whereUuid('id');
+    Route::post('/hardware/challans/{id}/status', [DeliveryChallanWebController::class, 'updateStatus'])->name('hardware.challans.update-status')->whereUuid('id');
 });

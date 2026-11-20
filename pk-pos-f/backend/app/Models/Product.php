@@ -42,6 +42,11 @@ class Product extends Model
         'kitchen_station_id',
         'preparation_time_minutes',
         'is_kitchen_item',
+        'dimensional_unit',
+        'weight_kg_per_unit',
+        'sqft_per_box',
+        'length_feet_per_piece',
+        'requires_delivery_challan',
     ];
 
     /**
@@ -58,6 +63,10 @@ class Product extends Model
             'is_prescription_required' => 'boolean',
             'is_narcotic' => 'boolean',
             'cold_chain' => 'boolean',
+            'requires_delivery_challan' => 'boolean',
+            'weight_kg_per_unit' => 'decimal:3',
+            'sqft_per_box' => 'decimal:3',
+            'length_feet_per_piece' => 'decimal:3',
             'product_meta' => 'array',
         ];
     }
@@ -162,5 +171,21 @@ class Product extends Model
     public function modifierGroups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(ModifierGroup::class, 'product_modifier_group')->with('options');
+    }
+
+    public function priceTiers(): HasMany
+    {
+        return $this->hasMany(ProductPriceTier::class)->where('is_active', true)->orderBy('min_quantity');
+    }
+
+    public function getTieredPriceForQuantity(float $quantity): int
+    {
+        $tiers = $this->priceTiers;
+        foreach ($tiers as $tier) {
+            if ($tier->matchesQuantity($quantity)) {
+                return (int) $tier->unit_price_minor;
+            }
+        }
+        return (int) $this->price_minor;
     }
 }

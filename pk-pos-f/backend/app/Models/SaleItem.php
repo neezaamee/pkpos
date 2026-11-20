@@ -38,6 +38,10 @@ class SaleItem extends Model
         'selected_modifiers',
         'cooking_notes',
         'kitchen_station_id',
+        'contractor_project_id',
+        'dimensional_quantity',
+        'dimensional_unit',
+        'weight_kg',
     ];
 
     /**
@@ -50,6 +54,8 @@ class SaleItem extends Model
         return [
             'quantity' => 'float',
             'unit_conversion_factor' => 'float',
+            'dimensional_quantity' => 'float',
+            'weight_kg' => 'float',
             'unit_price_minor' => 'integer',
             'tax_rate_basis_points' => 'integer',
             'tax_amount_minor' => 'integer',
@@ -107,5 +113,10 @@ class SaleItem extends Model
     public function kitchenStation(): BelongsTo
     {
         return $this->belongsTo(KitchenStation::class, 'kitchen_station_id');
+    }
+
+    public function contractorProject(): BelongsTo
+    {
+        return $this->belongsTo(ContractorProject::class, 'contractor_project_id');
     }
 }

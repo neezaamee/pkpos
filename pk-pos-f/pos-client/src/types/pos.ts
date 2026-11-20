@@ -37,6 +37,41 @@ export interface CustomerTransactionItem {
   created_at: string;
 }
 
+export interface ContractorProjectItem {
+  id: string;
+  customer_id: string;
+  name: string;
+  site_address?: string;
+  plot_number?: string;
+  city?: string;
+  supervisor_name?: string;
+  supervisor_phone?: string;
+  credit_limit_minor?: number;
+  status: 'active' | 'completed' | 'on_hold';
+  notes?: string;
+}
+
+export interface ProductPriceTierItem {
+  id: string;
+  product_id: string;
+  min_quantity: number;
+  max_quantity?: number;
+  unit_price_minor: number;
+  discount_percentage?: number;
+  tier_label?: string;
+}
+
+export interface DeliveryChallanData {
+  vehicle_number: string;
+  driver_name: string;
+  driver_phone?: string;
+  transporter_name?: string;
+  freight_terms: 'paid_by_store' | 'to_pay_customer';
+  freight_amount_minor?: number;
+  site_destination?: string;
+  notes?: string;
+}
+
 export interface ProductVariantItem {
   id: string;
   name: string;
@@ -155,6 +190,13 @@ export interface CachedProduct {
   preparation_time_minutes?: number;
   is_kitchen_item?: boolean;
   modifier_groups?: ModifierGroupItem[];
+  // Hardware & Materials Vertical Fields
+  dimensional_unit?: string;
+  weight_kg_per_unit?: number;
+  sqft_per_box?: number;
+  length_feet_per_piece?: number;
+  requires_delivery_challan?: boolean;
+  price_tiers?: ProductPriceTierItem[];
 }
 
 export interface CartItem {
@@ -177,6 +219,12 @@ export interface CartItem {
   selected_modifiers?: SelectedModifier[];
   cooking_notes?: string;
   kitchen_station_id?: string;
+  // Hardware Dimensional & Project Tracking
+  contractor_project_id?: string;
+  dimensional_quantity?: number;
+  dimensional_unit?: string;
+  weight_kg?: number;
+  applied_tier_label?: string;
 }
 
 export type ProcessResult =

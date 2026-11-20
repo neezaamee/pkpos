@@ -75,6 +75,15 @@ class CreateSaleAction
 
             $data['status'] = $data['status'] ?? 'completed';
 
+            // Auto-populate contractor project site name if project specified
+            if (! empty($data['contractor_project_id']) && empty($data['project_site_name'])) {
+                $proj = \App\Models\ContractorProject::find($data['contractor_project_id']);
+                if ($proj) {
+                    $data['project_site_name'] = $proj->name;
+                    $data['customer_id'] = $data['customer_id'] ?? $proj->customer_id;
+                }
+            }
+
             if (empty($data['sale_number'])) {
                 $date = now()->format('Ymd');
                 $rand = strtoupper(substr(bin2hex(random_bytes(3)), 0, 4));
@@ -135,6 +144,21 @@ class CreateSaleAction
                 $item['selected_modifiers'] = $item['selected_modifiers'] ?? null;
                 $item['cooking_notes'] = $item['cooking_notes'] ?? null;
                 $item['kitchen_station_id'] = $item['kitchen_station_id'] ?? $prod?->kitchen_station_id ?? null;
+
+                // Hardware & Building dimensional tracking
+                $dimUnit = $item['dimensional_unit'] ?? $prod?->dimensional_unit ?? null;
+                $dimQty = isset($item['dimensional_quantity']) ? (float) $item['dimensional_quantity'] : $qty;
+                $weightKg = isset($item['weight_kg']) ? (float) $item['weight_kg'] : null;
+
+                if ($weightKg === null && $prod) {
+                    $dimDetails = app(\App\Services\Hardware\HardwareBuildingService::class)->calculateDimensionalDetails($prod, $qty, $dimUnit);
+                    $weightKg = $dimDetails['weight_kg'] ?: null;
+                }
+
+                $item['dimensional_unit'] = $dimUnit;
+                $item['dimensional_quantity'] = $dimQty;
+                $item['weight_kg'] = $weightKg;
+                $item['contractor_project_id'] = $item['contractor_project_id'] ?? $sale->contractor_project_id ?? null;
 
                 $sale->items()->create($item);
 
@@ -267,7 +291,22 @@ class CreateSaleAction
                 }
             }
 
-            return $sale->load(['items.batch', 'payments', 'prescription.narcoticEntries', 'kitchenOrders.items', 'restaurantTable']);
+            // Hardware & Building Delivery Challan Dispatch
+            $createChallan = $data['create_delivery_challan'] ?? (! empty($data['delivery_challan']));
+            if ($createChallan) {
+                $challanData = (array) ($data['delivery_challan'] ?? []);
+                app(\App\Services\Hardware\HardwareBuildingService::class)->createDeliveryChallan($sale, $challanData);
+            }
+
+            return $sale->load([
+                'items.batch',
+                'payments',
+                'prescription.narcoticEntries',
+                'kitchenOrders.items',
+                'restaurantTable',
+                'contractorProject',
+                'deliveryChallans.items',
+            ]);
         });
     }
 }

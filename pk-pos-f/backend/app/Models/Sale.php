@@ -49,6 +49,8 @@ class Sale extends Model
         'service_charge_minor',
         'delivery_address',
         'delivery_rider_name',
+        'contractor_project_id',
+        'project_site_name',
     ];
 
     /**
@@ -204,5 +206,15 @@ class Sale extends Model
     public function kitchenOrders(): HasMany
     {
         return $this->hasMany(KitchenOrder::class, 'sale_id')->latest('fired_at');
+    }
+
+    public function contractorProject(): BelongsTo
+    {
+        return $this->belongsTo(ContractorProject::class, 'contractor_project_id');
+    }
+
+    public function deliveryChallans(): HasMany
+    {
+        return $this->hasMany(DeliveryChallan::class, 'sale_id')->latest();
     }
 }

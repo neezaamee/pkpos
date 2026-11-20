@@ -177,4 +177,9 @@ class Customer extends Model
 
         return $computedBalance;
     }
+
+    public function projects(): HasMany
+    {
+        return $this->hasMany(ContractorProject::class);
+    }
 }

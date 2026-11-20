@@ -15,7 +15,9 @@ import type {
   RestaurantFloorItem,
   RestaurantTableItem,
   ModifierGroupItem,
-  SelectedModifier
+  SelectedModifier,
+  ContractorProjectItem,
+  DeliveryChallanData
 } from '../types/pos';
 import { formatPKR } from '../types/pos';
 import {
@@ -30,6 +32,10 @@ import {
   fetchReceiptTemplate,
   fetchProductBatches,
   fetchRestaurantFloorsAndTables,
+  fetchContractorProjects,
+  createContractorProject,
+  computeHardwareWeightKg,
+  resolveTieredPriceMinor,
   type VerifyInvoiceResponse,
   type ReceiptTemplateData
 } from '../services/posService';
@@ -237,6 +243,14 @@ const completedResult = ref<{
   items?: CartItem[];
   customer?: CustomerProfile | null;
   prescription?: PrescriptionData | null;
+  projectSiteName?: string;
+  challan?: {
+    vehicleNumber?: string;
+    driverName?: string;
+    grossWeightKg?: number;
+    gatePassNumber?: string;
+    freightTerms?: string;
+  };
 } | null>(null);
 
 // Restaurant & Food Service Vertical State
@@ -488,6 +502,73 @@ function confirmPrescription() {
   prescriptionCaptured.value = true;
   showPrescriptionModal.value = false;
   handleCompleteSale();
+}
+
+// Hardware, Building Materials & Sanitary Vertical State
+const contractorProjects = ref<ContractorProjectItem[]>([]);
+const selectedContractorProject = ref<ContractorProjectItem | null>(null);
+const isLoadingProjects = ref(false);
+const showNewProjectModal = ref(false);
+const newProjectForm = ref({
+  name: '',
+  plot_number: '',
+  site_address: '',
+  city: '',
+  supervisor_name: '',
+  supervisor_phone: '',
+});
+
+// Delivery Challan / Gate Pass State
+const issueDeliveryChallan = ref(false);
+const showChallanModal = ref(false);
+const challanData = ref<DeliveryChallanData>({
+  vehicle_number: '',
+  driver_name: '',
+  driver_phone: '',
+  transporter_name: '',
+  freight_terms: 'to_pay_customer',
+  freight_amount_minor: 0,
+  site_destination: '',
+  notes: '',
+});
+
+const totalCartWeightKg = computed(() => {
+  return cart.value.reduce((sum, item) => sum + (item.weight_kg || 0), 0);
+});
+
+async function loadContractorProjects(customerId: string) {
+  isLoadingProjects.value = true;
+  try {
+    contractorProjects.value = await fetchContractorProjects(customerId);
+  } finally {
+    isLoadingProjects.value = false;
+  }
+}
+
+async function handleCreateProject() {
+  if (!selectedCustomer.value || !newProjectForm.value.name.trim()) return;
+  const created = await createContractorProject(selectedCustomer.value.id, newProjectForm.value);
+  if (created) {
+    contractorProjects.value.unshift(created);
+    selectContractorProject(created);
+    showNewProjectModal.value = false;
+    newProjectForm.value = { name: '', plot_number: '', site_address: '', city: '', supervisor_name: '', supervisor_phone: '' };
+  }
+}
+
+function selectContractorProject(project: ContractorProjectItem | null) {
+  selectedContractorProject.value = project;
+  if (project) {
+    challanData.value.site_destination = project.site_address || project.name;
+    // assign to all cart items
+    cart.value.forEach(item => {
+      item.contractor_project_id = project.id;
+    });
+  } else {
+    cart.value.forEach(item => {
+      item.contractor_project_id = undefined;
+    });
+  }
 }
 
 // Hardware Barcode Scanner Buffer
@@ -762,6 +843,15 @@ function addToCart(
     unitPrice += surcharge;
   }
 
+  // Check for wholesale tiered pricing
+  let appliedTierLabel: string | undefined;
+  if (product.price_tiers && product.price_tiers.length > 0 && !packUom) {
+    const tiered = resolveTieredPriceMinor(product, quantity);
+    unitPrice = tiered.unitPriceMinor;
+    appliedTierLabel = tiered.tierLabel;
+  }
+  const weightKg = computeHardwareWeightKg(product, quantity);
+
   if (existing) {
     existing.quantity = Math.round((existing.quantity + quantity) * 1000) / 1000;
     updateItemTotals(existing);
@@ -785,6 +875,11 @@ function addToCart(
       selected_modifiers: selectedModifiers,
       cooking_notes: cookingNotes,
       kitchen_station_id: product.kitchen_station_id,
+      contractor_project_id: selectedContractorProject.value?.id,
+      dimensional_quantity: quantity,
+      dimensional_unit: product.dimensional_unit,
+      weight_kg: weightKg,
+      applied_tier_label: appliedTierLabel,
     };
     cart.value.push(newItem);
   }
@@ -808,6 +903,15 @@ function switchItemUom(item: CartItem, packUom?: ProductUomConversion) {
 }
 
 function updateItemTotals(item: CartItem) {
+  // If product has price tiers, auto-resolve wholesale slab for quantity
+  if (item.product.price_tiers && item.product.price_tiers.length > 0 && !item.selected_uom) {
+    const tiered = resolveTieredPriceMinor(item.product, item.quantity);
+    item.unit_price_minor = tiered.unitPriceMinor;
+    item.applied_tier_label = tiered.tierLabel;
+  }
+  // Compute hardware weight
+  item.weight_kg = computeHardwareWeightKg(item.product, item.quantity, item.dimensional_unit);
+
   const rate = item.tax_rate_basis_points;
   const lineSubtotal = item.quantity * item.unit_price_minor;
   item.tax_minor = Math.round((lineSubtotal * rate) / 10000);
@@ -885,11 +989,15 @@ function selectCustomer(cust: CustomerProfile) {
   showCustomerModal.value = false;
   customerLookupQuery.value = '';
   customerSearchResults.value = [];
+  loadContractorProjects(cust.id);
 }
 
 function detachCustomer() {
   selectedCustomer.value = null;
   customerDetails.value = { name: '', ntn: '', cnic: '' };
+  contractorProjects.value = [];
+  selectedContractorProject.value = null;
+  issueDeliveryChallan.value = false;
   if (selectedPayment.value === 'credit') {
     selectedPayment.value = 'cash';
   }
@@ -1207,6 +1315,10 @@ async function handleCompleteSale() {
       selected_modifiers: item.selected_modifiers && item.selected_modifiers.length > 0 ? item.selected_modifiers : undefined,
       cooking_notes: item.cooking_notes || undefined,
       kitchen_station_id: item.kitchen_station_id || item.product.kitchen_station_id || undefined,
+      contractor_project_id: item.contractor_project_id || selectedContractorProject.value?.id || undefined,
+      dimensional_quantity: item.dimensional_quantity || item.quantity,
+      dimensional_unit: item.dimensional_unit || item.product.dimensional_unit || undefined,
+      weight_kg: item.weight_kg || undefined,
     }));
 
     const paymentsPayload = selectedPayment.value === 'split' && splitPaymentsApplied.value.length > 0
@@ -1248,6 +1360,20 @@ async function handleCompleteSale() {
       buyer_phone: selectedCustomer.value?.phone || undefined,
       buyer_ntn: selectedCustomer.value?.ntn || customerDetails.value.ntn || undefined,
       buyer_cnic: selectedCustomer.value?.cnic || customerDetails.value.cnic || undefined,
+      // Hardware Vertical
+      contractor_project_id: selectedContractorProject.value?.id || undefined,
+      project_site_name: selectedContractorProject.value?.name || undefined,
+      create_delivery_challan: issueDeliveryChallan.value,
+      delivery_challan: issueDeliveryChallan.value ? {
+        vehicle_number: challanData.value.vehicle_number || 'TRUCK-001',
+        driver_name: challanData.value.driver_name || 'Driver',
+        driver_phone: challanData.value.driver_phone || undefined,
+        transporter_name: challanData.value.transporter_name || undefined,
+        freight_terms: challanData.value.freight_terms,
+        freight_amount_minor: Math.round((challanData.value.freight_amount_minor || 0) * 100),
+        site_destination: challanData.value.site_destination || selectedContractorProject.value?.site_address || selectedContractorProject.value?.name || undefined,
+        notes: challanData.value.notes || undefined,
+      } : undefined,
       items: itemsPayload,
       prescription: prescriptionPayload,
     };
@@ -1299,6 +1425,13 @@ async function handleCompleteSale() {
       items: [...cart.value],
       customer: selectedCustomer.value || null,
       prescription: prescriptionPayload ? { ...prescriptionData.value } : null,
+      projectSiteName: selectedContractorProject.value?.name,
+      challan: issueDeliveryChallan.value ? {
+        vehicleNumber: challanData.value.vehicle_number || 'TRUCK-001',
+        driverName: challanData.value.driver_name || 'Driver',
+        grossWeightKg: totalCartWeightKg.value,
+        freightTerms: challanData.value.freight_terms,
+      } : undefined,
     };
 
     showConfirmation.value = true;
@@ -1315,6 +1448,17 @@ function closeConfirmationModal() {
   splitPaymentsApplied.value = [];
   splitTenders.value.forEach(t => { t.amount = null; t.ref = ''; });
   prescriptionCaptured.value = false;
+  issueDeliveryChallan.value = false;
+  challanData.value = {
+    vehicle_number: '',
+    driver_name: '',
+    driver_phone: '',
+    transporter_name: '',
+    freight_terms: 'to_pay_customer',
+    freight_amount_minor: 0,
+    site_destination: '',
+    notes: '',
+  };
   prescriptionData.value = {
     doctor_name: '',
     doctor_pmdc_number: '',
@@ -1382,6 +1526,32 @@ onUnmounted(() => {
         >
           &times;
         </button>
+
+        <!-- Contractor Project Site Selector Pill -->
+        <template v-if="selectedCustomer">
+          <div style="display: flex; align-items: center; gap: 0.25rem;">
+            <select
+              :value="selectedContractorProject?.id || ''"
+              @change="selectContractorProject(contractorProjects.find(p => p.id === ($event.target as HTMLSelectElement).value) || null)"
+              class="s-pill"
+              style="padding: 0.2rem 0.5rem; background: rgba(249, 115, 22, 0.15); border-color: rgba(249, 115, 22, 0.4); color: #f97316; font-size: 0.78rem; font-weight: 700;"
+            >
+              <option value="">🏗️ Site: Direct / General</option>
+              <option v-for="p in contractorProjects" :key="p.id" :value="p.id">
+                📍 {{ p.name }} {{ p.plot_number ? `(Plot #${p.plot_number})` : '' }}
+              </option>
+            </select>
+            <button
+              type="button"
+              class="s-pill"
+              style="padding: 0.2rem 0.5rem; color: #f97316; font-size: 0.78rem;"
+              title="Register New Project Site for this Contractor"
+              @click="showNewProjectModal = true"
+            >
+              + Site
+            </button>
+          </div>
+        </template>
         <button class="s-pill" :class="{ active: discountPercent > 0 }" @click="openDiscountModal">
           <kbd>F3</kbd> Discount <span v-if="discountPercent > 0">({{ discountPercent }}%)</span>
         </button>
@@ -1723,6 +1893,16 @@ onUnmounted(() => {
                   📝 {{ item.cooking_notes ? 'Edit Notes' : '+ Chef Notes' }}
                 </button>
               </div>
+
+              <!-- Hardware Weight & Tier Slab Badges -->
+              <div v-if="item.applied_tier_label || item.weight_kg" style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.3rem; flex-wrap: wrap;">
+                <span v-if="item.applied_tier_label" style="font-size: 0.68rem; color: #f97316; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.3); padding: 1px 6px; border-radius: 4px; font-weight: 700;">
+                  🏷️ {{ item.applied_tier_label }}
+                </span>
+                <span v-if="item.weight_kg" style="font-size: 0.68rem; color: #38bdf8; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-weight: 700;">
+                  ⚖️ {{ item.weight_kg.toLocaleString('en-PK', { maximumFractionDigits: 1 }) }} KG
+                </span>
+              </div>
             </div>
 
             <div class="item-qty-controls">
@@ -1775,9 +1955,36 @@ onUnmounted(() => {
             <span class="total-label">Sales Tax (FBR GST)</span>
             <span class="total-val">{{ formatPKR(taxMinor) }}</span>
           </div>
+          <div v-if="totalCartWeightKg > 0" class="totals-row" style="color: #38bdf8;">
+            <span class="total-label">Est. Gross Weight</span>
+            <span class="total-val" style="font-family: var(--font-mono); font-weight: 700;">
+              {{ totalCartWeightKg >= 1000 ? `${(totalCartWeightKg / 1000).toFixed(2)} Tons (${totalCartWeightKg.toLocaleString()} KG)` : `${totalCartWeightKg.toLocaleString()} KG` }}
+            </span>
+          </div>
           <div class="totals-row grand-total-row">
             <span class="grand-label">Grand Total</span>
             <span class="grand-val">{{ formatPKR(totalMinor) }}</span>
+          </div>
+        </div>
+
+        <!-- Truck Delivery Challan & Gate Pass Dispatch Option -->
+        <div style="margin: 0.75rem 0; padding: 0.6rem 0.75rem; background: rgba(249, 115, 22, 0.08); border: 1px dashed rgba(249, 115, 22, 0.35); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; color: #f97316; cursor: pointer; margin: 0;">
+              <input type="checkbox" v-model="issueDeliveryChallan" />
+              <span>🚛 Issue Delivery Challan / Gate Pass</span>
+            </label>
+            <button
+              v-if="issueDeliveryChallan"
+              type="button"
+              @click="showChallanModal = true"
+              style="font-size: 0.7rem; background: #f97316; color: #fff; border: none; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-weight: 700;"
+            >
+              {{ challanData.vehicle_number ? challanData.vehicle_number : '+ Truck Info' }}
+            </button>
+          </div>
+          <div v-if="issueDeliveryChallan && challanData.vehicle_number" style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.35rem;">
+            Truck: <strong style="color: #f8fafc;">{{ challanData.vehicle_number }}</strong> | Driver: <strong>{{ challanData.driver_name || 'Unassigned' }}</strong> ({{ challanData.freight_terms === 'paid_by_store' ? 'Store Paid' : 'To-Pay' }})
           </div>
         </div>
 
@@ -3046,6 +3253,125 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 7. New Contractor Project Site Modal -->
+    <div v-if="showNewProjectModal" class="modal-overlay" @click.self="showNewProjectModal = false">
+      <div class="modal-card" style="max-width: 520px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <h3 class="modal-title" style="margin: 0; font-size: 1.1rem; color: #f97316;">
+            🏗️ Add Project Site: {{ selectedCustomer?.name }}
+          </h3>
+          <button class="modal-close-btn" @click="showNewProjectModal = false">&times;</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.85rem;">
+          <div>
+            <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Project / Site Name *</label>
+            <input v-model="newProjectForm.name" type="text" class="pos-input" placeholder="e.g. DHA Phase 6 Villa Plot 142" style="width: 100%; box-sizing: border-box;" />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Plot / Sector #</label>
+              <input v-model="newProjectForm.plot_number" type="text" class="pos-input" placeholder="Plot 142" style="width: 100%; box-sizing: border-box;" />
+            </div>
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">City</label>
+              <input v-model="newProjectForm.city" type="text" class="pos-input" placeholder="e.g. Lahore" style="width: 100%; box-sizing: border-box;" />
+            </div>
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Delivery Site Address</label>
+            <input v-model="newProjectForm.site_address" type="text" class="pos-input" placeholder="Full address / landmark" style="width: 100%; box-sizing: border-box;" />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Site Supervisor (Munshi)</label>
+              <input v-model="newProjectForm.supervisor_name" type="text" class="pos-input" placeholder="Munshi name" style="width: 100%; box-sizing: border-box;" />
+            </div>
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Supervisor Phone</label>
+              <input v-model="newProjectForm.supervisor_phone" type="text" class="pos-input" placeholder="0300-1234567" style="width: 100%; box-sizing: border-box;" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 0.75rem;">
+          <button type="button" class="secondary-btn" @click="showNewProjectModal = false">Cancel</button>
+          <button type="button" class="next-sale-btn" style="margin: 0; width: auto; padding: 0.5rem 1.25rem; background: #ea580c;" @click="handleCreateProject">Save Site</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Delivery Challan & Truck Logistics Modal -->
+    <div v-if="showChallanModal" class="modal-overlay" @click.self="showChallanModal = false">
+      <div class="modal-card" style="max-width: 540px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+          <h3 class="modal-title" style="margin: 0; font-size: 1.1rem; color: #f97316;">
+            🚛 Truck Dispatch &amp; Gate Pass Details
+          </h3>
+          <button class="modal-close-btn" @click="showChallanModal = false">&times;</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.85rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Vehicle / Truck # *</label>
+              <input v-model="challanData.vehicle_number" type="text" class="pos-input" placeholder="e.g. LES-1984" style="width: 100%; box-sizing: border-box; font-family: var(--font-mono); font-weight: 700;" />
+            </div>
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Transporter / Carrier</label>
+              <input v-model="challanData.transporter_name" type="text" class="pos-input" placeholder="e.g. Niazi Goods / Self" style="width: 100%; box-sizing: border-box;" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Driver Name *</label>
+              <input v-model="challanData.driver_name" type="text" class="pos-input" placeholder="e.g. Tariq Khan" style="width: 100%; box-sizing: border-box;" />
+            </div>
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Driver Phone</label>
+              <input v-model="challanData.driver_phone" type="text" class="pos-input" placeholder="0312-3456789" style="width: 100%; box-sizing: border-box;" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Freight Payment Terms</label>
+              <select v-model="challanData.freight_terms" class="pos-input" style="width: 100%; box-sizing: border-box;">
+                <option value="to_pay_customer">To-Pay (Customer / Site)</option>
+                <option value="paid_by_store">Paid by Store</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Freight Charges (Rs.)</label>
+              <input v-model.number="challanData.freight_amount_minor" type="number" step="any" min="0" class="pos-input" placeholder="0" style="width: 100%; box-sizing: border-box;" />
+            </div>
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Site Destination / Address</label>
+            <input v-model="challanData.site_destination" type="text" class="pos-input" placeholder="Site delivery address" style="width: 100%; box-sizing: border-box;" />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: 700; color: #cbd5e1; margin-bottom: 0.25rem;">Driver &amp; Gate Entry Notes</label>
+            <input v-model="challanData.notes" type="text" class="pos-input" placeholder="e.g. Call supervisor upon arrival" style="width: 100%; box-sizing: border-box;" />
+          </div>
+
+          <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 0.6rem; font-size: 0.8rem; color: #38bdf8;">
+            ⚖️ Total Estimated Gross Weight to Load: <strong>{{ totalCartWeightKg.toLocaleString() }} KG</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 0.75rem;">
+          <button type="button" class="secondary-btn" @click="showChallanModal = false">Done</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Printable Thermal Receipt (Hidden on screen, styled with active ReceiptTemplate when printed) -->
     <div id="thermal-receipt" class="print-only">
       <div
@@ -3122,6 +3448,10 @@ onUnmounted(() => {
           <div v-if="receiptTemplateData?.template.show_customer_info && completedResult?.customer" style="display: flex; justify-content: space-between;">
             <span>Customer: {{ completedResult.customer.name }}</span>
           </div>
+          <div v-if="completedResult?.projectSiteName" style="display: flex; justify-content: space-between; font-weight: 700; color: #000;">
+            <span>Project Site:</span>
+            <span>{{ completedResult.projectSiteName }}</span>
+          </div>
         </div>
 
         <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0; font-weight: 700; display: flex; justify-content: space-between; font-size: 10px;">
@@ -3155,6 +3485,14 @@ onUnmounted(() => {
         <div v-if="completedResult?.prescription" style="border-bottom: 1px dashed #000; padding: 3px 0; font-size: 9px;">
           <div><strong>Rx Doctor:</strong> {{ completedResult.prescription.doctor_name }} ({{ completedResult.prescription.doctor_pmdc_number }})</div>
           <div v-if="completedResult.prescription.patient_name"><strong>Patient:</strong> {{ completedResult.prescription.patient_name }}</div>
+        </div>
+
+        <!-- Hardware Delivery Challan on Receipt -->
+        <div v-if="completedResult?.challan" style="border-bottom: 1px dashed #000; padding: 3px 0; font-size: 9px;">
+          <div><strong>Delivery Challan:</strong> Issued &amp; Dispatched</div>
+          <div>Truck: <strong>{{ completedResult.challan.vehicleNumber }}</strong> | Driver: {{ completedResult.challan.driverName }}</div>
+          <div v-if="completedResult.challan.grossWeightKg">Gross Weight: <strong>{{ completedResult.challan.grossWeightKg.toLocaleString() }} KG</strong></div>
+          <div>Freight: {{ completedResult.challan.freightTerms === 'paid_by_store' ? 'Paid by Store' : 'To-Pay (Customer)' }}</div>
         </div>
 
         <div style="padding: 4px 0; font-size: 11px;">

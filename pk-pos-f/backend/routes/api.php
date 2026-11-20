@@ -165,6 +165,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/pos/restaurant/kds/orders/{kotId}/bump', [RestaurantApiController::class, 'bumpKdsOrder']);
         Route::post('/pos/restaurant/sales/{saleId}/fire-kot', [RestaurantApiController::class, 'fireKot']);
 
+        // Hardware, Building Materials & Sanitary Store Vertical
+        Route::get('/pos/hardware/contractors/{customerId}/projects', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'getContractorProjects']);
+        Route::post('/pos/hardware/contractors/{customerId}/projects', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'storeContractorProject']);
+        Route::get('/pos/hardware/projects/{projectId}/ledger', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'getProjectLedger']);
+        Route::get('/pos/hardware/products/{productId}/price-tiers', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'getProductPriceTiers']);
+        Route::get('/pos/hardware/delivery-challans', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'getDeliveryChallans']);
+        Route::post('/pos/hardware/delivery-challans', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'storeDeliveryChallan']);
+        Route::post('/pos/hardware/delivery-challans/{challanId}/status', [\App\Http\Controllers\Api\V1\HardwareApiController::class, 'updateChallanStatus']);
+
         // Idempotent Sync routes
         Route::middleware('idempotent')->group(function () {
             Route::post('/sales/sync', [SyncController::class, 'syncSales']);

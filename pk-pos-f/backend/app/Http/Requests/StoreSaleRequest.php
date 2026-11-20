@@ -76,6 +76,14 @@ class StoreSaleRequest extends FormRequest
             'covers' => ['nullable', 'integer', 'min:1'],
             'service_charge_basis_points' => ['nullable', 'integer', 'min:0'],
             'fire_kot' => ['nullable', 'boolean'],
+            'contractor_project_id' => ['nullable', 'uuid', 'exists:contractor_projects,id'],
+            'project_site_name' => ['nullable', 'string', 'max:150'],
+            'create_delivery_challan' => ['nullable', 'boolean'],
+            'delivery_challan' => ['nullable', 'array'],
+            'items.*.contractor_project_id' => ['nullable', 'uuid', 'exists:contractor_projects,id'],
+            'items.*.dimensional_quantity' => ['nullable', 'numeric'],
+            'items.*.dimensional_unit' => ['nullable', 'string', 'max:30'],
+            'items.*.weight_kg' => ['nullable', 'numeric'],
         ];
     }
 

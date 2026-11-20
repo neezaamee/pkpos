@@ -266,6 +266,11 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
     delivery_address: parsed.delivery_address || undefined,
     delivery_rider_name: parsed.delivery_rider_name || undefined,
     fire_kot: parsed.fire_kot ?? true,
+    // Hardware & Materials Vertical
+    contractor_project_id: parsed.contractor_project_id || undefined,
+    project_site_name: parsed.project_site_name || undefined,
+    create_delivery_challan: parsed.create_delivery_challan || undefined,
+    delivery_challan: parsed.delivery_challan || undefined,
     status: 'completed',
     fbr_status: 'submitted',
     fbr_usin: 'USIN-MOCK-' + Math.floor(100000 + Math.random() * 900000),
@@ -292,6 +297,11 @@ export async function processSale(saleJson: string): Promise<ProcessResult> {
       selected_modifiers: item.selected_modifiers || undefined,
       cooking_notes: item.cooking_notes || undefined,
       kitchen_station_id: item.kitchen_station_id || undefined,
+      // Hardware attributes
+      contractor_project_id: item.contractor_project_id || undefined,
+      dimensional_quantity: item.dimensional_quantity || undefined,
+      dimensional_unit: item.dimensional_unit || undefined,
+      weight_kg: item.weight_kg || undefined,
     })),
   };
 
@@ -1548,4 +1558,171 @@ export async function releaseRestaurantTable(tableId: string): Promise<boolean> 
     console.error('Failed to release table:', e);
     return false;
   }
+}
+
+/**
+ * =========================================================================
+ * HARDWARE, BUILDING MATERIALS & SANITARY STORE VERTICAL API SERVICES
+ * =========================================================================
+ */
+
+/**
+ * Fetch contractor project sites for a customer.
+ */
+export async function fetchContractorProjects(customerId: string): Promise<any[]> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token || !customerId) return [];
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/hardware/contractors/${customerId}/projects`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.projects || [];
+    }
+  } catch (e) {
+    console.error('Failed to fetch contractor projects:', e);
+  }
+
+  return [];
+}
+
+/**
+ * Quick create a contractor project site from POS.
+ */
+export async function createContractorProject(customerId: string, projectData: any): Promise<any | null> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token || !customerId) return null;
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/hardware/contractors/${customerId}/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(projectData),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.project || null;
+    }
+  } catch (e) {
+    console.error('Failed to create contractor project:', e);
+  }
+
+  return null;
+}
+
+/**
+ * Fetch wholesale tiered pricing slabs for a product.
+ */
+export async function fetchProductPriceTiers(productId: string): Promise<any[]> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token || !productId) return [];
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/hardware/products/${productId}/price-tiers`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.tiers || [];
+    }
+  } catch (e) {
+    console.error('Failed to fetch product price tiers:', e);
+  }
+
+  return [];
+}
+
+/**
+ * Create a delivery challan / gate pass for a sale.
+ */
+export async function createDeliveryChallan(saleId: string, challanData: any): Promise<any | null> {
+  const settings = await getSettings();
+  const token = settings.api_token;
+  const cleanUrl = (settings.api_base_url || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${cleanUrl}/pos/hardware/delivery-challans`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sale_id: saleId, ...challanData }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.challan || null;
+    }
+  } catch (e) {
+    console.error('Failed to create delivery challan:', e);
+  }
+
+  return null;
+}
+
+/**
+ * Calculate estimated gross weight (KG) for hardware products.
+ */
+export function computeHardwareWeightKg(product: any, quantity: number, unit?: string): number {
+  if (product.weight_kg_per_unit && Number(product.weight_kg_per_unit) > 0) {
+    return Math.round(Number(product.weight_kg_per_unit) * quantity * 100) / 100;
+  }
+  const dim = unit || product.dimensional_unit;
+  if (dim === 'bag_50kg') {
+    return quantity * 50;
+  }
+  if (dim === 'rebar_ton') {
+    return quantity * 1000;
+  }
+  if (dim === 'rebar_maund') {
+    return quantity * 40;
+  }
+  return 0;
+}
+
+/**
+ * Resolve tiered unit price for a given product and quantity.
+ */
+export function resolveTieredPriceMinor(product: any, quantity: number): { unitPriceMinor: number; tierLabel?: string } {
+  if (product.price_tiers && Array.isArray(product.price_tiers) && product.price_tiers.length > 0) {
+    for (const tier of product.price_tiers) {
+      const min = Number(tier.min_quantity);
+      const max = tier.max_quantity ? Number(tier.max_quantity) : Infinity;
+      if (quantity >= min && quantity <= max) {
+        return {
+          unitPriceMinor: tier.unit_price_minor,
+          tierLabel: tier.tier_label || `Slab (${min}-${tier.max_quantity || '+'})`,
+        };
+      }
+    }
+  }
+  return { unitPriceMinor: product.price_minor };
 }
