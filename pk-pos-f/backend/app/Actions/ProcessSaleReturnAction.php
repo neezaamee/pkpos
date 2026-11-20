@@ -183,6 +183,13 @@ class ProcessSaleReturnAction
                 }
             }
 
+            // Auto-post to General Ledger
+            try {
+                app(\App\Services\AccountingService::class)->postSaleReturn($saleReturn);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for return {$saleReturn->id}: " . $e->getMessage());
+            }
+
             return $saleReturn->load(['items.product', 'sale', 'customer', 'location', 'user']);
         });
     }

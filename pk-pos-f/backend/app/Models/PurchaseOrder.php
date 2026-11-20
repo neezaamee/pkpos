@@ -87,7 +87,7 @@ class PurchaseOrder extends Model
             $itemsMap = $this->items()->get()->keyBy('id');
 
             foreach ($receivedLines as $line) {
-                $itemId = $line['item_id'] ?? null;
+                $itemId = $line['item_id'] ?? $line['po_item_id'] ?? null;
                 $qtyReceived = (float) ($line['quantity_received'] ?? 0);
 
                 if (! $itemId || $qtyReceived <= 0 || ! isset($itemsMap[$itemId])) {
@@ -155,6 +155,13 @@ class PurchaseOrder extends Model
                     $receivedBy,
                     $grnNotes ?? "GRN Receipt for PO #{$this->po_number}"
                 );
+
+                // Auto-post to General Ledger
+                try {
+                    app(\App\Services\AccountingService::class)->postGoodsReceipt($this, $receivedValueMinor);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for GRN {$this->id}: " . $e->getMessage());
+                }
             }
         });
     }

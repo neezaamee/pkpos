@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\AccountWebController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CustomerWebController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FinancialReportWebController;
+use App\Http\Controllers\JournalEntryWebController;
 use App\Http\Controllers\PurchaseOrderWebController;
 use App\Http\Controllers\SaleReturnWebController;
 use App\Http\Controllers\SupplierWebController;
@@ -390,4 +393,21 @@ Route::middleware('auth')->group(function () {
     Route::get('/returns/create', [SaleReturnWebController::class, 'create'])->name('returns.create');
     Route::post('/returns', [SaleReturnWebController::class, 'store'])->name('returns.store');
     Route::get('/returns/{id}', [SaleReturnWebController::class, 'show'])->name('returns.show')->whereUuid('id');
+
+    // Chart of Accounts (COA) & General Ledger
+    Route::get('/accounts', [AccountWebController::class, 'index'])->name('accounts.index');
+    Route::post('/accounts', [AccountWebController::class, 'store'])->name('accounts.store');
+    Route::post('/accounts/sync', [AccountWebController::class, 'sync'])->name('accounts.sync');
+    Route::get('/accounts/{id}', [AccountWebController::class, 'show'])->name('accounts.show')->whereUuid('id');
+
+    // General Journal Entries
+    Route::get('/journal-entries', [JournalEntryWebController::class, 'index'])->name('journal-entries.index');
+    Route::get('/journal-entries/create', [JournalEntryWebController::class, 'create'])->name('journal-entries.create');
+    Route::post('/journal-entries', [JournalEntryWebController::class, 'store'])->name('journal-entries.store');
+    Route::get('/journal-entries/{id}', [JournalEntryWebController::class, 'show'])->name('journal-entries.show')->whereUuid('id');
+
+    // Financial Reports
+    Route::get('/reports/trial-balance', [FinancialReportWebController::class, 'trialBalance'])->name('reports.trial-balance');
+    Route::get('/reports/profit-loss', [FinancialReportWebController::class, 'profitAndLoss'])->name('reports.profit-loss');
+    Route::get('/reports/balance-sheet', [FinancialReportWebController::class, 'balanceSheet'])->name('reports.balance-sheet');
 });

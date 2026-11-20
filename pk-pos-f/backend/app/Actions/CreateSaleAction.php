@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Models\Product;
 use App\Models\RegisterSession;
 use App\Models\Sale;
 use Illuminate\Support\Facades\DB;
@@ -32,8 +33,9 @@ class CreateSaleAction
                 foreach ($items as $item) {
                     $qty = (float) ($item['quantity'] ?? 1);
                     $price = (int) ($item['unit_price_minor'] ?? 0);
-                    $lineTotal = (int) ($item['line_total_minor'] ?? round($qty * $price));
-                    $lineTax = (int) ($item['tax_amount_minor'] ?? 0);
+                    $taxBps = (int) ($item['tax_rate_basis_points'] ?? 0);
+                    $lineTax = (int) ($item['tax_amount_minor'] ?? round(($qty * $price * $taxBps) / 10000));
+                    $lineTotal = (int) ($item['line_total_minor'] ?? (round($qty * $price) + $lineTax));
                     $total += $lineTotal;
                     $tax += $lineTax;
                     $subtotal += ($lineTotal - $lineTax);
@@ -45,12 +47,30 @@ class CreateSaleAction
 
             $data['status'] = $data['status'] ?? 'completed';
 
+            if (empty($data['sale_number'])) {
+                $date = now()->format('Ymd');
+                $rand = strtoupper(substr(bin2hex(random_bytes(3)), 0, 4));
+                $data['sale_number'] = "INV-{$date}-{$rand}";
+            }
+
             $sale = Sale::create($data);
 
             $tenant = \App\Models\Tenant::find($sale->tenant_id);
             $stockService = app(\App\Services\Inventory\StockService::class);
 
             foreach ($items as $item) {
+                $prod = null;
+                if (! empty($item['product_id'])) {
+                    $prod = Product::find($item['product_id']);
+                }
+
+                if (empty($item['hs_code'])) {
+                    $item['hs_code'] = $prod?->hs_code ?? '21039000';
+                }
+                if (empty($item['product_name'])) {
+                    $item['product_name'] = $prod?->name ?? 'Standard Item';
+                }
+
                 $qty = (float) ($item['quantity'] ?? 1);
                 $unitPrice = (int) ($item['unit_price_minor'] ?? 0);
                 $taxBps = (int) ($item['tax_rate_basis_points'] ?? 0);
@@ -110,6 +130,13 @@ class CreateSaleAction
 
                 $user = \App\Models\User::find($userId);
                 $customer->chargeCreditSale($sale, $sale->total_minor, $user);
+            }
+
+            // Auto-post to General Ledger
+            try {
+                app(\App\Services\AccountingService::class)->postSale($sale);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for sale {$sale->id}: " . $e->getMessage());
             }
 
             return $sale->load('items');

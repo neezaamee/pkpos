@@ -239,6 +239,83 @@
           </Link>
         </template>
 
+        <!-- Finance & Accounting Section -->
+        <template v-if="user?.role === 'owner' || user?.role === 'manager'">
+          <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
+            Finance &amp; Accounts
+          </div>
+
+          <Link
+            href="/accounts"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/accounts') }"
+            :title="isRailMode ? 'Chart of Accounts' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span v-if="!isRailMode">Chart of Accounts</span>
+          </Link>
+
+          <Link
+            href="/journal-entries"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/journal-entries') }"
+            :title="isRailMode ? 'General Journal' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span v-if="!isRailMode">General Journal</span>
+          </Link>
+
+          <Link
+            href="/reports/trial-balance"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/reports/trial-balance') }"
+            :title="isRailMode ? 'Trial Balance' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span v-if="!isRailMode">Trial Balance</span>
+          </Link>
+
+          <Link
+            href="/reports/profit-loss"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/reports/profit-loss') }"
+            :title="isRailMode ? 'Profit & Loss' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+            <span v-if="!isRailMode">Profit &amp; Loss (P&amp;L)</span>
+          </Link>
+
+          <Link
+            href="/reports/balance-sheet"
+            class="nav-link"
+            :class="{ active: currentPath.startsWith('/reports/balance-sheet') }"
+            :title="isRailMode ? 'Balance Sheet' : ''"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span v-if="!isRailMode">Balance Sheet</span>
+          </Link>
+        </template>
+
         <div v-if="!isRailMode" style="margin: 1.25rem 0 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">
           POS Terminal
         </div>

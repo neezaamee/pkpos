@@ -114,7 +114,7 @@ class Customer extends Model
                 ->count() + 1;
             $receiptNumber = sprintf('REC-%s-%04d', $date, $countToday);
 
-            return $this->transactions()->create([
+            $transaction = $this->transactions()->create([
                 'tenant_id' => $this->tenant_id,
                 'recorded_by_user_id' => $user?->id,
                 'type' => 'credit_payment',
@@ -124,6 +124,15 @@ class Customer extends Model
                 'receipt_number' => $receiptNumber,
                 'notes' => $notes ?? 'Customer debt repayment',
             ]);
+
+            // Auto-post to General Ledger
+            try {
+                app(\App\Services\AccountingService::class)->postCustomerPayment($this, $amountMinor, $paymentMethod, $receiptNumber, $user);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for customer payment: " . $e->getMessage());
+            }
+
+            return $transaction;
         });
     }
 

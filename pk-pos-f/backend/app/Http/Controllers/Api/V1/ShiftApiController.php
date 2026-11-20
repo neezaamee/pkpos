@@ -254,6 +254,14 @@ class ShiftApiController extends Controller
             'reason' => $validated['reason'],
         ]);
 
+        if ($type === 'payout_expense') {
+            try {
+                app(\App\Services\AccountingService::class)->postDrawerPayout($transaction);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for drawer payout: " . $e->getMessage());
+            }
+        }
+
         return response()->json([
             'message' => 'Cash movement recorded successfully.',
             'transaction' => $transaction,

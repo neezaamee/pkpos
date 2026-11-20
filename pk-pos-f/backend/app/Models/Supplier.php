@@ -105,7 +105,7 @@ class Supplier extends Model
             $random = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $receiptNumber = "VEND-PAY-{$dateNum}-{$random}";
 
-            return SupplierTransaction::create([
+            $transaction = SupplierTransaction::create([
                 'tenant_id' => $this->tenant_id,
                 'supplier_id' => $this->id,
                 'type' => 'payment_made',
@@ -117,6 +117,15 @@ class Supplier extends Model
                 'recorded_by_user_id' => $user?->id,
                 'notes' => $notes,
             ]);
+
+            // Auto-post to General Ledger
+            try {
+                app(\App\Services\AccountingService::class)->postSupplierPayment($this, $amountMinor, $paymentMethod, $refNumber, $user);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Accounting auto-post skipped for supplier payment: " . $e->getMessage());
+            }
+
+            return $transaction;
         });
     }
 }
